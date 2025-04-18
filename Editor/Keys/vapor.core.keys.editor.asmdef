@@ -1,0 +1,23 @@
+{
+    "name": "vapor.core.keys.editor",
+    "rootNamespace": "VaporEditor.Keys",
+    "references": [
+        "vapor.core.editor",
+        "vapor.core.runtime",
+        "vapor.core.inspectors.runtime",
+        "vapor.core.inspector.editor",
+        "vapor.core.keys.runtime",
+        "Unity.Addressables.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

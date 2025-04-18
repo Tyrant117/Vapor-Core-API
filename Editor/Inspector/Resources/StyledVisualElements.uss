@@ -1,0 +1,10 @@
+.styledButton {
+	margin-top: 4px;
+	margin-bottom: 4px;
+}
+
+.custom-label-width {
+	min-width: 0px;
+	--unity-property-field-label-base-min-width: 0;
+	/* --unity-property-field-label-width-ratio: 0; */
+}

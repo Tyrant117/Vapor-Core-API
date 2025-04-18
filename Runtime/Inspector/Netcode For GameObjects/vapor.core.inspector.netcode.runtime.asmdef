@@ -1,0 +1,23 @@
+{
+    "name": "vapor.core.inspector.netcode.runtime",
+    "rootNamespace": "Vapor.Inspector.Netcode",
+    "references": [
+        "VaporSDK.Inspector",
+        "Unity.Netcode.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "2.0.0",
+            "define": "VAPOR_NETCODE"
+        }
+    ],
+    "noEngineReferences": false
+}

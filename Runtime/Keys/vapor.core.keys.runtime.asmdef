@@ -1,0 +1,18 @@
+{
+    "name": "vapor.core.keys.runtime",
+    "rootNamespace": "Vapor.Keys",
+    "references": [
+        "vapor.core.runtime",
+        "vapor.core.inspectors.runtime",
+        "Unity.Addressables"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

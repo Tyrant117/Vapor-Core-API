@@ -1,0 +1,20 @@
+.flex-label
+{
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    unity-text-align: middle-left;
+    min-width: 33%;
+    max-width: 33%;
+}
+
+.toggle-fix .unity-toggle__input 
+{
+    flex-grow: 0;
+}
+
+.toggle-fix .flex-label
+{
+    min-width: 100%;
+}

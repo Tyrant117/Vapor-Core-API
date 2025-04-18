@@ -1,0 +1,26 @@
+{
+    "name": "vapor.core.inspector.editor",
+    "rootNamespace": "VaporEditor.Inspector",
+    "references": [
+        "vapor.core.inspectors.runtime",
+        "Unity.EditorCoroutines.Editor",
+        "vapor.core.runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.editorcoroutines",
+            "expression": "1.0.0",
+            "define": "UNITY_EDITOR_COROUTINES"
+        }
+    ],
+    "noEngineReferences": false
+}
