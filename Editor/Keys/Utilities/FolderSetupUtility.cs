@@ -5,23 +5,21 @@ namespace VaporEditor.Keys
 {
     internal static class FolderSetupUtility
     {
-        public const string EditorNamespace = "Vapor.KeysEditor";
+        public const string FOLDER_RELATIVE_PATH = "Vapor/Keys";
+        public const string DEFINITIONS_RELATIVE_PATH = FOLDER_RELATIVE_PATH + "/Definitions";
+        public const string CONFIG_RELATIVE_PATH = FOLDER_RELATIVE_PATH + "/Config";
 
-        public const string FolderRelativePath = "Vapor/Keys";
-        public const string DefinitionsRelativePath = FolderRelativePath + "/Definitions";
-        public const string ConfigRelativePath = FolderRelativePath + "/Config";
-
-        public const string KeyRootNamespace = "VaporKeyDefinitions";
-        public const string InternalAssemblyReferenceName = "VaporSDK";
+        public const string KEY_ROOT_NAMESPACE = "Vapor.KeyDefinitions";
+        public const string INTERNAL_ASSEMBLY_REFERENCE_NAME = "vapor.core.runtime";
 
         [InitializeOnLoadMethod]
         private static void SetupFolders()
         {
-            FolderUtility.CreateFolderFromPath($"Assets/{FolderRelativePath}");
-            FolderUtility.CreateFolderFromPath($"Assets/{DefinitionsRelativePath}");
-            FolderUtility.CreateFolderFromPath($"Assets/{ConfigRelativePath}");
+            FolderUtility.CreateFolderFromPath($"Assets/{FOLDER_RELATIVE_PATH}");
+            FolderUtility.CreateFolderFromPath($"Assets/{DEFINITIONS_RELATIVE_PATH}");
+            FolderUtility.CreateFolderFromPath($"Assets/{CONFIG_RELATIVE_PATH}");
 
-            FolderUtility.CreateAssemblyDefinition($"Assets/{FolderRelativePath}", KeyRootNamespace, KeyRootNamespace, new[] { InternalAssemblyReferenceName }, false);
+            FolderUtility.CreateAssemblyDefinition($"Assets/{FOLDER_RELATIVE_PATH}", KEY_ROOT_NAMESPACE, KEY_ROOT_NAMESPACE, new[] { INTERNAL_ASSEMBLY_REFERENCE_NAME }, false);
         }
     }
 }
