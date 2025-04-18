@@ -51,10 +51,10 @@ namespace VaporEditor.Inspector
                 PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), defines);
             }
                 
-            Menu.SetChecked("Vapor/Inspector/Inspectors Enabled", VaporInspectorsEnabled);
+            Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
         }
 
-        [MenuItem("Vapor/Inspector/Inspectors Enabled")]
+        [MenuItem("Vapor/Installation/Inspectors Enabled")]
         private static void ToggleSymbol()
         {
             PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), out var defines);
@@ -72,10 +72,11 @@ namespace VaporEditor.Inspector
             }
 
             // Toggle the checkmark
-            Menu.SetChecked("Vapor/Inspector/Inspectors Enabled", VaporInspectorsEnabled);
+            Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
+            AssetDatabase.Refresh();
         }
 
-        [MenuItem("Vapor/Inspector/Inspectors Enabled", true)]
+        [MenuItem("Vapor/Installation/Inspectors Enabled", true)]
         private static bool ToggleSymbolValidate()
         {
             // Always return true since the menu item is always valid

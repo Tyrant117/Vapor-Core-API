@@ -2,7 +2,9 @@
     "name": "vapor.core.editor",
     "rootNamespace": "VaporEditor",
     "references": [
-        "vapor.core.runtime"
+        "vapor.core.runtime",
+        "Unity.Addressables.Editor",
+        "Unity.EditorCoroutines.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -13,6 +15,17 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.editorcoroutines",
+            "expression": "1.0.0",
+            "define": "UNITY_EDITOR_COROUTINES"
+        },
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "2.0.0",
+            "define": "VAPOR_NETCODE"
+        }
+    ],
     "noEngineReferences": false
 }
