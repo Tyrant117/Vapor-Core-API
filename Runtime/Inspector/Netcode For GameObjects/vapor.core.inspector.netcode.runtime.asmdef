@@ -2,7 +2,7 @@
     "name": "vapor.core.inspector.netcode.runtime",
     "rootNamespace": "Vapor.Inspector.Netcode",
     "references": [
-        "VaporSDK.Inspector",
+        "vapor.core.inspectors.runtime",
         "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [],

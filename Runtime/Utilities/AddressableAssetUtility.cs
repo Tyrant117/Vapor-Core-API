@@ -8,7 +8,7 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Vapor
 {
-    public class AddressableAssetUtility : MonoBehaviour
+    public static class AddressableAssetUtility
     {
         public static GameObject Instantiate(string nameOrLabel, Transform parent, bool instantiateInWorldSpace)
         {
@@ -77,7 +77,7 @@ namespace Vapor
 
         public static IList<T> LoadAll<T>(Action<T> callback, AssetLabelReference referenceLabel)
         {
-            return Addressables.LoadAssetsAsync<T>(referenceLabel, callback, false).WaitForCompletion();
+            return Addressables.LoadAssetsAsync(referenceLabel, callback, false).WaitForCompletion();
         }
 
         public static IList<T> LoadAll<T>(Action<T> callback, IEnumerable enumerable)

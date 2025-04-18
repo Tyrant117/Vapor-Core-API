@@ -3,9 +3,8 @@
     "rootNamespace": "VaporEditor.Inspector.Netcode",
     "references": [
         "vapor.core.inspectors.runtime",
-        "VaporSDK.Inspector",
-        "VaporSDK.InspectorEditor",
-        "VaporSDK.Inspector.NetcodeForGameObjects"
+        "vapor.core.inspector.editor",
+        "vapor.core.inspector.netcode.runtime"
     ],
     "includePlatforms": [
         "Editor"
