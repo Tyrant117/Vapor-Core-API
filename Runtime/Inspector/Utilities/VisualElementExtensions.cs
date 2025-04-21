@@ -330,6 +330,14 @@ namespace Vapor.Inspector
             uxml.CloneTree(visualElement);
         }
         
+        public static void ConstructFromResourcePath(this VisualElement visualElement, string path)
+        {
+            var uxml = Resources.Load<VisualTreeAsset>(path);
+            var ss = Resources.Load<StyleSheet>(path);
+            visualElement.styleSheets.Add(ss);
+            uxml.CloneTree(visualElement);
+        }
+        
         public static void AddStylesheetFromResourcePath(this VisualElement visualElement, string ussPath)
         {
             var ss = Resources.Load<StyleSheet>(ussPath);
