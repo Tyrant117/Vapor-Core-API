@@ -1,0 +1,49 @@
+<engine:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:engine="UnityEngine.UIElements" xmlns:editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <Style src="project://database/Assets/Vapor-Core-API/Editor/Project%20Management/Resources/Styles/TaskEditorWindow.uss?fileID=7433441132597879392&amp;guid=da8949d1c358430438c7400c815dffb7&amp;type=3#TaskEditorWindow" />
+    <editor:Toolbar>
+        <editor:ToolbarMenu text="File" />
+    </editor:Toolbar>
+    <engine:VisualElement style="flex-grow: 1; flex-direction: row;">
+        <engine:VisualElement name="FeatureSelect" style="width: 200px; background-color: rgb(43, 41, 43);">
+            <engine:VisualElement style="flex-grow: 0; flex-direction: row; justify-content: flex-start; align-self: auto; align-content: auto; align-items: center; margin-top: 3px; margin-bottom: 3px;">
+                <engine:Label text="Features" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                <engine:VisualElement style="flex-grow: 1;" />
+                <engine:Label text="0/11" name="FeatureCount" style="margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                <engine:Button text="+" name="AddFeature" style="width: 20px; height: 20px; margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px;" />
+            </engine:VisualElement>
+            <engine:VisualElement style="flex-grow: 0; background-color: rgb(35, 35, 35); height: 1px; flex-shrink: 0;" />
+            <engine:ListView reorder-mode="Animated" reorderable="true" show-bound-collection-size="false" name="FeatureList" fixed-item-height="28" style="flex-grow: 1;" />
+        </engine:VisualElement>
+        <engine:VisualElement style="flex-grow: 0; flex-shrink: 0; width: 2px; background-color: rgb(35, 35, 35);" />
+        <engine:VisualElement name="Tasks" style="flex-grow: 1; flex-direction: row; background-color: rgb(43, 41, 43);">
+            <engine:VisualElement name="NotStartedGroup" style="flex-grow: 1; flex-basis: 33%;">
+                <engine:VisualElement style="flex-grow: 0; flex-direction: row; justify-content: space-between; align-items: center; flex-shrink: 1; margin-top: 3px; margin-bottom: 3px;">
+                    <engine:Label text="Not Started" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                    <engine:VisualElement name="VisualElement" style="flex-grow: 1;" />
+                    <engine:Label text="6" name="NotStartedCount" style="margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                    <engine:Button text="+" name="AddTask" style="width: 20px; height: 20px; margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px;" />
+                </engine:VisualElement>
+                <engine:VisualElement style="flex-grow: 0; background-color: rgb(35, 35, 35); height: 1px; flex-shrink: 0;" />
+                <engine:ListView name="NotStarted" reorderable="true" fixed-item-height="28" reorder-mode="Animated" show-bound-collection-size="false" style="flex-grow: 1;" />
+            </engine:VisualElement>
+            <engine:VisualElement name="VisualElement" style="flex-grow: 0; flex-shrink: 0; width: 1px; background-color: rgb(35, 35, 35);" />
+            <engine:VisualElement name="InProgressGroup" style="flex-grow: 1; flex-basis: 33%;">
+                <engine:VisualElement style="flex-grow: 0; flex-direction: row; justify-content: space-between; align-items: center; flex-shrink: 1; margin-top: 3px; margin-bottom: 3px; min-height: 20px;">
+                    <engine:Label text="In Progress" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                    <engine:Label text="6" name="InProgressCount" style="margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                </engine:VisualElement>
+                <engine:VisualElement style="flex-grow: 0; background-color: rgb(35, 35, 35); height: 1px; flex-shrink: 0;" />
+                <engine:ListView name="InProgress" reorderable="true" fixed-item-height="28" reorder-mode="Animated" show-bound-collection-size="false" style="flex-grow: 1;" />
+            </engine:VisualElement>
+            <engine:VisualElement style="flex-grow: 0; flex-shrink: 0; width: 1px; background-color: rgb(35, 35, 35);" />
+            <engine:VisualElement name="CompletedGroup" style="flex-grow: 1; flex-basis: 33%;">
+                <engine:VisualElement style="flex-grow: 0; flex-direction: row; justify-content: space-between; align-items: center; flex-shrink: 1; margin-top: 3px; margin-bottom: 3px; min-height: 20px;">
+                    <engine:Label text="Completed" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                    <engine:Label text="6" name="CompletedCount" style="margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196);" />
+                </engine:VisualElement>
+                <engine:VisualElement style="flex-grow: 0; background-color: rgb(35, 35, 35); height: 1px; flex-shrink: 0;" />
+                <engine:ListView name="Completed" reorderable="true" fixed-item-height="28" reorder-mode="Animated" show-bound-collection-size="false" style="flex-grow: 1;" />
+            </engine:VisualElement>
+        </engine:VisualElement>
+    </engine:VisualElement>
+</engine:UXML>

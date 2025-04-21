@@ -131,10 +131,10 @@ namespace VaporEditor.Inspector
 
                 sb.Append("//\t* THIS SCRIPT IS AUTO-GENERATED *\n");
                 sb.Append("using UnityEditor;\n");
-                sb.Append($"using {FolderSetupUtility.EditorNamespace};\n");
+                sb.Append($"using {FolderSetupUtility.EDITOR_NAMESPACE};\n");
                 sb.Append($"using {namespaceName};\n");
 
-                sb.Append($"namespace {FolderSetupUtility.EditorNamespace}\n");
+                sb.Append($"namespace {FolderSetupUtility.EDITOR_NAMESPACE}\n");
                 sb.Append("{\n");
                 sb.Append("#if VAPOR_INSPECTOR\n");
                 sb.Append("\t[CanEditMultipleObjects]\n" +
@@ -146,7 +146,7 @@ namespace VaporEditor.Inspector
                 sb.Append("#endif\n");
                 sb.Append("}");
 
-                System.IO.File.WriteAllText($"{Application.dataPath}/{FolderSetupUtility.EditorRelativePath}/{className}Editor.cs", sb.ToString());
+                System.IO.File.WriteAllText($"{Application.dataPath}/{FolderSetupUtility.EDITOR_RELATIVE_PATH}/{className}Editor.cs", sb.ToString());
             }
 
             static void _CreatePropertyDrawerClassFile(string className, string namespaceName)
@@ -155,10 +155,10 @@ namespace VaporEditor.Inspector
 
                 sb.Append("//\t* THIS SCRIPT IS AUTO-GENERATED *\n");
                 sb.Append("using UnityEditor;\n");
-                sb.Append($"using {FolderSetupUtility.EditorNamespace};\n");
+                sb.Append($"using {FolderSetupUtility.EDITOR_NAMESPACE};\n");
                 sb.Append($"using {namespaceName};\n");
 
-                sb.Append($"namespace {FolderSetupUtility.EditorNamespace}\n");
+                sb.Append($"namespace {FolderSetupUtility.EDITOR_NAMESPACE}\n");
                 sb.Append("{\n");
                 sb.Append("#if VAPOR_INSPECTOR\n");
                 sb.Append($"\t[CustomPropertyDrawer(typeof({className}), true)]\n");
@@ -169,7 +169,7 @@ namespace VaporEditor.Inspector
                 sb.Append("#endif\n");
                 sb.Append("}");
 
-                System.IO.File.WriteAllText($"{Application.dataPath}/{FolderSetupUtility.PropertyDrawerRelativePath}/{className}Drawer.cs", sb.ToString());
+                System.IO.File.WriteAllText($"{Application.dataPath}/{FolderSetupUtility.PROPERTY_DRAWER_RELATIVE_PATH}/{className}Drawer.cs", sb.ToString());
             }
         }
     }
