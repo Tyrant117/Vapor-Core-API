@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Drawing;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
@@ -6,7 +6,7 @@ using Vapor.Inspector;
 namespace VaporEditor.ProjectManagement
 {
     [UxmlElement]
-    public partial class TaskEntryView : VisualElement
+    public partial class BugEntryView : VisualElement
     {
         private Label _label;
         public Label Label
@@ -27,66 +27,36 @@ namespace VaporEditor.ProjectManagement
                 return _text;
             }
         }
-        
-        private VisualElement _icon;
-        public VisualElement Icon
-        {
-            get
-            {
-                _icon ??= this.Q<VisualElement>("Icon");
-                return _icon;
-            }
-        }
-        
-        private Label _checklist;
-        public Label Checklist
-        {
-            get
-            {
-                _checklist ??= this.Q<Label>("ChecklistCount");
-                return _checklist;
-            }
-        }
 
         public override bool focusable => true;
-        
+
         private readonly TaskEditorWindow _window;
-        private readonly TaskModel _model;
+        private readonly BugModel _model;
 
-        public TaskEntryView()
+        public BugEntryView()
         {
-            this.ConstructFromResourcePath("Styles/TaskEntryView");
+            this.ConstructFromResourcePath("Styles/BugEntryView");
         }
-
-        public TaskEntryView(TaskEditorWindow window, TaskModel model) : this()
+        
+        public BugEntryView(TaskEditorWindow window, BugModel model) : this()
         {
             _window = window;
             _model = model;
             Label.text = model.Name;
-            Icon.style.backgroundImage = IconUtility.GetTaskBackground(_model.Type);
-            if (_model.Checklist.Count == 0)
-            {
-                Checklist.Hide();
-            }
-            else
-            {
-                Checklist.text = $"{_model.Checklist.Count(m => m.Checked)}/{_model.Checklist.Count}";
-            }
-
             if (model.Status == TaskStatus.Completed)
             {
-                this.Q<Button>().Hide();
+                this.Q<Button>("Complete").Hide();
             }
             else
             {
-                this.Q<Button>().clicked += OnCompleteClicked;
+                this.Q<Button>("Complete").clicked += OnCompleteClicked;
             }
             
             Text.RegisterValueChangedCallback(evt =>
             {
                 _model.Rename(evt.newValue);
                 var lv = GetFirstAncestorOfType<ListView>();
-                _window.RenameTask(_model, lv.name);
+                _window.RenameBug(_model, lv.name);
             });
             Text.RegisterCallback<FocusOutEvent>(evt =>
             {
@@ -97,27 +67,9 @@ namespace VaporEditor.ProjectManagement
             
             RegisterCallback<PointerDownEvent>(evt =>
             {
-                if (evt.button == 0)
+                if (evt.clickCount == 2)
                 {
-                    if (evt.clickCount == 2)
-                    {
-                        _window.ShowTask(_model);
-                    }
-                }
-
-                evt.StopPropagation();
-            });
-            RegisterCallback<KeyDownEvent>(evt =>
-            {
-                switch (evt.keyCode)
-                {
-                    case KeyCode.Delete:
-                        var lv = GetFirstAncestorOfType<ListView>();
-                        _window.RemoveTask(_model, lv.name);
-                        break;
-                    case KeyCode.F2:
-                        StartRename();
-                        break;
+                    _window.ShowBug(_model);
                 }
                 evt.StopPropagation();
             });
@@ -131,7 +83,7 @@ namespace VaporEditor.ProjectManagement
                 evt.menu.AppendAction("Delete", action =>
                 {
                     var lv = GetFirstAncestorOfType<ListView>();
-                    _window.RemoveTask(_model, lv.name);
+                    _window.RemoveBug(_model, lv.name);
                 });
             });
             this.AddManipulator(context);
@@ -145,7 +97,7 @@ namespace VaporEditor.ProjectManagement
 
         private void OnCompleteClicked()
         {
-            _window.TaskComplete(_model);
+            _window.BugComplete(_model);
         }
 
         public void StartRename()

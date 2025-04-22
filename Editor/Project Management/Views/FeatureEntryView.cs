@@ -1,3 +1,5 @@
+using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
@@ -9,6 +11,16 @@ namespace VaporEditor.ProjectManagement
     {
         private readonly TaskEditorWindow _window;
         private readonly FeatureModel _model;
+        
+        private VisualElement _icon;
+        public VisualElement Icon
+        {
+            get
+            {
+                _icon ??= this.Q<VisualElement>("StatusIcon");
+                return _icon;
+            }
+        }
         
         private Label _label;
         public Label Label
@@ -34,7 +46,7 @@ namespace VaporEditor.ProjectManagement
 
         public FeatureEntryView()
         {
-            this.LoadUxmlFromResourcePath("Styles/FeatureEntryView");
+            this.ConstructFromResourcePath("Styles/FeatureEntryView");
         }
 
         public FeatureEntryView(TaskEditorWindow window, FeatureModel model) : this()
@@ -42,15 +54,14 @@ namespace VaporEditor.ProjectManagement
             _window = window;
             _model = model;
             Label.text = _model.Name;
+            // Icon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("sv_icon_dot11_pix16_gizmo").image);
+            // Icon.SetDisplay(_model.Tasks.All(m => m.Status == TaskStatus.Completed));
 
             var context = new ContextualMenuManipulator(evt =>
             {
                 evt.menu.AppendAction("Rename", action =>
                 {
-                    Label.Hide();
-                    Text.SetValueWithoutNotify(_model.Name);
-                    Text.visible = true;
-                    schedule.Execute(() => Text.Focus()).ExecuteLater(30);
+                    StartRename();
                 });
                 evt.menu.AppendAction("Delete", action => { _window.RemoveFeature(_model); });
             });
@@ -58,12 +69,12 @@ namespace VaporEditor.ProjectManagement
 
             Text.RegisterValueChangedCallback(evt =>
             {
-                _model.Name = evt.newValue;
+                _model.Rename(evt.newValue);
                 _window.RenameFeature(_model);
             });
             Text.RegisterCallback<FocusOutEvent>(evt =>
             {
-                Text.visible = false;
+                Text.Hide();
                 Label.Show();
             });
             
@@ -76,13 +87,24 @@ namespace VaporEditor.ProjectManagement
             {
                 if (evt.keyCode == KeyCode.F2)
                 {
-                    Label.Hide();
-                    Text.SetValueWithoutNotify(_model.Name);
-                    Text.visible = true;
-                    schedule.Execute(() => Text.Focus()).ExecuteLater(100);
+                    StartRename();
                 }
                 evt.StopPropagation();
             });
+            
+            if (_model.IsPendingRename)
+            {
+                _model.IsPendingRename = false;
+                schedule.Execute(StartRename).ExecuteLater(100);
+            }
+        }
+        
+        public void StartRename()
+        {
+            Label.Hide();
+            Text.SetValueWithoutNotify(_model.Name);
+            Text.Show();
+            schedule.Execute(() => Text.Focus()).ExecuteLater(100);
         }
     }
 }

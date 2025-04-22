@@ -1,0 +1,6 @@
+FeatureEntryView {
+    flex-grow: 1;
+    height: 28px;
+    max-height: 28px;
+    flex-direction: row;
+}

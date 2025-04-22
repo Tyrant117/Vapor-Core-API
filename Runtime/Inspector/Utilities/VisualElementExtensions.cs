@@ -229,6 +229,11 @@ namespace Vapor.Inspector
         public static void Show(this VisualElement element) { element.style.display = DisplayStyle.Flex; }
 
         public static void Hide(this VisualElement element) { element.style.display = DisplayStyle.None; }
+
+        public static void SetDisplay(this VisualElement element, bool isVisible)
+        {
+            element.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
         #endregion
 
         #region - Layout -
