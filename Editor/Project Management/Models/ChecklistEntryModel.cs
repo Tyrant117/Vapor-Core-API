@@ -1,9 +1,8 @@
 using System;
-using UnityEngine;
 
 namespace VaporEditor.ProjectManagement
 {
-    [System.Serializable]
+    [Serializable]
     public class ChecklistEntryModel
     {
         public string Description;
