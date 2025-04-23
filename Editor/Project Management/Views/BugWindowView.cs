@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
@@ -27,6 +28,9 @@ namespace VaporEditor.ProjectManagement
             _header = this.Q<TextField>("Header");
             _header.RegisterValueChangedCallback(OnRenameTask);
             this.Q<Button>("Close").clicked += OnCloseClicked;
+            
+            this.Q<VisualElement>("DescriptionIcon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_UnityEditor.ConsoleWindow@2x").image);
+            this.Q<VisualElement>("ReproductionIcon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_SyncSearch@2x").image);
             
             _description = this.Q<TextField>("Description");
             _description.RegisterValueChangedCallback(OnChangeDescription);

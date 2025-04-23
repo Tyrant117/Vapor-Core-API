@@ -8,6 +8,7 @@ namespace VaporEditor.ProjectManagement
     {
         public string Id;
         public string Name;
+        public int Order;
         public TaskStatus Status;
         public string Description;
         public string Reproduction;

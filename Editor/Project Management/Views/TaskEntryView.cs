@@ -104,7 +104,6 @@ namespace VaporEditor.ProjectManagement
                         _window.ShowTask(_model);
                     }
                 }
-
                 evt.StopPropagation();
             });
             RegisterCallback<KeyDownEvent>(evt =>

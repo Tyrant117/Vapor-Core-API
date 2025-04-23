@@ -54,8 +54,8 @@ namespace VaporEditor.ProjectManagement
             _window = window;
             _model = model;
             Label.text = _model.Name;
-            // Icon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("sv_icon_dot11_pix16_gizmo").image);
-            // Icon.SetDisplay(_model.Tasks.All(m => m.Status == TaskStatus.Completed));
+            Icon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("GreenCheckmark@2x").image);
+            CheckComplete();
 
             var context = new ContextualMenuManipulator(evt =>
             {
@@ -81,6 +81,7 @@ namespace VaporEditor.ProjectManagement
             RegisterCallback<FocusInEvent>(evt =>
             {
                 _window.SelectFeature(_model);
+                evt.StopPropagation();
             });
             
             RegisterCallback<KeyDownEvent>(evt =>
@@ -88,6 +89,11 @@ namespace VaporEditor.ProjectManagement
                 if (evt.keyCode == KeyCode.F2)
                 {
                     StartRename();
+                }
+
+                if (evt.keyCode == KeyCode.Delete)
+                {
+                    _window.RemoveFeature(_model);
                 }
                 evt.StopPropagation();
             });
@@ -97,6 +103,11 @@ namespace VaporEditor.ProjectManagement
                 _model.IsPendingRename = false;
                 schedule.Execute(StartRename).ExecuteLater(100);
             }
+        }
+
+        public void CheckComplete()
+        {
+            Icon.SetDisplay(_model.Tasks.All(m => m.Status == TaskStatus.Completed));
         }
         
         public void StartRename()

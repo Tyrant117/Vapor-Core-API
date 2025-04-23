@@ -67,9 +67,26 @@ namespace VaporEditor.ProjectManagement
             
             RegisterCallback<PointerDownEvent>(evt =>
             {
-                if (evt.clickCount == 2)
+                if (evt.button == 0)
                 {
-                    _window.ShowBug(_model);
+                    if (evt.clickCount == 2)
+                    {
+                        _window.ShowBug(_model);
+                    }
+                }
+                evt.StopPropagation();
+            });
+            RegisterCallback<KeyDownEvent>(evt =>
+            {
+                switch (evt.keyCode)
+                {
+                    case KeyCode.Delete:
+                        var lv = GetFirstAncestorOfType<ListView>();
+                        _window.RemoveBug(_model, lv.name);
+                        break;
+                    case KeyCode.F2:
+                        StartRename();
+                        break;
                 }
                 evt.StopPropagation();
             });

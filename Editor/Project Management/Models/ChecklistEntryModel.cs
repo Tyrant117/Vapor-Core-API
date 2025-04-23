@@ -5,6 +5,7 @@ namespace VaporEditor.ProjectManagement
     [Serializable]
     public class ChecklistEntryModel
     {
+        public int Order;
         public string Description;
         public bool Checked;
         

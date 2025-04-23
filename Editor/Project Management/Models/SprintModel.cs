@@ -9,6 +9,7 @@ namespace VaporEditor.ProjectManagement
     {
         public string Id;
         public int Sprint;
+        public bool Archived;
         public List<FeatureModel> Features;
 
         public string Name => $"Sprint {Sprint}";
@@ -33,6 +34,7 @@ namespace VaporEditor.ProjectManagement
         public void AddFeature(FeatureModel feature)
         {
             feature.Changed += OnFeatureChanged;
+            feature.Order = Features.Count;
             Features.Add(feature);
         }
 

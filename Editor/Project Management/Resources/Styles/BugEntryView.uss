@@ -1,0 +1,14 @@
+.bug-entry:focus {
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-left-color: rgb(255, 55, 0);
+    border-right-color: rgb(255, 55, 0);
+    border-top-color: rgb(255, 55, 0);
+    border-bottom-color: rgb(255, 55, 0);
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: 4px;
+}

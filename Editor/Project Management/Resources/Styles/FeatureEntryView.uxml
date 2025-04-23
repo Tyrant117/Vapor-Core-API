@@ -1,8 +1,8 @@
 <engine:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:engine="UnityEngine.UIElements" xmlns:editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
     <Style src="project://database/Assets/Vapor-Core-API/Editor/Project%20Management/Resources/Styles/FeatureEntryView.uss?fileID=7433441132597879392&amp;guid=e49991c2f89c0d0438272fd6712d25c8&amp;type=3#FeatureEntryView" />
-    <engine:VisualElement name="StatusIcon" style="width: 20px; height: 20px; align-self: center; display: none;" />
+    <engine:VisualElement name="StatusIcon" style="width: 22px; height: 22px; align-self: center; display: none; flex-shrink: 0;" />
     <engine:VisualElement style="flex-grow: 1; margin-top: 0; margin-bottom: 0; align-items: stretch; flex-direction: row;">
-        <engine:Label text="Label" style="position: relative; margin-top: 0; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden;" />
-        <engine:TextField is-delayed="true" name="TextField" style="margin-top: 1px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; visibility: visible; flex-grow: 1; display: none; flex-shrink: 1;" />
+        <engine:Label text="Label" style="position: relative; margin-top: 0; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden; font-size: 16px;" />
+        <engine:TextField is-delayed="true" name="TextField" style="margin-top: 1px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; visibility: visible; flex-grow: 1; display: none; flex-shrink: 1; font-size: 16px;" />
     </engine:VisualElement>
 </engine:UXML>

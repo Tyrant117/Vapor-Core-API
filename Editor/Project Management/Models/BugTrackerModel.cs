@@ -22,6 +22,7 @@ namespace VaporEditor.ProjectManagement
         public void AddBug(BugModel model)
         {
             model.Changed += OnBugChanged;
+            model.Order = Bugs.Count;
             Bugs.Add(model);
             Changed?.Invoke(this);
         }

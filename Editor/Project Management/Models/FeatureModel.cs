@@ -10,6 +10,7 @@ namespace VaporEditor.ProjectManagement
     {
         public string Id;
         public string Name;
+        public int Order;
         public List<TaskModel> Tasks;
         
         public bool IsPendingRename { get; set; }

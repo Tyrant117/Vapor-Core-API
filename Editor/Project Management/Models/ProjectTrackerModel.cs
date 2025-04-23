@@ -10,7 +10,6 @@ namespace VaporEditor.ProjectManagement
     {
         public string Id;
         public string Name;
-        public bool Archived;
         public List<SprintModel> Sprints;
         public BugTrackerModel BugTracker;
 
@@ -22,7 +21,6 @@ namespace VaporEditor.ProjectManagement
             {
                 Id = System.Guid.NewGuid().ToString(),
                 Name = name,
-                Archived = false,
                 Sprints = new List<SprintModel>() { new() { Sprint = 1 } },
                 BugTracker = new BugTrackerModel(),
             };
@@ -53,9 +51,9 @@ namespace VaporEditor.ProjectManagement
             Changed?.Invoke(this);
         }
 
-        public void Archive(SprintModel currentSprint)
+        public void Archive(SprintModel sprint)
         {
-            Archived = true;
+            sprint.Archived = true;
             Changed?.Invoke(this);
         }
 

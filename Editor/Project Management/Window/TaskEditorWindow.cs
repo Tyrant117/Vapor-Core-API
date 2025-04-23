@@ -62,6 +62,11 @@ namespace VaporEditor.ProjectManagement
         
         private BugWindowView _bugWindow;
         private VisualElement _underlay;
+        private VisualElement _archiveIcon;
+        private VisualElement _bugIcon;
+        private VisualElement _progressNotStarted;
+        private VisualElement _progressStarted;
+        private VisualElement _progressCompleted;
 
 
         public void CreateGUI()
@@ -86,7 +91,7 @@ namespace VaporEditor.ProjectManagement
 
             _sprintDropdown = rootVisualElement.Q<DropdownField>("Sprints");
             _sprintDropdown.choices.Clear();
-            var ss = _currentProjectTracker.Sprints.ToList();
+            var ss = _currentProjectTracker.Sprints.Where(s => !s.Archived).ToList();
             ss.Reverse();
             foreach (var sprint in ss)
             {
@@ -97,15 +102,22 @@ namespace VaporEditor.ProjectManagement
             _currentSprint = _currentProjectTracker.Sprints.First(s => s.Name == _sprintDropdown.value);
             _sprintDropdown.RegisterValueChangedCallback(OnSprintChanged);
 
+            rootVisualElement.Q<Button>("AddSprint").Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Toolbar Plus@2x").image);
             var addSprint = rootVisualElement.Q<Button>("AddSprint");
             addSprint.clicked += OnAddSprint;
-            var archive = rootVisualElement.Q<Button>("ArchiveSprint");
-            archive.clicked += OnArchiveSprint;
-            archive.Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Package Manager").image);
+            var archive = rootVisualElement.Q<ToolbarToggle>("ArchiveSprint");
+            archive.RegisterValueChangedCallback(OnToggleArchiveView);
+            _archiveIcon = archive.Q<VisualElement>("Icon");
+            _archiveIcon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Package Manager").image);
 
             var bugs = rootVisualElement.Q<ToolbarToggle>("Bugs");
             bugs.RegisterValueChangedCallback(ToggleBugs);
-            bugs.Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Debug").image);
+            _bugIcon = bugs.Q<VisualElement>("Icon");
+            _bugIcon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Debug").image);
+            var progress = rootVisualElement.Q<VisualElement>("Progress");
+            _progressNotStarted = progress.Q<VisualElement>("NotStartedProgress");
+            _progressStarted = progress.Q<VisualElement>("StartedProgress");
+            _progressCompleted = progress.Q<VisualElement>("CompleteProgress");
 
             _tasks = rootVisualElement.Q<VisualElement>("Tasks");
             SetupFeatureList();
@@ -122,6 +134,8 @@ namespace VaporEditor.ProjectManagement
             
             _bugWindow = rootVisualElement.Q<BugWindowView>();
             _bugWindow.Init(this);
+            
+            UpdateProgress();
         }
 
         private void OnSprintChanged(ChangeEvent<string> evt)
@@ -133,40 +147,58 @@ namespace VaporEditor.ProjectManagement
 
         private void OnAddSprint()
         {
+            _currentProjectTracker.Archive(_currentSprint);
             _currentProjectTracker.AddSprint(new SprintModel());
             _sprintDropdown.choices.Clear();
-            var sprintModels = _currentProjectTracker.Sprints.ToList();
+            var sprintModels = _currentProjectTracker.Sprints.Where(s => !s.Archived).ToList();
             sprintModels.Reverse();
             foreach (var sprint in sprintModels)
             {
                 _sprintDropdown.choices.Add(sprint.Name);
             }
 
-            _sprintDropdown.value = _currentProjectTracker.Sprints[^1].Name;
+            _sprintDropdown.value = _currentProjectTracker.Sprints.Last(s => !s.Archived).Name;
         }
-
-        private void OnArchiveSprint()
-        {
-            _currentProjectTracker.Archive(_currentSprint);
-            _sprintDropdown.choices.Clear();
-            var sprintModels = _currentProjectTracker.Sprints.ToList();
-            sprintModels.Reverse();
-            foreach (var sprint in sprintModels)
-            {
-                _sprintDropdown.choices.Add(sprint.Name);
-            }
-
-            _sprintDropdown.value = _currentProjectTracker.Sprints[^1].Name;
-        }
-
         
+        private void OnToggleArchiveView(ChangeEvent<bool> evt)
+        {
+            _archiveIcon.style.unityBackgroundImageTintColor = evt.newValue ? ColorUtility.TryParseHtmlString("#008CFF", out var c) ? c : Color.white : Color.white;
+            if (evt.newValue)
+            {
+                _sprintDropdown.choices.Clear();
+                var sprintModels = _currentProjectTracker.Sprints.ToList();
+                sprintModels.Reverse();
+                foreach (var sprint in sprintModels)
+                {
+                    _sprintDropdown.choices.Add(sprint.Name);
+                }
+
+                _sprintDropdown.value = _currentProjectTracker.Sprints[^1].Name;
+            }
+            else
+            {
+                _sprintDropdown.choices.Clear();
+                var sprintModels = _currentProjectTracker.Sprints.Where(s => !s.Archived).ToList();
+                sprintModels.Reverse();
+                foreach (var sprint in sprintModels)
+                {
+                    _sprintDropdown.choices.Add(sprint.Name);
+                }
+
+                _sprintDropdown.value = _currentProjectTracker.Sprints.Last(s => !s.Archived).Name;
+            }
+        }
 
         private void OnProjectTrackerChanged(ProjectTrackerModel projectTracker)
         {
             Save(projectTracker);
         }
 
-        public void Save(ProjectTrackerModel projectTracker)
+        public void Save()
+        {
+            Save(_currentProjectTracker);
+        }
+        private void Save(ProjectTrackerModel projectTracker)
         {
             string fullDirectoryPath = Path.Combine(Application.dataPath, FolderSetupUtility.TASK_RELATIVE_PATH);
             string fullFilePath = Path.Combine(fullDirectoryPath, "ProjectTracker.json").Replace("\\", "/");
@@ -176,13 +208,14 @@ namespace VaporEditor.ProjectManagement
 
         private void ToggleBugs(ChangeEvent<bool> evt)
         {
+            _bugIcon.style.unityBackgroundImageTintColor = evt.newValue ? ColorUtility.TryParseHtmlString("#D94141", out var c) ? c : Color.white : Color.white;
             _tasks.SetDisplay(!evt.newValue);
             _bugTracker.SetDisplay(evt.newValue);
         }
 
         private void RefreshAll()
         {
-            _featureList.itemsSource = _currentSprint.Features;
+            _featureList.itemsSource = _currentSprint.Features.OrderBy(f => f.Order).ToList();
             _featureList.selectedIndex = -1;
             UpdateFeatureCount();
 
@@ -191,13 +224,46 @@ namespace VaporEditor.ProjectManagement
             RebuildCompletedList();
         }
 
+        private void UpdateProgress()
+        {
+            int ns = 0;
+            int s = 0;
+            int c = 0;
+            foreach (var feature in _currentSprint.Features)
+            {
+                ns += feature.Tasks.Count(t => t.Status == TaskStatus.NotStarted);
+                s += feature.Tasks.Count(t => t.Status == TaskStatus.InProgress);
+                c += feature.Tasks.Count(t => t.Status == TaskStatus.Completed);
+            }
+
+            int total = ns + s + c;
+
+            float fracNs = ns / (float)total;
+            float fracS = fracNs + s / (float)total;
+            float fracC = fracS + c / (float)total;
+            
+            float pNs = (1f - fracNs) * 100f;
+            float pS = (1f - fracS) * 100f;
+            float pC = (1f - fracC) * 100f;
+
+            _progressNotStarted.tooltip = $"{ns}";
+            _progressStarted.tooltip = $"{s}";
+            _progressCompleted.tooltip = $"{c}";
+            
+            _progressNotStarted.style.right = Length.Percent(pNs);
+            _progressStarted.style.right = Length.Percent(pS);
+            _progressCompleted.style.right = Length.Percent(pC);
+        }
+
         #region Feature List
 
         private void SetupFeatureList()
         {
             _featureList = rootVisualElement.Q<ListView>("FeatureList");
             _featureCount = rootVisualElement.Q<Label>("FeatureCount");
+            rootVisualElement.Q<VisualElement>("FeaturesIcon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_SortingGroup Icon").image);
             _addFeature = rootVisualElement.Q<Button>("AddFeature");
+            _addFeature.Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Toolbar Plus@2x").image);
 
             _featureList.makeItem = () => new VisualElement();
             _featureList.bindItem = (element, i) =>
@@ -212,13 +278,24 @@ namespace VaporEditor.ProjectManagement
                 var entry = new FeatureEntryView(this, feature);
                 element.Add(entry);
             };
-            _featureList.itemsSource = _currentSprint.Features;
+            _featureList.itemIndexChanged += (src, dst) =>
+            {
+                var list = (List<FeatureModel>)_featureList.itemsSource;
+                int idx = 0;
+                foreach (var item in list)
+                {
+                    item.Order = idx;
+                    idx++;
+                }
+                Save(_currentProjectTracker);
+            };
+            _featureList.itemsSource = _currentSprint.Features.OrderBy(f => f.Order).ToList();
 
             _addFeature.clicked += () =>
             {
                 _currentSprint.AddFeature(new FeatureModel("", true));
+                _featureList.itemsSource = _currentSprint.Features.OrderBy(f => f.Order).ToList();
                 UpdateFeatureCount();
-                _featureList.Rebuild();
                 _featureList.schedule.Execute(() => _featureList.ScrollToItem(-1)).ExecuteLater(100);
             };
 
@@ -228,13 +305,13 @@ namespace VaporEditor.ProjectManagement
         public void RemoveFeature(FeatureModel model)
         {
             _currentSprint.RemoveFeature(model);
+            _featureList.itemsSource = _currentSprint.Features.OrderBy(f => f.Order).ToList();
             UpdateFeatureCount();
-            _featureList.Rebuild();
         }
 
         public void RenameFeature(FeatureModel model)
         {
-            _featureList.Rebuild();
+            _featureList.itemsSource = _currentSprint.Features.OrderBy(f => f.Order).ToList();
         }
 
         private void UpdateFeatureCount()
@@ -307,6 +384,7 @@ namespace VaporEditor.ProjectManagement
             _notStartedCount = rootVisualElement.Q<Label>("NotStartedCount");
             rootVisualElement.Q<VisualElement>("NotStartedIcon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_redLight").image);
             _addTask = rootVisualElement.Q<Button>("AddTask");
+            _addTask.Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Toolbar Plus@2x").image);
             _notStartedList.makeItem = () => new VisualElement();
             _notStartedList.bindItem = (element, i) =>
             {
@@ -426,8 +504,11 @@ namespace VaporEditor.ProjectManagement
                     model.SetStatus(TaskStatus.Completed);
                     RebuildInProgressList();
                     RebuildCompletedList();
+                    _featureList.Query<FeatureEntryView>().ForEach(f => f.CheckComplete());
                     break;
             }
+
+            UpdateProgress();
         }
 
         public void RemoveTask(TaskModel model, string listViewName)
@@ -498,6 +579,7 @@ namespace VaporEditor.ProjectManagement
             _bugsNotStartedCount = rootVisualElement.Q<Label>("BugsNotStartedCount");
             rootVisualElement.Q<VisualElement>("BugsNotStartedIcon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_redLight").image);
             _addBug = rootVisualElement.Q<Button>("AddBug");
+            _addBug.Q<VisualElement>("Icon").style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("d_Toolbar Plus@2x").image);
             _bugsNotStartedList.makeItem = () => new VisualElement();
             _bugsNotStartedList.bindItem = (element, i) =>
             {
@@ -511,6 +593,18 @@ namespace VaporEditor.ProjectManagement
                 var bug = bugModels[i];
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
+            };
+            _bugsNotStartedList.itemIndexChanged += (src, dst) =>
+            {
+                var list = (List<BugModel>)_bugsNotStartedList.itemsSource;
+                int idx = 0;
+                foreach (var item in list)
+                {
+                    item.Order = idx;
+                    idx++;
+                }
+                Save(_currentProjectTracker);
+                _bugsNotStartedList.schedule.Execute(() => _bugsNotStartedList.Query<BugEntryView>().ForEach(v => v.Q<VisualElement>("Outline").Blur())).ExecuteLater(100);
             };
 
             _addBug.clicked += () =>
@@ -541,6 +635,18 @@ namespace VaporEditor.ProjectManagement
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
             };
+            _bugsInProgressList.itemIndexChanged += (src, dst) =>
+            {
+                var list = (List<BugModel>)_bugsInProgressList.itemsSource;
+                int idx = 0;
+                foreach (var item in list)
+                {
+                    item.Order = idx;
+                    idx++;
+                }
+                Save(_currentProjectTracker);
+                _bugsInProgressList.schedule.Execute(() => _bugsInProgressList.Query<BugEntryView>().ForEach(v => v.Q<VisualElement>("Outline").Blur())).ExecuteLater(100);
+            };
 
             RebuildBugsInProgressList();
         }
@@ -563,25 +669,37 @@ namespace VaporEditor.ProjectManagement
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
             };
+            _bugsCompletedList.itemIndexChanged += (src, dst) =>
+            {
+                var list = (List<BugModel>)_bugsCompletedList.itemsSource;
+                int idx = 0;
+                foreach (var item in list)
+                {
+                    item.Order = idx;
+                    idx++;
+                }
+                Save(_currentProjectTracker);
+                _bugsCompletedList.schedule.Execute(() => _bugsCompletedList.Query<BugEntryView>().ForEach(v => v.Q<VisualElement>("Outline").Blur())).ExecuteLater(100);
+            };
 
             RebuildBugsCompletedList();
         }
 
         private void RebuildBugsNotStartedList()
         {
-            _bugsNotStartedList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.NotStarted).ToList();
+            _bugsNotStartedList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.NotStarted).OrderBy(t => t.Order).ToList();
             _bugsNotStartedCount.text = $"{_bugsNotStartedList.itemsSource.Count}";
         }
 
         private void RebuildBugsInProgressList()
         {
-            _bugsInProgressList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.InProgress).ToList();
+            _bugsInProgressList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.InProgress).OrderBy(t => t.Order).ToList();
             _bugsInProgressCount.text = $"{_bugsInProgressList.itemsSource.Count}";
         }
 
         private void RebuildBugsCompletedList()
         {
-            _bugsCompletedList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.Completed).ToList();
+            _bugsCompletedList.itemsSource = _currentProjectTracker.BugTracker.Bugs.Where(t => t.Status == TaskStatus.Completed).OrderBy(t => t.Order).ToList();
             _bugsCompletedCount.text = $"{_bugsCompletedList.itemsSource.Count}";
         }
 
@@ -632,18 +750,20 @@ namespace VaporEditor.ProjectManagement
             switch (model.Status)
             {
                 case TaskStatus.NotStarted:
+                    model.Order = _bugsInProgressList.itemsSource?.Count ?? 1;
                     model.SetStatus(TaskStatus.InProgress);
                     RebuildBugsNotStartedList();
                     RebuildBugsInProgressList();
                     break;
                 case TaskStatus.InProgress:
+                    model.Order = _bugsCompletedList.itemsSource?.Count ?? 1;
                     model.SetStatus(TaskStatus.Completed);
                     RebuildBugsInProgressList();
                     RebuildBugsCompletedList();
                     break;
             }
         }
-        
+
         public void HideBugWindow()
         {
             _underlay.Hide();

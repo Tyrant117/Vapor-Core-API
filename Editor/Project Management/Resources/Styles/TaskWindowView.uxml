@@ -1,22 +1,33 @@
 <engine:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:engine="UnityEngine.UIElements" xmlns:editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
     <engine:VisualElement style="flex-grow: 1; background-color: rgb(56, 56, 56); border-left-color: rgb(37, 37, 37); border-right-color: rgb(37, 37, 37); border-top-color: rgb(37, 37, 37); border-bottom-color: rgb(37, 37, 37); border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-top-left-radius: 8px; border-top-right-radius: 8px; border-bottom-right-radius: 8px; border-bottom-left-radius: 8px;">
         <engine:VisualElement style="flex-grow: 0; flex-direction: row; margin-top: 3px; margin-bottom: 3px;">
-            <engine:VisualElement name="TypeIcon" style="flex-grow: 0; background-image: url(&quot;project://database/Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_ScriptLink@2x.png?fileID=2800000&amp;guid=5e032f76278407d46a6a3dc6ff0bdc36&amp;type=3#d_ScriptLink@2x&quot;); width: 22px; height: 22px; align-self: center; margin-left: 4px;" />
-            <engine:TextField is-delayed="true" name="Header" style="margin-top: 3px; margin-right: 2px; margin-bottom: 3px; margin-left: 6px; flex-grow: 1; flex-shrink: 1;" />
-            <engine:EnumField value="Script" type="VaporEditor.ProjectManagement.TaskType, vapor.core.editor" style="width: 200px; margin-bottom: 3px; margin-top: 3px;" />
-            <engine:Button icon-image="project://database/Packages/com.unity.collab-proxy/Editor/Assets/Images/d_iconclosebutton.png?fileID=2800000&amp;guid=9cadde7a0d5f9024ab3f2cd5f6a740d6&amp;type=3#d_iconclosebutton" name="Close" style="margin-top: 0; margin-right: 4px; margin-bottom: 0; margin-left: 4px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; width: 22px; height: 22px; align-self: center;" />
+            <engine:VisualElement name="TypeIcon" style="flex-grow: 0; background-image: url(&quot;project://database/Packages/com.unity.render-pipelines.core/Editor/Icons/RenderGraphViewer/d_ScriptLink@2x.png?fileID=2800000&amp;guid=5e032f76278407d46a6a3dc6ff0bdc36&amp;type=3#d_ScriptLink@2x&quot;); width: 32px; height: 32px; align-self: center; margin-left: 6px; flex-shrink: 0;" />
+            <engine:TextField is-delayed="true" name="Header" style="margin-top: 3px; margin-right: 2px; margin-bottom: 3px; margin-left: 6px; flex-grow: 1; flex-shrink: 1; font-size: 18px;" />
+            <engine:EnumField value="Script" type="VaporEditor.ProjectManagement.TaskType, vapor.core.editor" style="width: 200px; margin-bottom: 3px; margin-top: 3px; font-size: 18px; text-overflow: ellipsis;" />
+            <engine:Button name="Close" style="margin-top: 0; margin-right: 4px; margin-bottom: 0; margin-left: 4px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; width: 36px; height: 36px; align-self: center;">
+                <engine:VisualElement name="Icon" style="flex-grow: 1; margin-top: 2px; margin-right: 2px; margin-bottom: 2px; margin-left: 2px; background-image: resource(&apos;Icons/d_closebutton&apos;);" />
+            </engine:Button>
         </engine:VisualElement>
+        <engine:VisualElement enabled="false" style="flex-grow: 0; height: 2px; background-color: rgb(37, 37, 37);" />
+        <engine:VisualElement style="flex-grow: 0; flex-direction: row; flex-shrink: 0;">
+            <engine:VisualElement name="DescriptionIcon" style="flex-grow: 0; flex-shrink: 0; width: 32px; height: 32px; align-self: center; margin-left: 6px;" />
+            <engine:Label text="Description" style="position: relative; margin-top: 3px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden; flex-grow: 0; font-size: 18px;" />
+            <engine:VisualElement style="flex-grow: 1;" />
+            <VaporEditor.TextEditorControlsView style="flex-grow: 0; width: 460px; margin-right: 6px;" />
+        </engine:VisualElement>
+        <engine:TextField is-delayed="true" vertical-scroller-visibility="Auto" multiline="true" name="Description" select-all-on-focus="false" select-all-on-mouse-up="false" style="flex-grow: 0; flex-basis: 45%; font-size: 16px;" />
         <engine:VisualElement style="flex-grow: 0; height: 2px; background-color: rgb(37, 37, 37);" />
-        <engine:Label text="Description" style="position: relative; margin-top: 3px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden; flex-grow: 0;" />
-        <engine:TextField is-delayed="true" vertical-scroller-visibility="Auto" multiline="true" name="Description" style="flex-grow: 0; flex-basis: 45%;" />
-        <engine:VisualElement style="flex-grow: 0; height: 2px; background-color: rgb(37, 37, 37);" />
-        <engine:VisualElement style="flex-grow: 0; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 3px; margin-bottom: 6px;">
-            <engine:Label text="Checklist" style="position: relative; margin-top: 3px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden; flex-grow: 0;" />
+        <engine:VisualElement style="flex-grow: 0; flex-direction: row; align-items: center; justify-content: flex-start; margin-top: 3px; margin-bottom: 6px;">
+            <engine:VisualElement name="ChecklistIcon" style="flex-grow: 0; flex-shrink: 0; width: 32px; height: 32px; align-self: center; margin-left: 6px;" />
+            <engine:Label text="Checklist" style="position: relative; margin-top: 3px; margin-right: 0; margin-bottom: 3px; margin-left: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; -unity-text-align: middle-left; color: rgb(198, 198, 198); visibility: visible; text-overflow: ellipsis; overflow: hidden; flex-grow: 0; font-size: 18px;" />
+            <engine:VisualElement style="flex-grow: 1;" />
             <engine:VisualElement style="flex-grow: 0; flex-direction: row;">
-                <engine:Label text="0/11" name="ChecklistCount" style="margin-top: 0; margin-right: 6px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196); align-self: center;" />
-                <engine:Button text="+" name="AddChecklistEntry" style="width: 20px; height: 20px; margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px;" />
+                <engine:Label text="0/11" name="ChecklistCount" style="margin-top: 0; margin-right: 6px; margin-bottom: 0; margin-left: 3px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; color: rgb(196, 196, 196); align-self: center; font-size: 18px;" />
+                <engine:Button name="AddChecklistEntry" style="width: 36px; height: 36px; margin-top: 0; margin-right: 3px; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; border-top-left-radius: 4px; border-top-right-radius: 4px; border-bottom-right-radius: 4px; border-bottom-left-radius: 4px;">
+                    <engine:VisualElement name="Icon" style="flex-grow: 1; margin-top: 2px; margin-right: 2px; margin-bottom: 2px; margin-left: 2px;" />
+                </engine:Button>
             </engine:VisualElement>
         </engine:VisualElement>
-        <engine:ListView fixed-item-height="28" show-bound-collection-size="false" reorderable="true" reorder-mode="Animated" style="flex-grow: 1;" />
+        <engine:ListView fixed-item-height="38" show-bound-collection-size="false" reorderable="true" reorder-mode="Animated" style="flex-grow: 1;" />
     </engine:VisualElement>
 </engine:UXML>

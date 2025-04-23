@@ -83,6 +83,7 @@ namespace VaporEditor.ProjectManagement
         public void AddChecklistEntry(ChecklistEntryModel checklistEntry)
         {
             checklistEntry.Changed += OnChecklistEntryChanged;
+            checklistEntry.Order = Checklist.Count;
             Checklist.Add(checklistEntry);
             Changed?.Invoke(this);
         }
