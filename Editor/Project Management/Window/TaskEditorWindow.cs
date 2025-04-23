@@ -278,7 +278,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new FeatureEntryView(this, feature);
                 element.Add(entry);
             };
-            _featureList.itemIndexChanged += (src, dst) =>
+            _featureList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<FeatureModel>)_featureList.itemsSource;
                 int idx = 0;
@@ -398,7 +398,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new TaskEntryView(this, task);
                 element.Add(entry);
             };
-            _notStartedList.itemIndexChanged += (src, dst) =>
+            _notStartedList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<TaskModel>)_notStartedList.itemsSource;
                 int idx = 0;
@@ -442,7 +442,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new TaskEntryView(this, task);
                 element.Add(entry);
             };
-            _inProgressList.itemIndexChanged += (src, dst) =>
+            _inProgressList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<TaskModel>)_inProgressList.itemsSource;
                 int idx = 0;
@@ -474,7 +474,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new TaskEntryView(this, task);
                 element.Add(entry);
             };
-            _completedList.itemIndexChanged += (src, dst) =>
+            _completedList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<TaskModel>)_completedList.itemsSource;
                 int idx = 0;
@@ -594,7 +594,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
             };
-            _bugsNotStartedList.itemIndexChanged += (src, dst) =>
+            _bugsNotStartedList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<BugModel>)_bugsNotStartedList.itemsSource;
                 int idx = 0;
@@ -635,7 +635,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
             };
-            _bugsInProgressList.itemIndexChanged += (src, dst) =>
+            _bugsInProgressList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<BugModel>)_bugsInProgressList.itemsSource;
                 int idx = 0;
@@ -669,7 +669,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new BugEntryView(this, bug);
                 element.Add(entry);
             };
-            _bugsCompletedList.itemIndexChanged += (src, dst) =>
+            _bugsCompletedList.itemIndexChanged += (_, _) =>
             {
                 var list = (List<BugModel>)_bugsCompletedList.itemsSource;
                 int idx = 0;

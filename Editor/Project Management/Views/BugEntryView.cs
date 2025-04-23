@@ -1,4 +1,3 @@
-using System.Drawing;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
@@ -93,11 +92,11 @@ namespace VaporEditor.ProjectManagement
             
             var context = new ContextualMenuManipulator(evt =>
             {
-                evt.menu.AppendAction("Rename", action =>
+                evt.menu.AppendAction("Rename", _ =>
                 {
                     StartRename();
                 });
-                evt.menu.AppendAction("Delete", action =>
+                evt.menu.AppendAction("Delete", _ =>
                 {
                     var lv = GetFirstAncestorOfType<ListView>();
                     _window.RemoveBug(_model, lv.name);

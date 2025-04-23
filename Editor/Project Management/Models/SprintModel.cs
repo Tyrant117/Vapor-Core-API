@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace VaporEditor.ProjectManagement
 {
-    [System.Serializable]
+    [Serializable]
     public class SprintModel
     {
         public string Id;

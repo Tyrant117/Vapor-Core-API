@@ -1,9 +1,8 @@
 using System;
-using UnityEngine;
 
 namespace VaporEditor.ProjectManagement
 {
-    [System.Serializable]
+    [Serializable]
     public class BugModel
     {
         public string Id;
@@ -19,7 +18,7 @@ namespace VaporEditor.ProjectManagement
         
         public BugModel(string name, bool withPendingRename = false)
         {
-            Id = System.Guid.NewGuid().ToString();
+            Id = Guid.NewGuid().ToString();
             Name = name;
             Status = TaskStatus.NotStarted;
             IsPendingRename = withPendingRename;

@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 
 namespace VaporEditor.ProjectManagement
 {
-    [System.Serializable]
+    [Serializable]
     public class FeatureModel
     {
         public string Id;
@@ -19,7 +18,7 @@ namespace VaporEditor.ProjectManagement
 
         public FeatureModel(string name, bool withPendingRename = false)
         {
-            Id = System.Guid.NewGuid().ToString();
+            Id = Guid.NewGuid().ToString();
             Name = name;
             Tasks = new List<TaskModel>();
             IsPendingRename = withPendingRename;

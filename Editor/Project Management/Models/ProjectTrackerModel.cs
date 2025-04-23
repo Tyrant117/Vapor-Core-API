@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace VaporEditor.ProjectManagement
 {
-    [System.Serializable]
+    [Serializable]
     public class ProjectTrackerModel
     {
         public string Id;
@@ -19,7 +18,7 @@ namespace VaporEditor.ProjectManagement
         {
             return new ProjectTrackerModel
             {
-                Id = System.Guid.NewGuid().ToString(),
+                Id = Guid.NewGuid().ToString(),
                 Name = name,
                 Sprints = new List<SprintModel>() { new() { Sprint = 1 } },
                 BugTracker = new BugTrackerModel(),

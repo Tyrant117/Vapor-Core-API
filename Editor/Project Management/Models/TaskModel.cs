@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace VaporEditor.ProjectManagement
 {
@@ -23,7 +22,7 @@ namespace VaporEditor.ProjectManagement
         Design,
     }
 
-    [System.Serializable]
+    [Serializable]
     public class TaskModel
     {
         public string Id;
@@ -41,7 +40,7 @@ namespace VaporEditor.ProjectManagement
 
         public TaskModel(string name, bool withPendingRename = false)
         {
-            Id = System.Guid.NewGuid().ToString();
+            Id = Guid.NewGuid().ToString();
             Name = name;
             Status = TaskStatus.NotStarted;
             Checklist = new List<ChecklistEntryModel>();

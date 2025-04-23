@@ -9,7 +9,6 @@ namespace VaporEditor.ProjectManagement
     [UxmlElement]
     public partial class FeatureEntryView : VisualElement
     {
-        private readonly TaskEditorWindow _window;
         private readonly FeatureModel _model;
         
         private VisualElement _icon;
@@ -51,7 +50,7 @@ namespace VaporEditor.ProjectManagement
 
         public FeatureEntryView(TaskEditorWindow window, FeatureModel model) : this()
         {
-            _window = window;
+            var window1 = window;
             _model = model;
             Label.text = _model.Name;
             Icon.style.backgroundImage = new StyleBackground((Texture2D)EditorGUIUtility.IconContent("GreenCheckmark@2x").image);
@@ -59,20 +58,20 @@ namespace VaporEditor.ProjectManagement
 
             var context = new ContextualMenuManipulator(evt =>
             {
-                evt.menu.AppendAction("Rename", action =>
+                evt.menu.AppendAction("Rename", _ =>
                 {
                     StartRename();
                 });
-                evt.menu.AppendAction("Delete", action => { _window.RemoveFeature(_model); });
+                evt.menu.AppendAction("Delete", _ => { window1.RemoveFeature(_model); });
             });
             this.AddManipulator(context);
 
             Text.RegisterValueChangedCallback(evt =>
             {
                 _model.Rename(evt.newValue);
-                _window.RenameFeature(_model);
+                window1.RenameFeature(_model);
             });
-            Text.RegisterCallback<FocusOutEvent>(evt =>
+            Text.RegisterCallback<FocusOutEvent>(_ =>
             {
                 Text.Hide();
                 Label.Show();
@@ -80,7 +79,7 @@ namespace VaporEditor.ProjectManagement
             
             RegisterCallback<FocusInEvent>(evt =>
             {
-                _window.SelectFeature(_model);
+                window1.SelectFeature(_model);
                 evt.StopPropagation();
             });
             
@@ -93,7 +92,7 @@ namespace VaporEditor.ProjectManagement
 
                 if (evt.keyCode == KeyCode.Delete)
                 {
-                    _window.RemoveFeature(_model);
+                    window1.RemoveFeature(_model);
                 }
                 evt.StopPropagation();
             });

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine.UIElements;
-using Vapor.Inspector;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
+using Vapor.Inspector;
 
 namespace VaporEditor.ProjectManagement
 {
@@ -74,7 +74,7 @@ namespace VaporEditor.ProjectManagement
                 var entry = new ChecklistEntryView(this, checklist);
                 element.Add(entry);
             };
-            _checklist.itemIndexChanged += (src, dst) =>
+            _checklist.itemIndexChanged += (_, _) =>
             {
                 var list = (List<ChecklistEntryModel>)_checklist.itemsSource;
                 int idx = 0;

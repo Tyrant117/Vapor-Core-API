@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
 
-namespace VaporEditor
+namespace VaporEditor.ProjectManagement
 {
     [UxmlElement]
     public partial class TextEditorControlsView : VisualElement
