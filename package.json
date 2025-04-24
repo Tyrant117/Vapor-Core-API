@@ -1,8 +1,8 @@
 {
-  "name": "vapor.core.runtime",
-  "version": "0.1.3",
+  "name": "vapor.core",
+  "version": "0.1.4",
   "displayName": "Vapor Core API",
-  "description": "A custom editor drawing tool.",
+  "description": "Core API Tools",
   "unity": "6000.0",
   "author": {
     "name": "Carbon Fiber Games"
