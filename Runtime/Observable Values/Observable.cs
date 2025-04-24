@@ -5,16 +5,6 @@ using Vapor.NewtonsoftConverters;
 
 namespace Vapor.Observables
 {
-    // public static class ObservableSerializerUtility
-    // {
-    //     public static readonly JsonSerializerSettings s_JsonSerializerSettings = new()
-    //     {
-    //         Formatting = Formatting.Indented,
-    //         ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-    //         TypeNameHandling = TypeNameHandling.Auto,
-    //     };
-    // }
-
     [Serializable]
     public struct SavedObservable
     {
@@ -67,17 +57,21 @@ namespace Vapor.Observables
         }
 
         #region - Value -
+
         public abstract object GetValueBoxed();
         public abstract void SetValueBoxed(object value);
+
         #endregion
 
         #region - Events -
+
         internal Observable WithDirtied(Action<Observable> callback)
         {
             if (callback != null)
             {
                 Dirtied += callback;
             }
+
             return this;
         }
 
@@ -90,9 +84,11 @@ namespace Vapor.Observables
         {
             Dirtied = null;
         }
+
         #endregion
 
         #region - Saving and Loading -
+
         public abstract string SaveAsJson();
         public abstract SavedObservable Save();
 
@@ -115,13 +111,14 @@ namespace Vapor.Observables
             return result;
         }
 
-        #endregion        
+        #endregion
     }
 
     [Serializable]
-    public class Observable<T> : Observable, IEquatable<Observable<T>>, ICloneable where T : struct
+    public class Observable<T> : Observable, IEquatable<Observable<T>>, ICloneable where T : struct, IEquatable<T>
     {
         public static implicit operator T(Observable<T> f) => f.Value;
+
         public static bool operator ==(Observable<T> left, Observable<T> right)
         {
             if (left is null || right is null)
@@ -131,12 +128,14 @@ namespace Vapor.Observables
 
             return left.Equals(right);
         }
+
         public static bool operator !=(Observable<T> left, Observable<T> right)
         {
             return !(left == right);
         }
 
         private T _value;
+
         public T Value
         {
             get => _value;
@@ -151,6 +150,12 @@ namespace Vapor.Observables
                 _value = value;
                 ValueChanged?.Invoke(this, oldValue);
                 OnDirtied();
+#if VAPOR_NETCODE
+                if(_linkedNetworkVariable != null)
+                {
+                    _linkedNetworkVariable.Value = _value;
+                }
+#endif
             }
         }
 
@@ -177,9 +182,10 @@ namespace Vapor.Observables
         }
 
         #region - Value -
+
         public void SetWithoutNotify(T value)
         {
-            _value = value;               
+            _value = value;
         }
 
         public override object GetValueBoxed()
@@ -192,15 +198,18 @@ namespace Vapor.Observables
             Assert.IsTrue(value is T, $"Value [{value}] is not correct type: {value.GetType()} | Expecting: {typeof(T)}");
             Value = (T)value;
         }
+
         #endregion
 
         #region - Events -
+
         public Observable<T> WithChanged(Action<Observable<T>, T> callback)
         {
             if (callback != null)
             {
                 ValueChanged += callback;
             }
+
             return this;
         }
 
@@ -209,9 +218,11 @@ namespace Vapor.Observables
             base.ClearCallbacks();
             ValueChanged = null;
         }
+
         #endregion
 
         #region - Saving and Loading -
+
         public override string SaveAsJson()
         {
             var save = new SavedObservable(Name, typeof(T), Value);
@@ -222,6 +233,29 @@ namespace Vapor.Observables
         {
             return new SavedObservable(Name, typeof(T), Value);
         }
+
+        #endregion
+
+        #region - Networking -
+
+#if VAPOR_NETCODE
+        public void LinkClientNetworkedVariable(NetworkVariable<T> networkVariable)
+        {
+            networkVariable.ValueChanged += OnClientNetworkValueChanged;
+        }
+        
+        private void OnClientNetworkValueChanged(T previous,T current)
+        {
+            Value = current;
+        }
+
+        private NetworkVariable<T> _linkedNetworkVariable;
+        public void LinkServerNetworkedVariable(NetworkVariable<T> networkVariable)
+        {
+            _linkedNetworkVariable = networkVariable;
+        }
+#endif
+
         #endregion
 
         #region - Helpers -
@@ -249,7 +283,8 @@ namespace Vapor.Observables
         public override string ToString()
         {
             return $"{Name} [{Value}]";
-        }               
+        }
+
         #endregion
     }
 }

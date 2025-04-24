@@ -44,17 +44,17 @@ namespace VaporEditor.Keys
             }
         }
 
-        [MenuItem("Vapor/Keys/Enum Generator")]
-        public static void ShowWindow()
-        {
-            // This method is called when the user selects the menu item in the Editor
-            EditorWindow wnd = GetWindow<EnumGeneratorWindow>();
-            wnd.titleContent = new GUIContent("Enum Generator");
-
-            // Limit size of the window
-            wnd.minSize = new Vector2(500, 200);
-            wnd.maxSize = new Vector2(1920, 720);
-        }
+        // [MenuItem("Vapor/Keys/Enum Generator")]
+        // public static void ShowWindow()
+        // {
+        //     // This method is called when the user selects the menu item in the Editor
+        //     EditorWindow wnd = GetWindow<EnumGeneratorWindow>();
+        //     wnd.titleContent = new GUIContent("Enum Generator");
+        //
+        //     // Limit size of the window
+        //     wnd.minSize = new Vector2(500, 200);
+        //     wnd.maxSize = new Vector2(1920, 720);
+        // }
 
         public void CreateGUI()
         {

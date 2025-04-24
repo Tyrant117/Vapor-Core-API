@@ -6,7 +6,7 @@ using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using Vapor.Keys;
 
-namespace VaporEditor.Keys
+namespace VaporEditor
 {
     public class ScriptableObjectAddressableHandler : AssetPostprocessor
     {

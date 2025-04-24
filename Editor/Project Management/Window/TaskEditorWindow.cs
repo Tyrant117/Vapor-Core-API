@@ -6,17 +6,16 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
-using VaporEditor.Inspector;
 
 namespace VaporEditor.ProjectManagement
 {
     public class TaskEditorWindow : EditorWindow
     {
-        [MenuItem("Vapor/Project Management/Tasks")]
+        [MenuItem("Vapor/Project Management", priority = -1)]
         public static void ShowExample()
         {
             TaskEditorWindow wnd = GetWindow<TaskEditorWindow>();
-            wnd.titleContent = new GUIContent("Tasks");
+            wnd.titleContent = new GUIContent("Project Management");
             wnd.minSize = new Vector2(800, 600);
         }
 
