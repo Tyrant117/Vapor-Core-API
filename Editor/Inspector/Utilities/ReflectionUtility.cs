@@ -50,6 +50,11 @@ namespace VaporEditor.Inspector
 
         public static List<FieldInfo> GetAllFields(Type type)
         {
+            if (type == null)
+            {
+                return new List<FieldInfo>();
+            }
+            
             if (s_FieldCache.TryGetValue(type, out var fields))
             {
                 return fields;
@@ -71,6 +76,11 @@ namespace VaporEditor.Inspector
 
         public static List<PropertyInfo> GetAllProperties(Type type)
         {
+            if (type == null)
+            {
+                return new List<PropertyInfo>();
+            }
+            
             if (s_PropertyCache.TryGetValue(type, out var properties))
             {
                 return properties;
@@ -92,6 +102,11 @@ namespace VaporEditor.Inspector
 
         public static List<MethodInfo> GetAllMethods(Type type)
         {
+            if (type == null)
+            {
+                return new List<MethodInfo>();
+            }
+            
             if (s_MethodCache.TryGetValue(type, out var methods))
             {
                 return methods;

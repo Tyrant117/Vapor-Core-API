@@ -11,6 +11,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Vapor;
 using Vapor.Inspector;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
@@ -478,7 +479,7 @@ namespace VaporEditor.Inspector
                         if(Property.TryGetAttributes<TypeSelectorAttribute>(out var tsAtrs))
                         {
                             var current = Property.GetValue<string>();
-                            var cType = Type.GetType(current) ?? typeof(bool);
+                            var cType = current.EmptyOrNull() ? null : Type.GetType(current);
                             List<Type> types = new(tsAtrs.Length);
                             foreach (var atr in tsAtrs)
                             {

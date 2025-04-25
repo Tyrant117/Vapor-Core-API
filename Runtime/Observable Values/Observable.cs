@@ -2,6 +2,9 @@ using System;
 using Newtonsoft.Json;
 using UnityEngine.Assertions;
 using Vapor.NewtonsoftConverters;
+#if VAPOR_NETCODE
+using Unity.Netcode;
+#endif
 
 namespace Vapor.Observables
 {
@@ -158,6 +161,10 @@ namespace Vapor.Observables
 #endif
             }
         }
+        
+        #if VAPOR_NETCODE
+        private NetworkVariable<T> _linkedNetworkVariable;
+        #endif
 
         public event Action<Observable<T>, T> ValueChanged; // Value and Old Value
 
@@ -241,18 +248,18 @@ namespace Vapor.Observables
 #if VAPOR_NETCODE
         public void LinkClientNetworkedVariable(NetworkVariable<T> networkVariable)
         {
-            networkVariable.ValueChanged += OnClientNetworkValueChanged;
+            networkVariable.OnValueChanged += OnClientNetworkValueChanged;
         }
         
         private void OnClientNetworkValueChanged(T previous,T current)
         {
             Value = current;
         }
-
-        private NetworkVariable<T> _linkedNetworkVariable;
-        public void LinkServerNetworkedVariable(NetworkVariable<T> networkVariable)
+        
+        public Observable<T> WithLinkedServerNetworkedVariable(NetworkVariable<T> networkVariable)
         {
             _linkedNetworkVariable = networkVariable;
+            return this;
         }
 #endif
 
