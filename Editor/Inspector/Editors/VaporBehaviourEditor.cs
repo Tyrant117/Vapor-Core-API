@@ -9,13 +9,24 @@ namespace VaporEditor.Inspector
     [CustomEditor(typeof(VaporBehaviour), true)]
     public class VaporBehaviourEditor : InspectorBaseEditor
     {
+        protected MethodInfo DrawHandlesMethodInfo;
+        
         protected virtual void OnSceneGUI()
         {
-            var atr = target.GetType().GetCustomAttribute<DrawHandlesAttribute>();
-            if (atr != null)
+            if (DrawHandlesMethodInfo != null)
             {
-                var methodInfo = ReflectionUtility.GetMethod(target.GetType(), atr.MethodName);
-                methodInfo.Invoke(target, null);
+                DrawHandlesMethodInfo.Invoke(target, null);
+            }
+            else
+            {
+                var atr = target.GetType().GetCustomAttribute<DrawHandlesAttribute>();
+                if (atr == null)
+                {
+                    return;
+                }
+
+                DrawHandlesMethodInfo = ReflectionUtility.GetMethod(target.GetType(), atr.MethodName);
+                DrawHandlesMethodInfo?.Invoke(target, null);
             }
         }
     }
