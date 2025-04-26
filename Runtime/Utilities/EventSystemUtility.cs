@@ -87,5 +87,19 @@ namespace Vapor
             s_Module.enabled = true;
             s_Module.ActivateModule();
         }
+
+        public static void ShowMouseCursor(CursorLockMode cursorLockMode, Vector2 mousePosition)
+        {
+            Cursor.visible = true;
+            Cursor.lockState = cursorLockMode;
+            Mouse.current.WarpCursorPosition(mousePosition);
+        }
+        
+        public static void HideMouseCursor(bool allowMouseMovement, out Vector2 mousePosition)
+        {
+            mousePosition = Mouse.current.position.ReadValue();
+            Cursor.visible = false;
+            Cursor.lockState = allowMouseMovement ? CursorLockMode.Confined : CursorLockMode.Locked;
+        }
     }
 }
