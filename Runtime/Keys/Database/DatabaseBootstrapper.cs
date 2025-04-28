@@ -56,7 +56,7 @@ namespace Vapor.Keys
                         var atr = type.GetCustomAttribute<DatabaseKeyValuePairAttribute>();
                         if (atr.UseAddressables)
                         {
-                            var assets = AddressableAssetUtility.LoadAll<UnityEngine.Object>(x => Debug.Log(x), atr.AddressableLabel);
+                            var assets = AddressableAssetUtility.LoadAll<UnityEngine.Object>(Debug.Log, atr.AddressableLabel);
                             RuntimeDatabaseUtility.InitializeRuntimeDatabase(type, assets.ToList());
                         }
                         else

@@ -71,10 +71,10 @@ namespace Vapor.Keys
         public static List<DropdownModel> GetAllKeysFromCategory(string category)
         {
 #if UNITY_EDITOR
-            if (s_CachedCategories.ContainsKey(category))
+            if (s_CachedCategories.TryGetValue(category, out var cachedCategory))
             {
                 List<DropdownModel> result = new();
-                foreach (var t in s_CachedCategories[category])
+                foreach (var t in cachedCategory)
                 {
                     if (s_CachedFieldInfos.TryGetValue(t, out var fi))
                     {

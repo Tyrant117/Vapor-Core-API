@@ -21,7 +21,7 @@ namespace VaporEditor
                 {
                     var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(str);
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
-                    if(atr != null)
+                    if(atr is { UseAddressables: true })
                     {
                         AddToAddressables(str, atr.AddressableLabel);
                     }
@@ -35,7 +35,7 @@ namespace VaporEditor
                 {
                     var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(movedAssets[i]);
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
-                    if (atr != null)
+                    if (atr is { UseAddressables: true })
                     {
                         AddToAddressables(movedAssets[i], atr.AddressableLabel);
                     }

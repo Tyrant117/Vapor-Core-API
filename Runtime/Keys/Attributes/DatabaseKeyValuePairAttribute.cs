@@ -8,9 +8,9 @@ namespace Vapor.Keys
         public bool UseAddressables { get; }
         public string AddressableLabel { get; }
 
-        public DatabaseKeyValuePairAttribute(string addressableLabel = null)
+        public DatabaseKeyValuePairAttribute(bool useAddressables = false, string addressableLabel = null)
         {
-            UseAddressables = addressableLabel != null;
+            UseAddressables = useAddressables;
             AddressableLabel = addressableLabel;
         }
     }
