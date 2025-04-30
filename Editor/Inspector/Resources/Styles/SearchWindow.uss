@@ -16,20 +16,20 @@
     width: 22px;
     height: 22px;
     background-size: 19px 19px;
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/sub-variant-hidden.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/sub-variant-hidden.png");*/
 }
 
 .dark #ListVariantToggle {
     -unity-background-image-tint-color: #C2C2C2;
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_sub-variant-hidden.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_sub-variant-hidden.png");*/
 }
 
 #ListVariantToggle:checked {
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/sub-variant-visible.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/sub-variant-visible.png");*/
 }
 
 .dark #ListVariantToggle:checked {
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_sub-variant-visible.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_sub-variant-visible.png");*/
 }
 
 /* Expand / collapse details panel toggle */
@@ -246,14 +246,14 @@ Label {
     width: 16px;
     height: 16px;
     -unity-background-image-tint-color: #858585;
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/NodeSearch-expand@2x.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/NodeSearch-expand@2x.png");*/
 }
 
 .dark #showDetailsPanelButton {
     width: 16px;
     height: 16px;
     -unity-background-image-tint-color: #858585;
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_NodeSearch-expand@2x.png");
+    /*background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/d_NodeSearch-expand@2x.png");*/
 }
 
 .treeleaf:hover #showDetailsPanelButton, .treeleaf:checked #showDetailsPanelButton {
@@ -271,7 +271,7 @@ Label.category {
     background-position-x: left;
     background-size: contain;
     -unity-background-image-tint-color: #505050;
-    background-image: url("project:///Packages/com.unity.visualeffectgraph/Editor/UIResources/VFX/Folder.png");
+    background-image: resource("Icons/Folder");
 }
 
 .dark Label.category {
