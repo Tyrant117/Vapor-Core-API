@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
-    public class SelectableManipulator : HoverManipulator, IPseudoStateManipulator
+    public class SelectableManipulator : HoverManipulator
     {
         public bool Active { get; protected set; }
 
@@ -18,10 +18,10 @@ namespace Vapor.Inspector
         protected long StartDelay;
         protected IVisualElementScheduledItem Repeater;
 
-        public event Action<EventBase> Pressed = delegate { };
-        public event Action<EventBase> Released = delegate { };
+        public event Action<EventBase> Pressed;
+        public event Action<EventBase> Released;
 
-        public event Action<VisualElement> Repeat = delegate { };
+        public event Action<VisualElement> Repeat;
 
         public SelectableManipulator(string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
         {
@@ -61,6 +61,7 @@ namespace Vapor.Inspector
         /// </summary>
         /// <param name="repeatInterval">The interval to call the invoke event in miliseconds.</param>
         /// <param name="startDelay">The delay before the first repeated event is called in miliseconds.</param>
+        /// <param name="repeatCallback"></param>
         /// <returns></returns>
         public T WithRepeatable<T>(long repeatInterval, long startDelay, Action<VisualElement> repeatCallback) where T : SelectableManipulator
         {
@@ -101,7 +102,7 @@ namespace Vapor.Inspector
             {
                 if (ContainsPointer(LastWorldMousePosition) && target.enabledInHierarchy)
                 {
-                    Repeat.Invoke(target);
+                    Repeat?.Invoke(target);
                     PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
                 }
                 else
@@ -257,12 +258,12 @@ namespace Vapor.Inspector
         #region - Callbacks -
         protected virtual void InvokePressed(EventBase evt)
         {
-            Pressed.Invoke(evt);
+            Pressed?.Invoke(evt);
         }
 
         protected virtual void InvokeRelease(EventBase evt)
         {
-            Released.Invoke(evt);
+            Released?.Invoke(evt);
         }        
         #endregion
     }

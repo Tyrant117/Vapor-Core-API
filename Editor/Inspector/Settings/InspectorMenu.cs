@@ -26,6 +26,7 @@ namespace VaporEditor.Inspector
         {
             if (SessionState.GetBool(InspectorSessionStateInitialized, false))
             {
+                Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
                 return;
             }
 

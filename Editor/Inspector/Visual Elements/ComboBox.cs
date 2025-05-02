@@ -11,12 +11,11 @@ using UnityEngine.UIElements;
 
 namespace VaporEditor.Inspector
 {
-    public class ComboBox<T> : VisualElement/*, ISearchEntrySelected*/
+    public class ComboBox<T> : VisualElement
     {
-        private VisualElement m_ArrowElement;
-
-        public static readonly string arrowUssClassName = "unity-base-popup-field" + "__arrow";
-
+        private readonly VisualElement _arrowElement;
+        public const string ARROW_USS_CLASS_NAME = "unity-base-popup-field" + "__arrow";
+        
         public Label Label { get; protected set; }
         public Button Dropdown { get; protected set; }
         public Label DropdownLabel { get; protected set; }
@@ -25,18 +24,87 @@ namespace VaporEditor.Inspector
         public List<T> Values { get; private set; }
         public List<int> CurrentSelectedIndices { get; set; }
 
-        private readonly GenericSearchProvider _searchProvider;
-        // private readonly DropdownSearchWindowProvider _searchWindowProvider;
+        private GenericSearchProvider _searchProvider;
         private readonly List<string> _pendingSelection = new();
         private readonly StringBuilder _stringBuilder = new();
-        private readonly bool _multiSelect;
 
-        public event Action<ComboBox<T>, List<int>> SelectionChanged = delegate { };
+        public event Action<ComboBox<T>, List<int>> SelectionChanged;
+
+        public ComboBox()
+        {
+            style.flexDirection = FlexDirection.Row;
+            style.flexGrow = 1f;
+            style.marginLeft = 3;
+            Choices = new List<string>();
+            Values = new List<T>();
+
+            Choices.Add("Invalid Choices");
+            Values.Add(default);
+            var searchModels = new List<GenericSearchModel>()
+            {
+                new(string.Empty, "Invalid Choices")
+            };
+            _searchProvider = new GenericSearchProvider(OnSelect, searchModels, false);
+
+            _pendingSelection = new List<string>(1);
+            CurrentSelectedIndices = new List<int>(1);
+            Label = new Label(string.Empty)
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    flexShrink = 1f,
+                    overflow = Overflow.Hidden,
+                    textOverflow = TextOverflow.Ellipsis,
+                    unityTextAlign = TextAnchor.MiddleLeft,
+                    minWidth = new StyleLength(new Length(33, LengthUnit.Percent)),
+                    maxWidth = new StyleLength(new Length(33, LengthUnit.Percent))
+                }
+            };
+            Dropdown = new Button(ShowMenu)
+            {
+                style =
+                {
+                    unityTextAlign = TextAnchor.MiddleLeft,
+                    flexDirection = FlexDirection.Row,
+                    flexGrow = 1f,
+                    flexShrink = 1f,
+                    paddingTop = 2f,
+                    paddingBottom = 2f,
+                }
+            };
+            DropdownLabel = new Label(string.Empty)
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    unityTextAlign = TextAnchor.MiddleLeft,
+                    overflow = Overflow.Hidden,
+                    textOverflow = TextOverflow.Ellipsis,
+                    flexGrow = 1f,
+                    flexShrink = 1f,
+                }
+            };
+            _arrowElement = new VisualElement()
+            {
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    maxWidth = 31,
+                }
+            };
+            _arrowElement.AddToClassList(ARROW_USS_CLASS_NAME);
+
+            Dropdown.Add(DropdownLabel);
+            Dropdown.Add(_arrowElement);
+            Add(Label);
+            Add(Dropdown);
+            Select(Choices[0]);
+        }
 
         public ComboBox(string label, int selectedIndex, List<string> choices, List<T> values, bool multiSelect, bool noCopy = false)
         {
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
-            _multiSelect = multiSelect;
             style.flexDirection = FlexDirection.Row;
             style.flexGrow = 1f;
             style.marginLeft = 3;
@@ -59,7 +127,7 @@ namespace VaporEditor.Inspector
                 selectedIndex = 0;
             }
 
-            int count = _multiSelect ? Choices.Count : 1;
+            int count = multiSelect ? Choices.Count : 1;
             _pendingSelection = new List<string>(count);
             CurrentSelectedIndices = new List<int>(count);
 
@@ -71,9 +139,6 @@ namespace VaporEditor.Inspector
             }
 
             _searchProvider = new GenericSearchProvider(OnSelect, searchModels, multiSelect);
-            // _searchWindowProvider = new DropdownSearchWindowProvider();
-            // _searchWindowProvider.Initialize(this, Choices);
-
             Label = new Label(label)
             {
                 style =
@@ -99,7 +164,7 @@ namespace VaporEditor.Inspector
                     paddingBottom = 2f,
                 }
             };
-            DropdownLabel = new Label("")
+            DropdownLabel = new Label(string.Empty)
             {
                 pickingMode = PickingMode.Ignore,
                 style =
@@ -111,7 +176,7 @@ namespace VaporEditor.Inspector
                    flexShrink = 1f,
                 }
             };
-            m_ArrowElement = new VisualElement()
+            _arrowElement = new VisualElement()
             {
                 pickingMode = PickingMode.Ignore,
                 style =
@@ -119,14 +184,14 @@ namespace VaporEditor.Inspector
                     maxWidth = 31,
                 }
             };
-            m_ArrowElement.AddToClassList(arrowUssClassName);
+            _arrowElement.AddToClassList(ARROW_USS_CLASS_NAME);
 
             Dropdown.Add(DropdownLabel);
-            Dropdown.Add(m_ArrowElement);
+            Dropdown.Add(_arrowElement);
             Add(Label);
             Add(Dropdown);
 
-            if (!_multiSelect)
+            if (!multiSelect)
             {
                 Select(Choices[selectedIndex]);
             }
@@ -145,16 +210,23 @@ namespace VaporEditor.Inspector
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
             Choices = new List<string>(choices);
             Values = new List<T>(values);
-            // _searchWindowProvider.Entries = Choices;
+            var searchModels = new List<GenericSearchModel>();
+            foreach (var c in choices)
+            {
+                var sm = new GenericSearchModel(string.Empty, c);
+                searchModels.Add(sm);
+            }
+
+            var multiSelect = _searchProvider.AllowMultiSelect;
+            _searchProvider = new GenericSearchProvider(OnSelect, searchModels, multiSelect);
             _pendingSelection.Clear();
             CurrentSelectedIndices.Clear();
-            DropdownLabel.text = "";
+            DropdownLabel.text = string.Empty;
         }
 
         public void Select(string choice)
         {
             _pendingSelection.Add(choice);
-            //Debug.Log($"ComboBox - Select: {name}");
             if (_pendingSelection.Count == 1)
             {
                 schedule.Execute(SelectionComplete);
@@ -163,12 +235,13 @@ namespace VaporEditor.Inspector
 
         public void DeselectAll()
         {
-            if (_multiSelect)
+            if (!_searchProvider.AllowMultiSelect)
             {
-                //Debug.Log($"ComboBox - DeselectAll");
-                _pendingSelection.Clear();
-                schedule.Execute(SelectionComplete);
+                return;
             }
+
+            _pendingSelection.Clear();
+            schedule.Execute(SelectionComplete);
         }
 
         public void Select(IEnumerable<string> names)
@@ -256,9 +329,12 @@ namespace VaporEditor.Inspector
             }
 
             DropdownLabel.text = _stringBuilder.ToString();
-            SelectionChanged.Invoke(this, CurrentSelectedIndices);
+            SelectionChanged?.Invoke(this, CurrentSelectedIndices);
         }
 
-        
+        protected void SetMultiSelect(bool multiSelect)
+        {
+            _searchProvider.AllowMultiSelect = multiSelect;
+        }
     }
 }

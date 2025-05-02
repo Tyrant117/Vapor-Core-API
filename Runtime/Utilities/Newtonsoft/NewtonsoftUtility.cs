@@ -20,7 +20,7 @@ namespace Vapor.NewtonsoftConverters
             },
             TypeNameHandling = TypeNameHandling.Auto,
             Formatting = Formatting.Indented,
-            // Error = (sender, args) => { args.ErrorContext.Handled = true; }
+            Error = (sender, args) => { args.ErrorContext.Handled = true; }
         };
 
         public static readonly JsonSerializer JsonSerializer = JsonSerializer.Create(SerializerSettings);
