@@ -98,6 +98,7 @@ namespace VaporEditor.Inspector
                 DrawValidation();
                 DrawRequireInterface();
                 DrawChildGameObjectsOnly();
+                DrawFlexBasis();
 
                 RegisterCallbackOnce<DetachFromPanelEvent>(OnDetachedFromPanel);
             }
@@ -2611,6 +2612,16 @@ namespace VaporEditor.Inspector
                 hierarchy[0].style.flexGrow = 1f;
             }
         }
+
+        private void DrawFlexBasis()
+        {
+            if (Property.TryGetAttribute<HorizontalGroupAttribute>(out var atr))
+            {
+                Debug.Log($"Flex Basis: {atr.FlexBasis}");
+                ParentTreeElement.style.flexBasis = atr.FlexBasis;
+            }
+        }
+
         #endregion
 
         #region - Resolvers -

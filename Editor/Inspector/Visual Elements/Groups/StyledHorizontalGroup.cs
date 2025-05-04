@@ -29,7 +29,7 @@ namespace VaporEditor.Inspector
             Content.Query<VisualElement>().Descendents<Label>().ForEach(l => l.style.display = DisplayStyle.None);
         }
 
-        protected virtual void StyleGroup()
+        protected void StyleGroup()
         {
             name = "styled-horizontal-group";
             style.flexDirection = FlexDirection.Row;
@@ -39,7 +39,7 @@ namespace VaporEditor.Inspector
             style.marginRight = 0;
         }
 
-        protected virtual VisualElement StyleLabel(string label, StyleLength labelWidth)
+        protected VisualElement StyleLabel(string label, StyleLength labelWidth)
         {
             var wrapper = new VisualElement()
             {
@@ -72,7 +72,7 @@ namespace VaporEditor.Inspector
             return wrapper;
         }
 
-        protected virtual void StyleContent()
+        protected void StyleContent()
         {
             Content = new VisualElement()
             {

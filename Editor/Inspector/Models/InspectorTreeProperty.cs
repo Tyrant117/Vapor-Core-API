@@ -872,7 +872,7 @@ namespace VaporEditor.Inspector
                         }
                         for (int i = array.Length; i < newSize; i++)
                         {
-                            tempList.Add(FormatterServices.GetUninitializedObject(_arrayHelper.ElementType)/*Activator.CreateInstance(_arrayHelper.ElementType)*/);
+                            tempList.Add(GetDefaultValueForArrayElement(_arrayHelper.ElementType)/*Activator.CreateInstance(_arrayHelper.ElementType)*/);
                         }
                     }
                     Array arr = Array.CreateInstance(_arrayHelper.ElementType, newSize);
@@ -895,7 +895,7 @@ namespace VaporEditor.Inspector
                     {
                         for (int i = list.Count; i < newSize; i++)
                         {
-                            list.Add(FormatterServices.GetUninitializedObject(_arrayHelper.ElementType)/*Activator.CreateInstance(_arrayHelper.ElementType)*/);
+                            list.Add(GetDefaultValueForArrayElement(_arrayHelper.ElementType)/*Activator.CreateInstance(_arrayHelper.ElementType)*/);
                         }
                     }
                 }
@@ -915,7 +915,7 @@ namespace VaporEditor.Inspector
             //FormatterServices.GetUninitializedObject(_arrayHelper.ElementType);
             try
             {
-                Insert(ArraySize, FormatterServices.GetUninitializedObject(_arrayHelper.ElementType));
+                Insert(ArraySize, GetDefaultValueForArrayElement(_arrayHelper.ElementType));
             }
             catch
             {
@@ -1371,7 +1371,13 @@ namespace VaporEditor.Inspector
 
             // Check if the type is a List<> or a derived type
             return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>);
-        }      
+        }
+
+        private static object GetDefaultValueForArrayElement(Type type)
+        {
+            var spt = TypeToSerializedPropertyType(type);
+            return GetDefaultValue(spt, type);
+        }
         #endregion
     }
 }

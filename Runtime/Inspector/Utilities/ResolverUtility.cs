@@ -86,16 +86,15 @@ namespace Vapor.Inspector
             {
                 return new StyleLength(StyleKeyword.None);
             }
-            else if (str.Equals("auto", StringComparison.OrdinalIgnoreCase))
+
+            if (str.Equals("auto", StringComparison.OrdinalIgnoreCase))
             {
                 return new StyleLength(StyleKeyword.Auto);
             }
-            else
-            {
-                return str[^1] == '%'
-                    ? new StyleLength(new Length(float.Parse(str[..^1]), LengthUnit.Percent))
-                    : new StyleLength(float.Parse(str));
-            }
+
+            return str[^1] == '%'
+                ? new StyleLength(new Length(float.Parse(str[..^1]), LengthUnit.Percent))
+                : new StyleLength(float.Parse(str));
         }
 
         public static StyleLength GetStyleLength(int val)
