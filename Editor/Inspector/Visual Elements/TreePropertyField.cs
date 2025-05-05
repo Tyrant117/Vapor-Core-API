@@ -2617,7 +2617,6 @@ namespace VaporEditor.Inspector
         {
             if (Property.TryGetAttribute<HorizontalGroupAttribute>(out var atr))
             {
-                Debug.Log($"Flex Basis: {atr.FlexBasis}");
                 ParentTreeElement.style.flexBasis = atr.FlexBasis;
             }
         }
