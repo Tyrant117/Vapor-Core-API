@@ -82,7 +82,7 @@ namespace VaporEditor
         private static string Create(Type classType, string assetName, string folder, Action<ScriptableObject> processAsset)
         {
             var asset = ScriptableObject.CreateInstance(classType);
-            if (asset == null)
+            if (!asset)
             {
                 Debug.LogError("failed to create instance of " + classType);
                 return string.Empty;
@@ -120,7 +120,7 @@ namespace VaporEditor
         {
             // Get the Addressable Asset Settings object (it manages all addressables)
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
-            if (settings.DefaultGroup == null)
+            if (!settings.DefaultGroup)
             {
                 Debug.LogError("A default addressable group must be created before auto-marking an object addressable.");
                 return;

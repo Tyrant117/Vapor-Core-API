@@ -512,7 +512,7 @@ namespace VaporEditor.Inspector
                                 }
                             }
                             
-                            var typeSelector = new TypeSelectorField(niceName, cType).WithValidTypes(types.ToArray());
+                            var typeSelector = new TypeSelectorField(niceName, cType).WithValidTypes(tsAtrs[0].IncludeAbstract, types.ToArray());
                             typeSelector.AssemblyQualifiedNameChanged += OnNameSelectionChanged;
                             return typeSelector;
 

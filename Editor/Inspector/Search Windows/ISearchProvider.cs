@@ -26,7 +26,7 @@ namespace VaporEditor.Inspector
         private readonly Action<TypeSearchModel> _onSelect;
         private readonly List<TypeSearchModel> _sortedDescriptors;
         
-        public TypeCollectionSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type,bool> filter, params Type[] types)
+        public TypeCollectionSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type,bool> filter, bool includeAbstract, params Type[] types)
         {
             _onSelect = onSelect;
             var filterFunc = filter ?? (t => t.IsPublic || t.IsNestedPublic);
@@ -34,12 +34,12 @@ namespace VaporEditor.Inspector
             foreach (var type in types)
             {
                 var derivedTypes = type.IsSubclassOf(typeof(Attribute)) 
-                    ? TypeCache.GetTypesWithAttribute(type).Where(t => filterFunc(t) && (validAssemblies == null || validAssemblies.Contains(t.Assembly))) 
-                    : TypeCache.GetTypesDerivedFrom(type).Where(t => filterFunc(t) && (validAssemblies == null || validAssemblies.Contains(t.Assembly)));
+                    ? TypeCache.GetTypesWithAttribute(type).Where(t => filterFunc(t) && (includeAbstract || !t.IsAbstract) && (validAssemblies == null || validAssemblies.Contains(t.Assembly))) 
+                    : TypeCache.GetTypesDerivedFrom(type).Where(t => filterFunc(t) && (includeAbstract || !t.IsAbstract) && (validAssemblies == null || validAssemblies.Contains(t.Assembly)));
                 // Get all types from the assembly
                 allTypes.AddRange(derivedTypes);
             }
-            allTypes.AddRange(types.Where(t => filterFunc(t) && (validAssemblies == null || validAssemblies.Contains(t.Assembly))));
+            allTypes.AddRange(types.Where(t => filterFunc(t) && (includeAbstract || !t.IsAbstract) && (validAssemblies == null || validAssemblies.Contains(t.Assembly))));
             
             
             _sortedDescriptors = new List<TypeSearchModel>(allTypes.Count);

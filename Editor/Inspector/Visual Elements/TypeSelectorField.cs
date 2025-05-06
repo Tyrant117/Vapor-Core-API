@@ -100,6 +100,7 @@ namespace VaporEditor.Inspector
         public event AssemblyQualifiedNameChangedSignature AssemblyQualifiedNameChanged;
         private readonly Func<Type, bool> _filter;
         private readonly bool _ignoreFilterForGenerics;
+        private bool _includeAbstract;
 
         private Type _genericTypeDefinition;
         private Type[] _validTypes;
@@ -186,8 +187,9 @@ namespace VaporEditor.Inspector
             return this;
         }
 
-        public TypeSelectorField WithValidTypes(params Type[] types)
+        public TypeSelectorField WithValidTypes(bool includeAbstract, params Type[] types)
         {
+            _includeAbstract = includeAbstract;
             _validTypes = types;
             return this;
         }
@@ -228,7 +230,7 @@ namespace VaporEditor.Inspector
             }
             else
             {
-                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, _filter, _validTypes), true, false);
+                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, _filter, _includeAbstract, _validTypes), true, false);
             }
         }
 
@@ -260,7 +262,7 @@ namespace VaporEditor.Inspector
                 if (HasGenericTypeConstraints(typeArg))
                 {
                     var validTypes = FindValidTypesForGenericParameters(typeArg);
-                    TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
+                    TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
                 }
                 else
                 {
@@ -288,7 +290,7 @@ namespace VaporEditor.Inspector
                     if (HasGenericTypeConstraints(typeArg))
                     {
                         var validTypes = FindValidTypesForGenericParameters(typeArg);
-                        TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
+                        TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
                     }
                     else
                     {

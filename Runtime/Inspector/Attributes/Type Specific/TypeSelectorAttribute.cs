@@ -30,25 +30,29 @@ namespace Vapor.Inspector
         public T Selection { get; }
         public Type Type { get; }
         public string Resolver { get; }
+        public bool IncludeAbstract { get; }
         public bool AllTypes { get; }
 
-        public TypeSelectorAttribute()
+        public TypeSelectorAttribute(bool includeAbstract = false)
         {
             AllTypes = true;
+            IncludeAbstract = includeAbstract;
         }
         
-        public TypeSelectorAttribute(T selection, Type type)
+        public TypeSelectorAttribute(T selection, Type type, bool includeAbstract = false)
         {
             Selection = selection;
             Type = type;
+            IncludeAbstract = includeAbstract;
         }
 
-        public TypeSelectorAttribute(string typeResolver)
+        public TypeSelectorAttribute(string typeResolver, bool includeAbstract = false)
         {
             if (!ResolverUtility.HasResolver(typeResolver, out var parsed)) return;
 
             Selection = T.Resolver;
             Resolver = parsed;
+            IncludeAbstract = includeAbstract;
         }
     }
 
