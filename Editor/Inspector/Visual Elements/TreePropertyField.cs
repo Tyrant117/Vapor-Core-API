@@ -13,6 +13,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
+using Vapor.Keys;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
 
@@ -189,24 +190,25 @@ namespace VaporEditor.Inspector
                         break;
                     case 1:
                         {
-                            var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, VaporSDK, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                            if(keyUtilityType == null)
-                            {
-                                Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
-                            }
-                            MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromCategory", BindingFlags.Public | BindingFlags.Static);
-                            SplitTupleToDropdown(keys, values, (IEnumerable<DropdownModel>)methodInfo.Invoke(null, new object[1] { dropdownAttribute.Resolver }));
+                           
+                            // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                            // if(keyUtilityType == null)
+                            // {
+                                // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
+                            // }
+                            // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromCategory", BindingFlags.Public | BindingFlags.Static);
+                            SplitTupleToDropdown(keys, values, KeyUtility.GetAllKeysFromCategory(dropdownAttribute.Resolver));
                         }
                         break;
                     case 2:
                         {
-                            var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, VaporSDK, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                            if (keyUtilityType == null)
-                            {
-                                Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
-                            }
-                            MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromTypeName", BindingFlags.Public | BindingFlags.Static);
-                            SplitTupleToDropdown(keys, values, (IEnumerable<DropdownModel>)methodInfo.Invoke(null, new object[1] { dropdownAttribute.Resolver }));
+                            // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                            // if (keyUtilityType == null)
+                            // {
+                                // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
+                            // }
+                            // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromTypeName", BindingFlags.Public | BindingFlags.Static);
+                            SplitTupleToDropdown(keys, values, KeyUtility.GetAllKeysFromTypeName(dropdownAttribute.Resolver));
                         }
                         break;
                 }
