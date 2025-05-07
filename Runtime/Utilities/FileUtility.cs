@@ -87,7 +87,7 @@ namespace Vapor
             // No assembly definition found return project assembly.
             return EditorSettings.projectGenerationRootNamespace;
         }
-#endif
+
 
         public static string ConvertRelativeToFullPath(string relativePath)
         {
@@ -128,5 +128,6 @@ namespace Vapor
 
             throw new ArgumentException($"Invalid full path: {fullPath}");
         }
+#endif
     }
 }
