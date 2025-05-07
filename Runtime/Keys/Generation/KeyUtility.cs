@@ -88,7 +88,7 @@ namespace Vapor.Keys
                 return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
             }
 #else
-            return new List<DropdownModel>() { ("None", KeyDropdownValue.None) };
+            return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
 #endif
         }
 
