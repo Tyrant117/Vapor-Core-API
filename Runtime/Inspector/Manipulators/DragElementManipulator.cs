@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.Assertions;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
