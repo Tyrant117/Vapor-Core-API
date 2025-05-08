@@ -8,9 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
-using Vapor.Inspector;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Keys
@@ -521,14 +519,23 @@ namespace Vapor.Keys
 
             // Get the parent directory
             string currentDirectory = Path.GetDirectoryName(path);
-
-            Debug.Log(currentDirectory);
-
+            if (string.IsNullOrEmpty(currentDirectory))
+            {
+                return FullFolderPath;
+            }
+            
+            string dataPath = Application.dataPath;
+            string projectRoot = Directory.GetParent(dataPath)!.FullName;
+            Debug.Log("Project Root: " + projectRoot);
+            
             // Move up to the parent directory
             currentDirectory = Directory.GetParent(currentDirectory)?.FullName;
-            string parentFolder = Path.GetFileName(currentDirectory);
-            Debug.Log(parentFolder);
-            while (!(parentFolder.Equals("Assets") || parentFolder.Equals("Packages")))
+            if (string.IsNullOrEmpty(currentDirectory))
+            {
+                return FullFolderPath;
+            }
+            
+            while (currentDirectory != projectRoot)
             {
                 // Get all directories in the current path
                 string[] directories = Directory.GetDirectories(currentDirectory);
@@ -536,15 +543,19 @@ namespace Vapor.Keys
                 foreach (var dir in directories)
                 {
                     var dirName = Path.GetFileName(dir);
-                    Debug.Log(dirName);
-                    if (dirName.Equals(KeyFolderName))
+                    if (!dirName.Equals(KeyFolderName))
                     {
-                        var dirFixed = dir.Replace("\\", "/");
-                        return dirFixed;
+                        continue;
                     }
+
+                    var dirFixed = dir.Replace("\\", "/");
+                    return dirFixed;
                 }
                 currentDirectory = Directory.GetParent(currentDirectory)?.FullName;
-                parentFolder = Path.GetFileName(currentDirectory);
+                if (string.IsNullOrEmpty(currentDirectory))
+                {
+                    return FullFolderPath;
+                }
             }
 
             return FullFolderPath;
