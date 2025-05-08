@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -16,9 +17,7 @@ namespace VaporEditor.Inspector
     {
         public class Descriptor
         {
-            public Descriptor(GenericSearchModel searchModel, string match, string synonym) : this(searchModel.Name, searchModel.Category, searchModel, match, synonym)
-            {
-            }
+            public Descriptor(GenericSearchModel searchModel, string match, string synonym) : this(searchModel.Name, searchModel.Category, searchModel, match, synonym) { }
 
             public Descriptor(string name, string category, GenericSearchModel searchModel = null, string match = null, string synonym = null)
             {
@@ -30,13 +29,23 @@ namespace VaporEditor.Inspector
                 IsLeaf = SearchModel != null;
             }
 
-            public string Category { get; }
-            public string Name { get; }
-            public GenericSearchModel SearchModel { get; }
-            public string NameMatch { get; }
-            public string SynonymMatch { get; }
+            public void SetSearchModel(GenericSearchModel modelDescriptor)
+            {
+                Category = modelDescriptor.Category;
+                Name = modelDescriptor.Name;
+                SearchModel = modelDescriptor;
+                NameMatch = null;
+                SynonymMatch = null;
+                IsLeaf = SearchModel != null;
+            }
+
+            public string Category { get; private set; }
+            public string Name { get; private set; }
+            public GenericSearchModel SearchModel { get; private set; }
+            public string NameMatch { get; private set; }
+            public string SynonymMatch { get; private set; }
             public float MatchingScore { get; set; }
-            public bool IsLeaf { get; }
+            public bool IsLeaf { get; private set; }
 
             public VisualElement LastBoundEntry { get; set; }
 
@@ -128,7 +137,6 @@ namespace VaporEditor.Inspector
         private const float k_MinHeight = 320f;
 
         private ISearchProvider<GenericSearchModel> _searchProvider;
-        private bool _groupUncategorized;
         private bool _hideFavorites;
         private TreeView _treeView;
         private TreeView _variantTreeview;
@@ -148,19 +156,18 @@ namespace VaporEditor.Inspector
 
         private bool HasSearch => !string.IsNullOrEmpty(GetSearchPattern());
 
-        public static GenericSearchWindow Show(Vector2 graphPosition, Vector2 screenPosition, ISearchProvider<GenericSearchModel> searchProvider, bool groupUncategorized, bool hideFavorites,
+        public static GenericSearchWindow Show(Vector2 graphPosition, Vector2 screenPosition, ISearchProvider<GenericSearchModel> searchProvider, bool hideFavorites,
             string typeLabel = null)
         {
             var window = CreateInstance<GenericSearchWindow>();
-            window.Init(graphPosition, screenPosition, searchProvider, groupUncategorized, hideFavorites, typeLabel);
+            window.Init(graphPosition, screenPosition, searchProvider, hideFavorites, typeLabel);
             return window;
         }
 
-        private void Init(Vector2 graphPosition, Vector2 screenPosition, ISearchProvider<GenericSearchModel> searchProvider, bool groupUncategorized, bool hideFavorites, string typeLabel = null)
+        private void Init(Vector2 graphPosition, Vector2 screenPosition, ISearchProvider<GenericSearchModel> searchProvider, bool hideFavorites, string typeLabel = null)
         {
             _searchProvider = searchProvider;
             _searchProvider.Position = graphPosition;
-            _groupUncategorized = groupUncategorized;
             _hideFavorites = hideFavorites;
             _currentTypeLabel = typeLabel;
 
@@ -233,7 +240,7 @@ namespace VaporEditor.Inspector
             _variantTreeview.unbindItem += UnbindItem;
             _variantTreeview.viewDataKey = null;
 
-            UpdateTree(_searchProvider.GetDescriptors(), _treeViewData, true, _groupUncategorized);
+            UpdateTree(_searchProvider.GetDescriptors(), _treeViewData, true);
             _treeView.SetRootItems(_treeViewData);
             _treeView.RefreshItems();
             _treeView.SetSelectionById(_favoriteCategory.id);
@@ -343,7 +350,7 @@ namespace VaporEditor.Inspector
             var labels = HighlightedMatches(item.GetDisplayName().SplitTextIntoLabels("setting")).ToList();
             if (item.SynonymMatch != null)
             {
-                labels?.AddRange(HighlightedMatches(new[] { new Label($" ({item.SynonymMatch})") }));
+                labels.AddRange(HighlightedMatches(new[] { new Label($" ({item.SynonymMatch})") }));
             }
 
             if (item.SearchModel != null)
@@ -411,32 +418,25 @@ namespace VaporEditor.Inspector
                 parent.RegisterCallback<ClickEvent>(OnToggleCategory);
             }
 
-            if (labels != null)
+            var ve = new VisualElement()
             {
-                var i = 0;
-                var ve = new VisualElement()
+                style =
                 {
-                    style =
-                    {
-                        flexShrink = 1f,
-                        flexGrow = 1f,
-                        flexDirection = FlexDirection.Row,
-                        overflow = Overflow.Hidden,
-                        textOverflow = TextOverflow.Ellipsis,
-                    }
-                };
-                foreach (var label in labels)
-                {
-                    label.tooltip = item.Name.ToHumanReadable();
-                    label.AddToClassList("node-name");
-                    ve.Add(label);
+                    flexShrink = 1f,
+                    flexGrow = 1f,
+                    flexDirection = FlexDirection.Row,
+                    overflow = Overflow.Hidden,
+                    textOverflow = TextOverflow.Ellipsis,
                 }
-                element.Insert(i, ve);
-
-                // var spacer = new VisualElement();
-                // spacer.AddToClassList("nodes-label-spacer");
-                // element.Insert(i, spacer);
+            };
+            foreach (var label in labels)
+            {
+                label.tooltip = item.Name.ToHumanReadable();
+                label.AddToClassList("node-name");
+                ve.Add(label);
             }
+
+            element.Insert(0, ve);
 
             if (_searchProvider.AllowMultiSelect && item.SearchModel != null)
             {
@@ -451,8 +451,33 @@ namespace VaporEditor.Inspector
                 };
                 toggled.WithPadding(0).WithMargins(0, 6, 0, 0);
                 toggled.SetValueWithoutNotify(item.SearchModel.IsToggled);
-                toggled.RegisterValueChangedCallback(evt => item.SearchModel.IsToggled = evt.newValue);
+                toggled.RegisterValueChangedCallback(evt =>
+                {
+                    // item.SearchModel.IsToggled = evt.newValue;
+                    var match = FindFirstInTree(_treeViewData, tvd => tvd.data.GetUniqueIdentifier() == item.GetUniqueIdentifier());
+                    SetToggleRecursively(match, evt.newValue);
+                });
                 element.Insert(0, toggled);
+            }
+        }
+        
+        private static void SetToggleRecursively(TreeViewItemData<Descriptor> node, bool value)
+        {
+            if (node.data == null)
+            {
+                return;
+            }
+            
+            node.data.SearchModel.IsToggled = value;
+            node.data.LastBoundEntry?.Q<Toggle>()?.SetValueWithoutNotify(value);
+            if (!node.hasChildren)
+            {
+                return;
+            }
+
+            foreach (var child in node.children)
+            {
+                SetToggleRecursively(child, value);
             }
         }
 
@@ -662,7 +687,7 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private void UpdateTree(IEnumerable<GenericSearchModel> modelDescriptors, List<TreeViewItemData<Descriptor>> treeViewData, bool isMainTree, bool groupUncategorized)
+        private void UpdateTree(IEnumerable<GenericSearchModel> modelDescriptors, List<TreeViewItemData<Descriptor>> treeViewData, bool isMainTree)
         {
             var favorites = isMainTree ? new List<TreeViewItemData<Descriptor>>() : null;
             treeViewData.Clear();
@@ -700,55 +725,40 @@ namespace VaporEditor.Inspector
                              .OrderBy(x => x.Category, s_CategoryComparer)
                              .ThenBy(x => x.Name.ToHumanReadable()))
                 {
-                    var category = !string.IsNullOrEmpty(modelDescriptor.Category) ? modelDescriptor.Category : (groupUncategorized ? "Miscellaneous" : string.Empty);
+                    var category = !string.IsNullOrEmpty(modelDescriptor.Category) ? modelDescriptor.Category : string.Empty;
                     var path = category.Split('/', StringSplitOptions.RemoveEmptyEntries);
                     var currentFolders = treeViewData;
 
-                    // var matchingDescriptor = GetDescriptor(modelDescriptor, searchPattern, patternTokens);
-                    // if (matchingDescriptor == null)
-                    // {
-                    //     continue;
-                    // }
                     var matchingDescriptor = new Descriptor(modelDescriptor, null, null) { MatchingScore = 1f };
 
-                    // var searchPatternLeft = searchPattern;
+                    StringBuilder containerCategory = new StringBuilder();
                     foreach (var p in path)
                     {
                         var containerName = p;
-                        // var isSeparator = containerName.StartsWith('#');
-                        // if (isSeparator)
-                        // containerName = containerName.Substring(2, p.Length - 2); // Skip first two characters because separator code is of the form #1, #2 ...
                         if (currentFolders.All(x => x.data.Name != containerName))
                         {
-                            // string categoryMatch = null;
-                            // if (patternTokens != null)
-                            // {
-                            //     GetTextMatchScore(containerName, ref searchPatternLeft, patternTokens, out categoryMatch);
-                            // }
-
-                            // if (!isSeparator)
-                            // {
-                            var newFolder = new TreeViewItemData<Descriptor>(id++, new Descriptor(containerName, containerName), new List<TreeViewItemData<Descriptor>>());
+                            var newFolder = new TreeViewItemData<Descriptor>(id++, new Descriptor(containerName, containerCategory.ToString()), new List<TreeViewItemData<Descriptor>>());
                             currentFolders.Add(newFolder);
                             currentFolders = (List<TreeViewItemData<Descriptor>>)newFolder.children;
-                            // }
-                            // else if (!HasSearch) // This is a separator, we skip separators when there's a search because of sorting that would mess up with them
-                            // {
-                            //     currentFolders.Add(new TreeViewItemData<Descriptor>(id++, new Separator(containerName, containerName, null, categoryMatch)));
-                            // }
                         }
                         else
                         {
                             currentFolders = (List<TreeViewItemData<Descriptor>>)currentFolders.Single(x => x.data.Name == containerName).children;
                         }
-                        // else if (!isSeparator)
-                        // {
-                        // currentFolders = (List<TreeViewItemData<Descriptor>>)currentFolders.Single(x => x.data.Name == containerName).children;
-                        // }
+                        containerCategory.Append(containerName);
+                        containerCategory.Append("/");
                     }
 
                     // When no search, only add main variant (which is the first one)
-                    currentFolders.Add(new TreeViewItemData<Descriptor>(id++, matchingDescriptor));
+                    var ovrFolder = currentFolders.FirstOrDefault(x => x.data.GetUniqueIdentifier() == matchingDescriptor.GetUniqueIdentifier());
+                    if (ovrFolder.data != null)
+                    {
+                        ovrFolder.data.SetSearchModel(modelDescriptor);
+                    }
+                    else
+                    {
+                        currentFolders.Add(new TreeViewItemData<Descriptor>(id++, matchingDescriptor));
+                    }
 
                     // But add any matching variant, even sub-variants even when there's no search pattern
                     if (isMainTree && _settings.IsFavorite(matchingDescriptor))
@@ -883,7 +893,7 @@ namespace VaporEditor.Inspector
         private void UpdateSearchResult(bool keepSelection)
         {
             var currentSelectedItem = _treeView.selectedItem as Descriptor;
-            UpdateTree(_searchProvider.GetDescriptors(), _treeViewData, true, _groupUncategorized);
+            UpdateTree(_searchProvider.GetDescriptors(), _treeViewData, true);
             _treeView.SetRootItems(_treeViewData);
             _treeView.RefreshItems();
             if (HasSearch)
@@ -1158,5 +1168,52 @@ namespace VaporEditor.Inspector
         }
 
         #endregion
+        
+        public static IEnumerable<TreeViewItemData<T>> FindAllInTree<T>(
+            IEnumerable<TreeViewItemData<T>> source,
+            Func<TreeViewItemData<T>, bool> predicate)
+        {
+            foreach (var node in source)
+            {
+                if (predicate(node))
+                    yield return node;
+
+                if (node is not { hasChildren: true, children: not null })
+                {
+                    continue;
+                }
+
+                foreach (var match in FindAllInTree(node.children, predicate))
+                {
+                    yield return match;
+                }
+            }
+        }
+
+        public static TreeViewItemData<T> FindFirstInTree<T>(
+            IEnumerable<TreeViewItemData<T>> source,
+            Func<TreeViewItemData<T>, bool> predicate)
+        {
+            foreach (var node in source)
+            {
+                if (predicate(node))
+                {
+                    return node;
+                }
+
+                if (node is not { hasChildren: true, children: not null })
+                {
+                    continue;
+                }
+
+                var match = FindFirstInTree(node.children, predicate);
+                if (match.data != null)
+                {
+                    return match;
+                }
+            }
+
+            return default;
+        }
     }
 }

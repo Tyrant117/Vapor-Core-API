@@ -218,7 +218,7 @@ namespace VaporEditor.Inspector
                 {
                     if (dropdownAttribute.MultiSelectArray)
                     {
-                        var comboBox = new ComboBox<object>(niceName, -1, keys, values, true);
+                        var comboBox = new ComboBox<object>(niceName, -1, keys, values, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
                         List<int> selectedIdx = new();
                         foreach (var elem in Property.ArrayData)
                         {
@@ -243,7 +243,7 @@ namespace VaporEditor.Inspector
                 {
                     var current = Property.GetValue();
                     var cIdx = Mathf.Max(0, values.IndexOf(current));
-                    var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, false);
+                    var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, false, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
 
                     comboBox.SelectionChanged += OnComboBoxSelectionChanged;
                     return comboBox;

@@ -19,8 +19,9 @@ namespace Vapor.Inspector
         public string Resolver { get; } = "";
         public bool Searchable { get; }
         public bool MultiSelectArray { get; }
+        public string CategorySplitCharacter { get; }
 
-        public DropdownAttribute(string filterName, FilterType filter = FilterType.Resolver, bool searchable = true, bool multiSelectArray = true)
+        public DropdownAttribute(string filterName, FilterType filter = FilterType.Resolver, bool searchable = true, bool multiSelectArray = true, string categorySplitCharacter = null)
         {
             Filter = (int)filter;
             switch (filter)
@@ -39,6 +40,7 @@ namespace Vapor.Inspector
             
             Searchable = searchable;
             MultiSelectArray = multiSelectArray;
+            CategorySplitCharacter = categorySplitCharacter;
         }
     }
 }

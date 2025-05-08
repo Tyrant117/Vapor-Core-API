@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
-using Codice.CM.Interfaces;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
+using Vapor;
 
 namespace VaporEditor.Inspector
 {
@@ -24,6 +22,7 @@ namespace VaporEditor.Inspector
         public List<T> Values { get; private set; }
         public List<int> CurrentSelectedIndices { get; set; }
 
+        private string _categorySplitCharacter;
         private GenericSearchProvider _searchProvider;
         private readonly List<string> _pendingSelection = new();
         private readonly StringBuilder _stringBuilder = new();
@@ -102,7 +101,7 @@ namespace VaporEditor.Inspector
             Select(Choices[0]);
         }
 
-        public ComboBox(string label, int selectedIndex, List<string> choices, List<T> values, bool multiSelect, bool noCopy = false)
+        public ComboBox(string label, int selectedIndex, List<string> choices, List<T> values, bool multiSelect, bool noCopy = false, string categorySplitCharacter = null)
         {
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
             style.flexDirection = FlexDirection.Row;
@@ -118,6 +117,7 @@ namespace VaporEditor.Inspector
                 Choices = new List<string>(choices);
                 Values = new List<T>(values);
             }
+            _categorySplitCharacter = categorySplitCharacter;
             
 
             if (Choices.Count == 0)
@@ -132,9 +132,19 @@ namespace VaporEditor.Inspector
             CurrentSelectedIndices = new List<int>(count);
 
             var searchModels = new List<GenericSearchModel>();
-            foreach (var c in choices)
+            foreach (var choice in choices)
             {
-                var sm = new GenericSearchModel(string.Empty, c);
+                string c = _categorySplitCharacter.EmptyOrNull() ? choice : choice.Replace(_categorySplitCharacter[0], '/');
+                int lastIdx = c.LastIndexOf('/');
+                string category = string.Empty;
+                string cName = c;
+                if (lastIdx != -1)
+                {
+                    category = c[..lastIdx];
+                    cName = c[(lastIdx + 1)..];
+                }
+
+                var sm = new GenericSearchModel(category, cName);
                 searchModels.Add(sm);
             }
 
@@ -201,19 +211,30 @@ namespace VaporEditor.Inspector
         {
             if (searchModels != null)
             {
-                Select(searchModels.Select(sm => sm.Name));
+                Select(searchModels.Select(sm => sm.Category.EmptyOrNull() ? sm.Name : $"{sm.Category}/{sm.Name}"));
             }
         }
 
-        public void SetChoices(List<string> choices, List<T> values)
+        public void SetChoices(List<string> choices, List<T> values, string categorySplitCharacter = null)
         {
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
             Choices = new List<string>(choices);
             Values = new List<T>(values);
             var searchModels = new List<GenericSearchModel>();
-            foreach (var c in choices)
+            _categorySplitCharacter = categorySplitCharacter.EmptyOrNull() ? _categorySplitCharacter : categorySplitCharacter;
+            foreach (var choice in choices)
             {
-                var sm = new GenericSearchModel(string.Empty, c);
+                string c = _categorySplitCharacter.EmptyOrNull() ? choice : choice.Replace(_categorySplitCharacter[0], '/');
+                int lastIdx = c.LastIndexOf('/');
+                string category = string.Empty;
+                string cName = c;
+                if (lastIdx != -1)
+                {
+                    category = c[..lastIdx];
+                    cName = c[(lastIdx + 1)..];
+                }
+
+                var sm = new GenericSearchModel(category, cName);
                 searchModels.Add(sm);
             }
 
@@ -267,7 +288,7 @@ namespace VaporEditor.Inspector
             // Rect rect = new(pos, size);
 
             _pendingSelection.Clear();
-            GenericSearchWindow.Show(pos, pos, _searchProvider, false, false);
+            GenericSearchWindow.Show(pos, pos, _searchProvider, false);
 
             // SearcherWindow.Show(null, _searchWindowProvider.LoadSearchWindow(_multiSelect, out var searchers),
             //         item => _searchWindowProvider.OnSearcherSelectEntry(item),
@@ -314,12 +335,16 @@ namespace VaporEditor.Inspector
                 for (int i = 0; i < _pendingSelection.Count - 1; i++)
                 {
                     string ps = _pendingSelection[i];
+                    ps = _categorySplitCharacter.EmptyOrNull() ? ps : ps.Replace('/', _categorySplitCharacter[0]);
                     _stringBuilder.Append(ps);
                     _stringBuilder.Append(",");
                     CurrentSelectedIndices.Add(Choices.IndexOf(ps));
                 }
-                _stringBuilder.Append(_pendingSelection[^1]);
-                CurrentSelectedIndices.Add(Choices.IndexOf(_pendingSelection[^1]));
+
+                string psl = _pendingSelection[^1];
+                psl = _categorySplitCharacter.EmptyOrNull() ? psl : psl.Replace('/', _categorySplitCharacter[0]);
+                _stringBuilder.Append(psl);
+                CurrentSelectedIndices.Add(Choices.IndexOf(psl));
 
                 _pendingSelection.Clear();
             }
@@ -329,6 +354,7 @@ namespace VaporEditor.Inspector
             }
 
             DropdownLabel.text = _stringBuilder.ToString();
+            Dropdown.tooltip = _stringBuilder.ToString().Replace(',', '\n');
             SelectionChanged?.Invoke(this, CurrentSelectedIndices);
         }
 
