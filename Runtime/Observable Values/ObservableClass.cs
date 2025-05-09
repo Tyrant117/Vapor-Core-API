@@ -1,6 +1,6 @@
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using UnityEngine;
 using Vapor.NewtonsoftConverters;
 
@@ -26,10 +26,7 @@ namespace Vapor.Observables
 
     public interface IObservedClass
     {
-        void SetupFields(ObservableClass @class)
-        {
-
-        }
+        void SetupFields(ObservableClass @class);
     }
 
     /// <summary>
@@ -62,7 +59,7 @@ namespace Vapor.Observables
         public ushort Id { get; }
 
         /// <summary>
-        /// Gets a field based on the ID and casts it to a type that inherits from <see cref="ObservableField"/>. There is no checking, will throw errors on invalid id.
+        /// Gets a field based on the ID and casts it to a type that inherits from <see cref="Observable"/>. There is no checking, will throw errors on invalid id.
         /// </summary>
         /// <param name="fieldName">The id of the field to retrieve</param>
         /// <typeparam name="T">The type to cast the field to</typeparam>
@@ -77,10 +74,10 @@ namespace Vapor.Observables
         public void SetFieldValue<T>(ushort fieldId, T value) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldId).Value = value;
 
         protected readonly Dictionary<ushort, Observable> Fields = new();
-        protected bool IsLoaded = false;
+        protected bool IsLoaded;
 
         /// <summary>
-        /// This event is fired when the <see cref="ObservableField"/>s of the class change.
+        /// This event is fired when the <see cref="Observable"/>s of the class change.
         /// </summary>
         public event Action<ObservableClass, Observable> Dirtied;
 
@@ -88,22 +85,15 @@ namespace Vapor.Observables
         {
             Name = id.ToString();
             Id = id;
-            SetupFields();
         }
 
         protected ObservableClass(string className)
         {
             Name = className;
             Id = Name.GetStableHashU16();
-            SetupFields();
         }
 
         #region - Fields -
-        /// <summary>
-        /// This method should add all the default fields to the derived class.
-        /// </summary>
-        protected abstract void SetupFields();
-
         public Observable<T> GetOrAddField<T>(ushort fieldId, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
         {
             if (!Fields.ContainsKey(fieldId))
@@ -262,11 +252,6 @@ namespace Vapor.Observables
         {
             ObservedClass = observedClass;
             ObservedClass.SetupFields(this);
-        }
-
-        protected override void SetupFields()
-        {
-
         }
     }
 }
