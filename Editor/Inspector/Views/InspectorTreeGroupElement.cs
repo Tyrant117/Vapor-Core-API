@@ -1,4 +1,3 @@
-using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
@@ -99,6 +98,7 @@ namespace VaporEditor.Inspector
                     {
                         Add(child);
                     }
+
                     child.AttachChildElements();
                 }
             }
@@ -110,7 +110,7 @@ namespace VaporEditor.Inspector
 
         public bool TryGetTab(string tabName, out Tab tab)
         {
-            var styledTabs = GroupContent as StyledTabGroup;
+            var styledTabs = (StyledTabGroup)GroupContent;
             return styledTabs.TryGetTab(tabName, out tab);
         }
     }
