@@ -1,5 +1,4 @@
 using System;
-using UnityEngine.Assertions;
 using System.Diagnostics;
 
 namespace Vapor.Inspector
