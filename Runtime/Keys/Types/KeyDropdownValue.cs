@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using UnityEditor;
 using UnityEngine;
 using Vapor.Inspector;
 
@@ -73,23 +75,23 @@ namespace Vapor.Keys
         /// </summary>
         public static KeyDropdownValue None => new(string.Empty, 0, string.Empty);
 
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_EDITOR")]
         public void Select()
         {
 #if UNITY_EDITOR
             if (Guid == string.Empty) return;
             
-            var refVal = UnityEditor.AssetDatabase.LoadAssetAtPath<ScriptableObject>(UnityEditor.AssetDatabase.GUIDToAssetPath(Guid));
+            var refVal = AssetDatabase.LoadAssetAtPath<ScriptableObject>(AssetDatabase.GUIDToAssetPath(Guid));
             RuntimeEditorUtility.Ping(refVal);
 #endif
         }
 
-        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [Conditional("UNITY_EDITOR")]
         public void Remap()
         {
 #if UNITY_EDITOR
             if (Guid == string.Empty) return;
-            var refVal = UnityEditor.AssetDatabase.LoadAssetAtPath<ScriptableObject>(UnityEditor.AssetDatabase.GUIDToAssetPath(Guid));
+            var refVal = AssetDatabase.LoadAssetAtPath<ScriptableObject>(AssetDatabase.GUIDToAssetPath(Guid));
             
             if (refVal is not IKey rfk) return;
             rfk.ForceRefreshKey();
@@ -98,15 +100,15 @@ namespace Vapor.Keys
 #endif
         }
 
-        public override readonly string ToString() => $"Key: {Key} belonging to {Guid}";
+        public readonly override string ToString() => $"Key: {Key} belonging to [{Guid}] with name [{DisplayName}]";
 
-        public override readonly bool Equals(object obj)
+        public readonly override bool Equals(object obj)
         {
             return obj is KeyDropdownValue other && Equals(other);
         }
 
         public readonly bool Equals(KeyDropdownValue other) => Key == other.Key;
 
-        public override readonly int GetHashCode() => Key;
+        public readonly override int GetHashCode() => Key;
     }
 }

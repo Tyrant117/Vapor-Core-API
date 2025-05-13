@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using Vapor;
 using Vapor.Inspector;
 using Object = UnityEngine.Object;
 
@@ -70,7 +68,11 @@ namespace Vapor.Keys
                 var converted = keyValuePairs.OfType<IKey>();
                 foreach (var data in converted)
                 {
-                    if (!s_Db.TryAdd(data.Key, (T)data))
+                    if (data is not T tData)
+                    {
+                        continue;
+                    }
+                    if (!s_Db.TryAdd(data.Key, tData))
                     {
                         Debug.LogError(
                             $"{TooltipMarkup.ClassMethod(nameof(RuntimeDatabase<T>), nameof(InitDatabase))} - {TooltipMarkup.Class(typeof(T).Name)} - Could not add key for {data.DisplayName}");
@@ -81,7 +83,11 @@ namespace Vapor.Keys
             {
                 foreach (var data in keyValuePairs)
                 {
-                    s_Db.Add(data.name.GetStableHashU16(), (T)data);
+                    if (data is not T tData)
+                    {
+                        continue;
+                    }
+                    s_Db.Add(data.name.GetStableHashU16(), tData);
                 }
             }
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(RuntimeDatabase<T>), nameof(InitDatabase))} - {TooltipMarkup.Class(typeof(T).Name)} - Loaded {s_Db.Count} Items");
