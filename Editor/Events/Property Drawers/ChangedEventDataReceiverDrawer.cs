@@ -1,13 +1,10 @@
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Events;
-using Vapor.Keys;
 using Vapor.Inspector;
+using Vapor.Keys;
 using VaporEditor.Inspector;
 
 namespace VaporEditor.Events
@@ -21,8 +18,6 @@ namespace VaporEditor.Events
             var key = property.FindPropertyRelative("_key");
 
             _ConvertToTupleList(keys, values, EventKeyUtility.GetAllEventKeyValues());
-            Debug.Log(key.boxedValue.GetType());
-
             var indexOfCurrent = values.IndexOf((KeyDropdownValue)key.boxedValue);
             var dropdown = new ComboBox<KeyDropdownValue>(property.displayName, indexOfCurrent, keys, values, false)
             {

@@ -218,6 +218,13 @@ namespace VaporEditor.Inspector
                 {
                     if (dropdownAttribute.MultiSelectArray)
                     {
+                        int idNone = keys.IndexOf("None");
+                        if (idNone != -1)
+                        {
+                            keys.RemoveAt(idNone);
+                            values.RemoveAt(idNone);
+                        }
+                        
                         var comboBox = new ComboBox<object>(niceName, -1, keys, values, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
                         List<int> selectedIdx = new();
                         foreach (var elem in Property.ArrayData)

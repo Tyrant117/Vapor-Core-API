@@ -316,8 +316,14 @@ namespace VaporEditor.Inspector
         {
             foreach (var m in _searchProvider.GetDescriptors())
             {
+                if (m.Name == "None")
+                {
+                    continue;
+                }
+
                 m.IsToggled = true;
             }
+
             UpdateSearchResult(true);
         }
 

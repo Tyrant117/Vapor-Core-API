@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using Vapor;
 using Attribute = System.Attribute;
 
 namespace VaporEditor.Inspector
@@ -89,7 +90,7 @@ namespace VaporEditor.Inspector
 
         public void SetModelToggled(string uniqueName)
         {
-            var model = _cachedDescriptors.FirstOrDefault(sm => sm.GetFullName() == uniqueName);
+            var model = _cachedDescriptors.FirstOrDefault(sm => sm.Category.EmptyOrNull() ? sm.Name == uniqueName : sm.GetFullName() == uniqueName);
             if (model != null)
             {
                 model.IsToggled = true;
