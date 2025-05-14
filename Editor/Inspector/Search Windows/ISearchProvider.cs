@@ -87,6 +87,15 @@ namespace VaporEditor.Inspector
             return _cachedDescriptors;
         }
 
+        public void SetModelToggled(string uniqueName)
+        {
+            var model = _cachedDescriptors.FirstOrDefault(sm => sm.GetFullName() == uniqueName);
+            if (model != null)
+            {
+                model.IsToggled = true;
+            }
+        }
+
         public bool Select(GenericSearchModel searchModel)
         {
             _onSelect?.Invoke(new[] { searchModel });

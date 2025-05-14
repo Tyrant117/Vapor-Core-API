@@ -231,7 +231,8 @@ namespace VaporEditor.Inspector
                         List<string> selectedNames = new(selectedIdx.Count);
                         foreach (var idx in selectedIdx)
                         {
-                            selectedNames.Add(keys[idx]);
+                            string c = dropdownAttribute.CategorySplitCharacter.EmptyOrNull() ? keys[idx] : keys[idx].Replace(dropdownAttribute.CategorySplitCharacter[0], '/');
+                            selectedNames.Add(c);
                         }
 
                         comboBox.Select(selectedNames);

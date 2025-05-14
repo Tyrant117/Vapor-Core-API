@@ -335,6 +335,7 @@ namespace VaporEditor.Inspector
                 for (int i = 0; i < _pendingSelection.Count - 1; i++)
                 {
                     string ps = _pendingSelection[i];
+                    _searchProvider.SetModelToggled(ps);
                     ps = _categorySplitCharacter.EmptyOrNull() ? ps : ps.Replace('/', _categorySplitCharacter[0]);
                     _stringBuilder.Append(ps);
                     _stringBuilder.Append(",");
@@ -342,6 +343,7 @@ namespace VaporEditor.Inspector
                 }
 
                 string psl = _pendingSelection[^1];
+                _searchProvider.SetModelToggled(psl);
                 psl = _categorySplitCharacter.EmptyOrNull() ? psl : psl.Replace('/', _categorySplitCharacter[0]);
                 _stringBuilder.Append(psl);
                 CurrentSelectedIndices.Add(Choices.IndexOf(psl));

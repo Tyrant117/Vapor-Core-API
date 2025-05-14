@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Vapor;
 using Vapor.Inspector;
 using Vapor.Keys;
 using VaporEditor.Inspector;
@@ -211,7 +212,8 @@ namespace VaporEditor.Keys
                 List<string> selectedNames = new(selectedIdx.Count);
                 foreach (var idx in selectedIdx)
                 {
-                    selectedNames.Add(keys[idx]);
+                    string c = dropdownAttribute.CategorySplitCharacter.EmptyOrNull() ? keys[idx] : keys[idx].Replace(dropdownAttribute.CategorySplitCharacter[0], '/');
+                    selectedNames.Add(c);
                 }
 
                 comboBox.Select(selectedNames);
