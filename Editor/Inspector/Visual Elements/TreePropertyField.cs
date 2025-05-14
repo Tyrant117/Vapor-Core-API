@@ -163,7 +163,7 @@ namespace VaporEditor.Inspector
                 foldout.Add(comboBox);
                 if (cIdx > 0)
                 {
-                    InspectorTreeObject ito = new(current, current.GetType());
+                    InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
                     InspectorTreeRootElement subRoot = new(ito);
                     subRoot.DrawToScreen(foldout);
                 }
@@ -1871,7 +1871,7 @@ namespace VaporEditor.Inspector
             }
             if (newObj != null)
             {
-                InspectorTreeObject ito = new(newObj, newObj.GetType());
+                InspectorTreeObject ito = new InspectorTreeObject(newObj, newObj.GetType()).WithParent(Property.InspectorObject);
                 InspectorTreeRootElement subRoot = new(ito);
                 subRoot.DrawToScreen(foldout);
             }

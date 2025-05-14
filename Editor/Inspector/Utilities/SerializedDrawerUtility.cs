@@ -405,7 +405,7 @@ namespace VaporEditor.Inspector
             var propertyType = TypeToSerializedPropertyType(type);
             if (propertyType == SerializedPropertyType.ManagedReference)
             {
-                InspectorTreeObject ito = new(target, type);
+                InspectorTreeObject ito = new InspectorTreeObject(target, type).WithParent(property.InspectorObject);
                 InspectorTreeRootElement root = new(ito);
 
                 var ve = new VisualElement();

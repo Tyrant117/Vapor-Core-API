@@ -24,6 +24,7 @@ namespace VaporEditor.Inspector
         public object Object => IsUnityObject ? _serializedObject?.targetObject : _internalObject;
         public SerializedObject SerializedObject => IsUnityObject ? _serializedObject : null;
         public Type Type { get; }
+        public InspectorTreeObject ParentObject { get; private set; }
 
         private readonly SerializedObject _serializedObject;
         private List<InspectorTreeProperty> _fields;
@@ -52,6 +53,12 @@ namespace VaporEditor.Inspector
             Type = type;
 
             BuildSerializedInspectorProperties();
+        }
+
+        public InspectorTreeObject WithParent(InspectorTreeObject parentObject)
+        {
+            ParentObject = parentObject;
+            return this;
         }
 
         private void BuildSerializedInspectorProperties()
@@ -141,6 +148,8 @@ namespace VaporEditor.Inspector
                 _serializedObject.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty((Object)Object);
             }
+
+            ParentObject?.ApplyModifiedProperties();
         }
 
         #region - Attributes -

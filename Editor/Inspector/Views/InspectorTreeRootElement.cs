@@ -2,7 +2,6 @@ using System.Linq;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
 #if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
 #endif
 
 namespace VaporEditor.Inspector
@@ -110,13 +109,13 @@ namespace VaporEditor.Inspector
             RemoveFromHierarchy();
             if (InspectorObject.IsUnityObject)
             {
-                var so = new InspectorTreeObject(InspectorObject.SerializedObject);
+                var so = new InspectorTreeObject(InspectorObject.SerializedObject).WithParent(InspectorObject.ParentObject);
                 var newRoot = new InspectorTreeRootElement(so);
                 newRoot.DrawToScreen(p);
             }
             else
             {
-                var so = new InspectorTreeObject(InspectorObject.Object, InspectorObject.Type);
+                var so = new InspectorTreeObject(InspectorObject.Object, InspectorObject.Type).WithParent(InspectorObject.ParentObject);
                 var newRoot = new InspectorTreeRootElement(so);
                 newRoot.DrawToScreen(p);
             }
