@@ -10,7 +10,7 @@ namespace Vapor.Keys
 {
     public static class RuntimeDatabaseUtility
     {
-        public static void InitializeRuntimeDatabase(Type ofType, List<Object> keyValuePairs)
+        public static void InitializeRuntimeDatabase(Type ofType, IList<Object> keyValuePairs)
         {
             // Assuming T is known at runtime and is of type 'YourType'
             Type runtimeDatabaseGenericType = typeof(RuntimeDatabase<>);
@@ -58,7 +58,7 @@ namespace Vapor.Keys
         public static IEnumerable<T> All() => s_Db.Values;
         public static int Count => s_Db.Count;
 
-        public static void InitDatabase(List<Object> keyValuePairs)
+        public static void InitDatabase(IList<Object> keyValuePairs)
         {
             s_Db ??= new Dictionary<int, T>();
             s_Db.Clear();

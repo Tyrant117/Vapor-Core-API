@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Vapor.Keys
 {
@@ -18,7 +20,7 @@ namespace Vapor.Keys
             if (Application.isEditor)
             {
 #if UNITY_EDITOR
-                var types = UnityEditor.TypeCache.GetTypesWithAttribute(typeof(DatabaseKeyValuePairAttribute));
+                var types = TypeCache.GetTypesWithAttribute(typeof(DatabaseKeyValuePairAttribute));
                 foreach (var type in types)
                 {
                     var assets = RuntimeAssetDatabaseUtility.FindAssetsByType(type);
@@ -56,8 +58,14 @@ namespace Vapor.Keys
                         var atr = type.GetCustomAttribute<DatabaseKeyValuePairAttribute>();
                         if (atr.UseAddressables)
                         {
-                            var assets = AddressableAssetUtility.LoadAll<UnityEngine.Object>(Debug.Log, atr.AddressableLabel);
-                            RuntimeDatabaseUtility.InitializeRuntimeDatabase(type, assets.ToList());
+                            var assets = AddressableAssetUtility.LoadAll<Object>(Debug.Log, atr.AddressableLabel);
+                            var moreAssets = Resources.LoadAll(string.Empty, type);
+                            foreach (var asset in moreAssets)
+                            {
+                                assets.Add(asset);
+                            }
+
+                            RuntimeDatabaseUtility.InitializeRuntimeDatabase(type, assets);
                         }
                         else
                         {
