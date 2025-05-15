@@ -2,12 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-#if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
-#endif
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
+#if UNITY_EDITOR_COROUTINES
+using Unity.EditorCoroutines.Editor;
+#endif
 
 namespace VaporEditor.Inspector
 {
@@ -207,7 +207,7 @@ namespace VaporEditor.Inspector
             }
         }
 
-        protected VisualElement SurroundWithVaporGroup(UIGroupType drawnWithGroup, string groupName, string header)
+        public VisualElement SurroundWithVaporGroup(UIGroupType drawnWithGroup, string groupName, string header)
         {
             VaporGroupAttribute vaporGroup = drawnWithGroup switch
             {

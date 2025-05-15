@@ -338,6 +338,11 @@ namespace VaporEditor.Inspector
         {
             if (member is MethodInfo methodInfo)
             {
+                if (target == null)
+                {
+                    returnValue = default;
+                    return false;
+                }
                 var val = methodInfo.Invoke(target, arguments);
                 returnValue = val is T rVal ? rVal : default;
                 return true;

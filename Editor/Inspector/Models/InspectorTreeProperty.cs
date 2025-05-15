@@ -1,12 +1,12 @@
+#if UNITY_EDITOR_COROUTINES
+using Unity.EditorCoroutines.Editor;
+#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
-#if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
-#endif
 using Unity.Properties;
 using UnityEditor;
 using UnityEngine;
@@ -1351,7 +1351,14 @@ namespace VaporEditor.Inspector
                 case SerializedPropertyType.BoundsInt:
                     return new BoundsInt();
                 case SerializedPropertyType.ManagedReference:
-                    return Activator.CreateInstance(type);
+                    try
+                    {
+                        return type.IsClass ? type.IsSerializable ? FormatterServices.GetUninitializedObject(type) : null : Activator.CreateInstance(type);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
                 case SerializedPropertyType.Hash128:
                     return new Hash128();
                 case SerializedPropertyType.RenderingLayerMask:

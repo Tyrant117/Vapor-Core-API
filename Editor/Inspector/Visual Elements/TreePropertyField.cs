@@ -146,7 +146,16 @@ namespace VaporEditor.Inspector
 
             if(!Property.IsArray && Property.HasAttribute<SerializeReference>())
             {
-                var foldout = new StyledFoldout(niceName);
+                VisualElement referenceGroup;
+                if (Property.TryGetTypeAttribute<DrawWithVaporAttribute>(out var vaporGroupAttribute))
+                {
+                    referenceGroup = parentTreeElement.SurroundWithVaporGroup(vaporGroupAttribute.InlinedGroupType, niceName, niceName);
+                }
+                else
+                {
+                    referenceGroup = new StyledFoldout(niceName);
+                }
+                
 
                 List<string> keys = new();
                 List<object> values = new();
@@ -160,14 +169,14 @@ namespace VaporEditor.Inspector
                 var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, false);                
 
                 comboBox.SelectionChanged += OnSerializeReferenceSelectionChanged;
-                foldout.Add(comboBox);
+                referenceGroup.Add(comboBox);
                 if (cIdx > 0)
                 {
                     InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
                     InspectorTreeRootElement subRoot = new(ito);
-                    subRoot.DrawToScreen(foldout);
+                    subRoot.DrawToScreen(referenceGroup);
                 }
-                return foldout;
+                return referenceGroup;
             }
 
             if (Property.TryGetAttribute<DropdownAttribute>(out var dropdownAttribute) && !Property.IsArrayElement)
@@ -1872,16 +1881,22 @@ namespace VaporEditor.Inspector
             var prevObj = Property.GetValue();
             var newObj = selection[0] == null ? null : Activator.CreateInstance(selection[0]);
 
-            var foldout = comboBox.GetFirstAncestorOfType<StyledFoldout>();
-            if (foldout.childCount == 2)
+            // var comboParent = (VisualElement)comboBox.GetFirstAncestorOfType<IElementGroup>();
+            var comboParent = comboBox.parent;
+            var comboIdx = comboParent.IndexOf(comboBox);
+            for (int i = comboParent.childCount - 1; i > comboIdx; i--)
             {
-                foldout.RemoveAt(1);
+                comboParent.RemoveAt(i);
             }
+            // if (foldout.childCount == 2)
+            // {
+            //     foldout.RemoveAt(1);
+            // }
             if (newObj != null)
             {
                 InspectorTreeObject ito = new InspectorTreeObject(newObj, newObj.GetType()).WithParent(Property.InspectorObject);
                 InspectorTreeRootElement subRoot = new(ito);
-                subRoot.DrawToScreen(foldout);
+                subRoot.DrawToScreen(comboParent);
             }
 
             Debug.Log($"OnSerializeReferenceSelectionChanged {prevObj} -> {newObj}");

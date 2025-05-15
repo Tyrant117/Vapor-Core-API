@@ -2,7 +2,7 @@ using UnityEngine.UIElements;
 
 namespace VaporEditor.Inspector
 {
-    public class StyledVerticalGroup : VisualElement
+    public class StyledVerticalGroup : VisualElement, IElementGroup
     {
         public StyledVerticalGroup(float top = 0, float bottom = 0, bool overrideLabelPositions = false)
         {

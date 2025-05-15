@@ -5,7 +5,7 @@ using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
-    public class StyledTabGroup : TabView
+    public class StyledTabGroup : TabView, IElementGroup
     {
         private readonly Dictionary<string, Tab> _tabs = new();
 

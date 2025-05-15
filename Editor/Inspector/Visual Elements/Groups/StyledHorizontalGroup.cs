@@ -1,10 +1,9 @@
-using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace VaporEditor.Inspector
 {
-    public class StyledHorizontalGroup : VisualElement
+    public class StyledHorizontalGroup : VisualElement, IElementGroup
     {
         public Label Label { get; private set; }
         public VisualElement Content { get; private set; }
