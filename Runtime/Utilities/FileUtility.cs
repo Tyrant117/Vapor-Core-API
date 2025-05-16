@@ -110,6 +110,10 @@ namespace Vapor
         {
             // Normalize path to use forward slashes
             fullPath = fullPath.Replace("\\", "/");
+            if (fullPath.Contains("Library/PackageCache"))
+            {
+                return null;
+            }
 
             // Get the project's Assets path
             string assetsPath = Application.dataPath.Replace('\\', '/');

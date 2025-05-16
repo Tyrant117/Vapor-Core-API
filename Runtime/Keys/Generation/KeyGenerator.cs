@@ -140,6 +140,10 @@ namespace Vapor.Keys
                     var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(item));
                     guid = hasOptions ? options.UseNameAsGuid ? key.DisplayName : guid : guid;
                     var path = FileUtility.ConvertFullPathToRelative(FindNearestDirectory(item));
+                    if (path.EmptyOrNull())
+                    {
+                        continue;
+                    }
                     if (!formattedKeys.TryGetValue(path, out var list))
                     {
                         list = new();
@@ -199,6 +203,10 @@ namespace Vapor.Keys
                         var soGuid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(refVal));
                         soGuid = hasOptions ? options.UseNameAsGuid ? refVal.name : soGuid : soGuid;
                         var path = FileUtility.ConvertFullPathToRelative(FindNearestDirectory(refVal));
+                        if (path.EmptyOrNull())
+                        {
+                            continue;
+                        }
                         if (!formattedKeys.TryGetValue(path, out var list))
                         {
                             list = new();
@@ -283,6 +291,10 @@ namespace Vapor.Keys
                     takenKeys.Add(item.Key);
                     var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(item));
                     var path = FileUtility.ConvertFullPathToRelative(FindNearestDirectory(item));
+                    if (path.EmptyOrNull())
+                    {
+                        continue;
+                    }
                     guid = hasOptions ? options.UseNameAsGuid ? item.DisplayName : guid : guid;
                     if (!formattedKeys.TryGetValue(path, out var list))
                     {
