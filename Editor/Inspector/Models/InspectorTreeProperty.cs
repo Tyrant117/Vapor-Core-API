@@ -778,12 +778,19 @@ namespace VaporEditor.Inspector
         public void SetValueAtIndex<T>(int index, T val)
         {
             if (!IsArray)
+            {
                 return;
+            }
 
             if (!_arrayHelper.IsList)
             {
                 if (GetValue() is Array array)
                 {
+                    var oldV = array.GetValue(index);
+                    if (oldV == null && val == null)
+                    {
+                        return;
+                    }
                     array.SetValue(val, index);
                 }
             }
@@ -791,6 +798,11 @@ namespace VaporEditor.Inspector
             {
                 if (GetValue() is IList list)
                 {
+                    var oldV = list[index];
+                    if (oldV == null && val == null)
+                    {
+                        return;
+                    }
                     list[index] = val;
                 }
             }
