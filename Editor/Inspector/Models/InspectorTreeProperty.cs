@@ -137,6 +137,16 @@ namespace VaporEditor.Inspector
             // ArrayElement,
         }
 
+        public enum ArrayRebuildReason
+        {
+            Remove,
+            SetValue,
+            SetElementValue,
+            Resize,
+            Insert,
+            Swap
+        }
+
         public class ArrayReflectionHelper
         {
             public bool IsList;
@@ -717,7 +727,7 @@ namespace VaporEditor.Inspector
                     {
                         InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
 #endif
                     }
 
@@ -738,7 +748,7 @@ namespace VaporEditor.Inspector
                     {
                         InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
 #endif
                     }
 
@@ -786,7 +796,7 @@ namespace VaporEditor.Inspector
             }
             InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetElementValue), this);
 #endif
         }
 
@@ -902,7 +912,7 @@ namespace VaporEditor.Inspector
             }
             InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.Resize), this);
 #endif
             //BuildListProperties();
         }
@@ -952,7 +962,7 @@ namespace VaporEditor.Inspector
             }
             InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.Insert), this);
 #endif
         }
 
@@ -994,14 +1004,16 @@ namespace VaporEditor.Inspector
             }
             InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.Remove), this);
 #endif
         }
 
         public void Swap(int fromIdx, int toIdx)
         {
             if (!IsArray)
+            {
                 return;
+            }
 
             if (_arrayHelper.IsList)
             {
@@ -1025,7 +1037,7 @@ namespace VaporEditor.Inspector
             }
             InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(), this);
+            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.Swap), this);
 #endif
         }
 
@@ -1039,9 +1051,10 @@ namespace VaporEditor.Inspector
             Insert(idx, dup);
         }
 
-        private IEnumerator DelayedBuildListProperties()
+        private IEnumerator DelayedBuildListProperties(ArrayRebuildReason reason)
         {
             yield return null;
+            Debug.Log(reason);
             BuildListProperties();
             RequireRedraw.Invoke();
         }
@@ -1313,7 +1326,7 @@ namespace VaporEditor.Inspector
                 case SerializedPropertyType.Color:
                     return Color.clear;
                 case SerializedPropertyType.ObjectReference:
-                    return null;
+                    return (Object)null;
                 case SerializedPropertyType.LayerMask:
                     return new LayerMask();
                 case SerializedPropertyType.Enum:
