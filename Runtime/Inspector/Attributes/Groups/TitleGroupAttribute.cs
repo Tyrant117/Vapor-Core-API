@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using UnityEngine.Assertions;
 
 namespace Vapor.Inspector
 {
@@ -13,7 +12,7 @@ namespace Vapor.Inspector
         public bool Underline { get; }
         public override UIGroupType Type => UIGroupType.Title;
 
-        public TitleGroupAttribute(string groupName, string title = "", string subtitle = "", bool underline = true, int order = 0, string showIf = "")
+        public TitleGroupAttribute(string groupName, string title = "", string subtitle = "", bool underline = true, int order = 0, string showIf = "", string hideIf = "")
         {
             GroupName = groupName.Replace(" ", "");
             Title = string.Empty == title ? groupName : title;
@@ -24,9 +23,14 @@ namespace Vapor.Inspector
             int last = GroupName.LastIndexOf('/');
             ParentName = last != -1 ? GroupName[..last] : "";
 
-            if (ResolverUtility.HasResolver(showIf, out var parsedResolver))
+            if (ResolverUtility.HasResolver(showIf, out var showParsedResolver))
             {
-                ShowIfResolver = parsedResolver;
+                ShowIfResolver = showParsedResolver;
+            }
+            
+            if (ResolverUtility.HasResolver(hideIf, out var hideParsedResolver))
+            {
+                HideIfResolver = hideParsedResolver;
             }
         }
     }

@@ -100,16 +100,18 @@ namespace VaporEditor.Inspector
         public event AssemblyQualifiedNameChangedSignature AssemblyQualifiedNameChanged;
         private readonly Func<Type, bool> _filter;
         private readonly bool _ignoreFilterForGenerics;
+        private readonly bool _flattenCategories;
         private bool _includeAbstract;
 
         private Type _genericTypeDefinition;
         private Type[] _validTypes;
         private HashSet<Assembly> _validAssemblies;
 
-        public TypeSelectorField(string labelName, Type defaultType, Func<Type,bool> filter = null, bool ignoreFilterForGenerics = true, bool typeLabelVisible = true)
+        public TypeSelectorField(string labelName, Type defaultType, Func<Type,bool> filter = null, bool ignoreFilterForGenerics = true, bool typeLabelVisible = true, bool flattenCategories = false)
         {
             _filter = filter;
             _ignoreFilterForGenerics = ignoreFilterForGenerics;
+            _flattenCategories = flattenCategories;
             style.flexGrow = 1f;
             style.flexDirection = FlexDirection.Row;
             style.marginLeft = 3f;
@@ -226,11 +228,11 @@ namespace VaporEditor.Inspector
 
             if (_validTypes == null)
             {
-                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, _filter), true, false);
+                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, _filter,_flattenCategories), false, false);
             }
             else
             {
-                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, _filter, _includeAbstract, _validTypes), true, false);
+                TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, _filter, _includeAbstract, _flattenCategories, _validTypes), false, false);
             }
         }
 
@@ -262,14 +264,17 @@ namespace VaporEditor.Inspector
                 if (HasGenericTypeConstraints(typeArg))
                 {
                     var validTypes = FindValidTypesForGenericParameters(typeArg);
-                    TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
+                    TypeSearchWindow.Show(_screenPosition, _screenPosition,
+                        new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, _flattenCategories, validTypes.ToArray()), false, false,
+                        _typeBuilder.GetCurrentPartialType());
                 }
                 else
                 {
-                    TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, filter), true, false, _typeBuilder.GetCurrentPartialType());
+                    TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, filter, _flattenCategories), false, false,
+                        _typeBuilder.GetCurrentPartialType());
                 }
             }
-            else if(_typeBuilder != null)
+            else if (_typeBuilder != null)
             {
                 _typeBuilder.AddType(type);
                 if (_typeBuilder.Complete)
@@ -284,17 +289,20 @@ namespace VaporEditor.Inspector
                     var height = Mathf.Min(300f, windowRect.y + windowRect.height - pos.y);
                     var size = new Vector2(_typeSelector.resolvedStyle.width, height);
                     Rect rect = new(pos, size);
-                    
+
                     var typeArg = _typeBuilder.GetCurrentGenericTypeArgument();
                     var filter = _ignoreFilterForGenerics ? null : _filter;
                     if (HasGenericTypeConstraints(typeArg))
                     {
                         var validTypes = FindValidTypesForGenericParameters(typeArg);
-                        TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, validTypes.ToArray()), true, false, _typeBuilder.GetCurrentPartialType());
+                        TypeSearchWindow.Show(_screenPosition, _screenPosition,
+                            new TypeCollectionSearchProvider(OnTypeSelected, _validAssemblies, filter, _includeAbstract, _flattenCategories, validTypes.ToArray()), false, false,
+                            _typeBuilder.GetCurrentPartialType());
                     }
                     else
                     {
-                        TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, filter), true, false, _typeBuilder.GetCurrentPartialType());
+                        TypeSearchWindow.Show(_screenPosition, _screenPosition, new TypeSearchProvider(OnTypeSelected, _validAssemblies, filter, _flattenCategories), false, false,
+                            _typeBuilder.GetCurrentPartialType());
                     }
                 }
             }

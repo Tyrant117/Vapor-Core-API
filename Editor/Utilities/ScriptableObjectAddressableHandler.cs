@@ -20,6 +20,10 @@ namespace VaporEditor
                 if(IsScriptableObjectAsset(str))
                 {
                     var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(str);
+                    if (!so)
+                    {
+                        continue;
+                    }
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
                     if(atr is { UseAddressables: true })
                     {

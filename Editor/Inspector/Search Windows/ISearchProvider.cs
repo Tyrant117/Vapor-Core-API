@@ -27,7 +27,7 @@ namespace VaporEditor.Inspector
         private readonly Action<TypeSearchModel> _onSelect;
         private readonly List<TypeSearchModel> _sortedDescriptors;
         
-        public TypeCollectionSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type,bool> filter, bool includeAbstract, params Type[] types)
+        public TypeCollectionSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type,bool> filter, bool includeAbstract, bool flattenCategories, params Type[] types)
         {
             _onSelect = onSelect;
             var filterFunc = filter ?? (t => t.IsPublic || t.IsNestedPublic);
@@ -47,7 +47,7 @@ namespace VaporEditor.Inspector
             foreach (var t in allTypes.Distinct())
             {
                 var typeName = t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name;
-                var model = new TypeSearchModel(t.Namespace?.Replace('.', '/'), typeName, true, t).WithSynonyms($"{t.Namespace}.{typeName}");
+                var model = new TypeSearchModel(flattenCategories ? string.Empty : t.Namespace?.Replace('.', '/'), typeName, true, t).WithSynonyms($"{t.Namespace}.{typeName}");
                 _sortedDescriptors.Add(model as TypeSearchModel);
             }
         }

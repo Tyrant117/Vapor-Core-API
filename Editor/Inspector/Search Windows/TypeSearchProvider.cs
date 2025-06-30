@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor.Compilation;
 using UnityEngine;
@@ -18,7 +19,7 @@ namespace VaporEditor.Inspector
         private readonly HashSet<Assembly> _validAssemblies;
         private readonly Action<TypeSearchModel> _onSelect;
 
-        public TypeSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type,bool> filter = null)
+        public TypeSearchProvider(Action<TypeSearchModel> onSelect, HashSet<Assembly> validAssemblies, Func<Type, bool> filter = null, bool flattenCategories = false)
         {
             _onSelect = onSelect;
             var filterFunc = filter ?? (t => t.IsPublic || t.IsNestedPublic);
@@ -55,7 +56,7 @@ namespace VaporEditor.Inspector
             
             foreach (var asmPath in compiledAssembly[0].compiledAssemblyReferences)
             {
-                var asmName = System.IO.Path.GetFileNameWithoutExtension(asmPath);
+                var asmName = Path.GetFileNameWithoutExtension(asmPath);
                 if (!asmName.Contains("UnityEngine"))
                 {
                     continue;
@@ -91,7 +92,7 @@ namespace VaporEditor.Inspector
             foreach (var t in allTypes.Distinct())
             {
                 var typeName = t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name;
-                var model = new TypeSearchModel(t.Namespace?.Replace('.', '/'), typeName, true, t).WithSynonyms($"{t.Namespace}.{typeName}");
+                var model = new TypeSearchModel(flattenCategories ? string.Empty : t.Namespace?.Replace('.', '/'), typeName, true, t).WithSynonyms($"{t.Namespace}.{typeName}");
                 s_CachedDescriptors.Add(model as TypeSearchModel);
             }
             

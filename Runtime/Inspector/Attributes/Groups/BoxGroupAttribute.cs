@@ -1,5 +1,4 @@
 using System;
-using UnityEngine.Assertions;
 using System.Diagnostics;
 
 namespace Vapor.Inspector
@@ -11,7 +10,7 @@ namespace Vapor.Inspector
         public string Header { get; }
         public override UIGroupType Type => UIGroupType.Box;
 
-        public BoxGroupAttribute(string groupName, string header = "", int order = 0, string showIf = "")
+        public BoxGroupAttribute(string groupName, string header = "", int order = 0, string showIf = "", string hideIf = "")
         {
             GroupName = groupName.Replace(" ", "");
             Header = string.Empty == header ? groupName : header;
@@ -21,9 +20,13 @@ namespace Vapor.Inspector
             var last = GroupName.LastIndexOf('/');
             ParentName = last != -1 ? GroupName[..last] : "";
 
-            if(ResolverUtility.HasResolver(showIf, out var parsedResolver))
+            if(ResolverUtility.HasResolver(showIf, out var showParsedResolver))
             {
-                ShowIfResolver = parsedResolver;
+                ShowIfResolver = showParsedResolver;
+            }
+            if(ResolverUtility.HasResolver(hideIf, out var hideParsedResolver))
+            {
+                HideIfResolver = hideParsedResolver;
             }
         }
     }

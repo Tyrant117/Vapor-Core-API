@@ -20,13 +20,12 @@ namespace Vapor.Keys
             if (Application.isEditor)
             {
 #if UNITY_EDITOR
-                var types = TypeCache.GetTypesWithAttribute(typeof(DatabaseKeyValuePairAttribute));
+                var types = TypeCache.GetTypesWithAttribute(typeof(DatabaseKeyValuePairAttribute)).OrderBy(t1 => t1.GetCustomAttribute<DatabaseKeyValuePairAttribute>().Order).ToArray();
                 foreach (var type in types)
                 {
                     var assets = RuntimeAssetDatabaseUtility.FindAssetsByType(type);
                     RuntimeDatabaseUtility.InitializeRuntimeDatabase(type, assets);
                 }
-
                 foreach (var type in types)
                 {
                     RuntimeDatabaseUtility.PostInitializeRuntimeDatabase(type);
@@ -74,6 +73,7 @@ namespace Vapor.Keys
                         }
                     }
 
+                    validTypes.Sort((t1, t2) => t1.GetCustomAttribute<DatabaseKeyValuePairAttribute>().Order.CompareTo(t2.GetCustomAttribute<DatabaseKeyValuePairAttribute>().Order));
                     foreach (var type in validTypes)
                     {
                         RuntimeDatabaseUtility.PostInitializeRuntimeDatabase(type);

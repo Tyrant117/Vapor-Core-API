@@ -25,11 +25,11 @@ namespace VaporEditor.Inspector
             HasTabs = Group.Type == UIGroupType.Tab;
             DrawOrder = groupAttribute.Order;
 
-            contentContainer = InitializeVisualElemet();
+            contentContainer = InitializeVisualElement();
             RegisterCallback<DetachFromPanelEvent>(OnDetachedFromPanel);
         }
 
-        private VisualElement InitializeVisualElemet()
+        private VisualElement InitializeVisualElement()
         {
             name = $"Branch_Group";
 
@@ -53,6 +53,27 @@ namespace VaporEditor.Inspector
                         b => GroupContent.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
                     AddResolver(resolverContainerProp);
                 }                
+            }
+
+            if (!Group.HideIfResolver.EmptyOrNull())
+            {
+                if (HasProperty)
+                {
+                    var property = Property;
+                    var type = property.PropertyType;
+
+                    var resolverContainerProp = new SerializedResolverContainerType<bool>(property, 
+                        ReflectionUtility.GetMember(type, Group.HideIfResolver),
+                        b => GroupContent.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
+                    AddResolver(resolverContainerProp);
+                }
+                else
+                {
+                    var resolverContainerProp = new SerializedResolverContainerObject<bool>(InspectorObject.Object, 
+                        ReflectionUtility.GetMember(InspectorObject.Type, Group.HideIfResolver),
+                        b => GroupContent.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
+                    AddResolver(resolverContainerProp);
+                }       
             }
             if(Group is HorizontalGroupAttribute horizontalGroupAttribute && GroupContent is StyledHorizontalGroup horizontalGroup)
             {

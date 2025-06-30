@@ -19,5 +19,6 @@ namespace Vapor.Inspector
         public string ParentName { get; protected set; }
         public int Order { get; protected set; }
         public string ShowIfResolver { get; protected set; }
+        public string HideIfResolver { get; protected set; }
     }
 }

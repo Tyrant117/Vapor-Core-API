@@ -92,6 +92,18 @@ namespace VaporEditor.Inspector
             if (TypeHasAttribute<DrawWithVaporAttribute>() && !IsUnityObject && !Property.HasCustomDrawer && !Property.IsWrappedSystemObject && !HasAttribute<SerializeReference>())
             {
                 var vaporPropertyGroup = SurroundWithVaporGroup(SurroundWithGroup, Property.PropertyPath, Property.DisplayName);
+                if (TryGetAttribute<RichTextTooltipAttribute>(out var richTextTooltip))
+                {
+                    if (vaporPropertyGroup is StyledFoldout foldout)
+                    {
+                        foldout.Label.tooltip = richTextTooltip.Tooltip;
+                    }
+                    else
+                    {
+                        vaporPropertyGroup.tooltip = richTextTooltip.Tooltip;
+                    }
+                }
+
                 TreePropertyField.DrawConditionals(this, vaporPropertyGroup);
                 hierarchy.Add(vaporPropertyGroup);
                 return vaporPropertyGroup.contentContainer;
@@ -100,6 +112,10 @@ namespace VaporEditor.Inspector
             if (Property.SerializedPropertyType == SerializedPropertyType.ManagedReference && !Property.HasCustomDrawer && !Property.NoChildProperties && !Property.IsWrappedSystemObject && !HasAttribute<SerializeReference>())
             {
                 var vaporPropertyGroup = SurroundWithVaporGroup(UIGroupType.Foldout, Property.PropertyPath, Property.DisplayName);
+                if (TryGetAttribute<RichTextTooltipAttribute>(out var richTextTooltip))
+                {
+                    ((StyledFoldout)vaporPropertyGroup).Label.tooltip = richTextTooltip.Tooltip;
+                }
                 TreePropertyField.DrawConditionals(this, vaporPropertyGroup);
                 hierarchy.Add(vaporPropertyGroup);
                 return vaporPropertyGroup.contentContainer;

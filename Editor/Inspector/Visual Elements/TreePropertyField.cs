@@ -501,11 +501,13 @@ namespace VaporEditor.Inspector
                             var current = Property.GetValue<string>();
                             var cType = current.EmptyOrNull() ? null : Type.GetType(current);
                             List<Type> types = new(tsAtrs.Length);
+                            bool flattenCategories = false;
                             foreach (var atr in tsAtrs)
                             {
+                                flattenCategories = atr.FlattenCategories;
                                 if (atr.AllTypes)
                                 {
-                                    var allTypeSelector = new TypeSelectorField(niceName, cType);
+                                    var allTypeSelector = new TypeSelectorField(niceName, cType, flattenCategories: flattenCategories);
                                     allTypeSelector.AssemblyQualifiedNameChanged += OnNameSelectionChanged;
                                     return allTypeSelector;
                                 }
@@ -531,7 +533,7 @@ namespace VaporEditor.Inspector
                                 }
                             }
                             
-                            var typeSelector = new TypeSelectorField(niceName, cType).WithValidTypes(tsAtrs[0].IncludeAbstract, types.ToArray());
+                            var typeSelector = new TypeSelectorField(niceName, cType, flattenCategories: flattenCategories).WithValidTypes(tsAtrs[0].IncludeAbstract, types.ToArray());
                             typeSelector.AssemblyQualifiedNameChanged += OnNameSelectionChanged;
                             return typeSelector;
 
@@ -2728,11 +2730,17 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private static void StyleLabel(VisualElement element)
+        public static void StyleLabel(VisualElement element)
         {
-            var label = element.Q<Label>();
+            if (element is not Label label)
+            {
+                label = element.Q<Label>();
+            }
             if (label == null)
+            {
                 return;
+            }
+
             label.style.flexGrow = 1f;
             label.style.flexShrink = 1f;
             label.style.overflow = Overflow.Hidden;
@@ -2740,6 +2748,30 @@ namespace VaporEditor.Inspector
             label.style.unityTextAlign = TextAnchor.MiddleLeft;
             label.style.minWidth = new StyleLength(new Length(33, LengthUnit.Percent));
             label.style.maxWidth = new StyleLength(new Length(33, LengthUnit.Percent));
+        }
+
+        public static VisualElement DrawSerializableReference(string displayName, VisualElement outerElement, object currentType, Type referenceType, Action<ComboBox<object>, List<int>> OnReferenceChanged, InspectorTreeObject parent)
+        {
+            List<string> keys = new();
+            List<object> values = new();
+            keys.Add("Null");
+            values.Add(null);
+            var types = ReflectionUtility.GetAssignableTypesOf(referenceType).Select(t => new DropdownModel(t.Namespace, t.Name, t));
+            SplitTupleToDropdown(keys, values, types);
+
+            var current = currentType;
+            var cIdx = current == null ? 0 : Mathf.Max(0, values.IndexOf(current.GetType()));
+            var comboBox = new ComboBox<object>(displayName, cIdx, keys, values, false);                
+
+            comboBox.SelectionChanged += OnReferenceChanged;
+            outerElement.Add(comboBox);
+            if (cIdx > 0)
+            {
+                InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(parent);
+                InspectorTreeRootElement subRoot = new(ito);
+                subRoot.DrawToScreen(outerElement);
+            }
+            return outerElement;
         }
         #endregion
     }
