@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -158,6 +157,11 @@ namespace Vapor.Inspector
 
             _getWorldTransformRefDelegateMap.Add(element, del);
             return del;
+        }
+
+        public static void AddChild(this VisualElement element, VisualElement child)
+        {
+            element.Add(child);
         }
 
         #region - Fluent Builder -
