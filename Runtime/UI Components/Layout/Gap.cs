@@ -8,6 +8,7 @@ namespace Vapor.UIComponents
     {
         [UxmlAttribute, CreateProperty]
         public Length Size { get; private set; }
+        
 
         public Gap()
         {
