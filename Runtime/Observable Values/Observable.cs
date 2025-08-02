@@ -154,7 +154,7 @@ namespace Vapor.Observables
                 ValueChanged?.Invoke(this, oldValue);
                 OnDirtied();
 #if VAPOR_NETCODE
-                if(_linkedNetworkVariable != null)
+                if(_linkedNetworkVariable != null && _linkedNetworkVariable.CanClientWrite(NetworkManager.Singleton.LocalClientId))
                 {
                     _linkedNetworkVariable.Value = _value;
                 }
