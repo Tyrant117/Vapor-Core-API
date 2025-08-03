@@ -13,6 +13,7 @@ namespace VaporEditor.Inspector
         {
             viewDataKey = $"styledtabgroup__vdk_{attribute.GroupName}";
             StyleBox();
+            hierarchy[0].style.marginBottom = 6;
 
             foreach (var tab in attribute.Tabs)
             {

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Vapor;
 using Vapor.Inspector;
 #if UNITY_EDITOR_COROUTINES
 using Unity.EditorCoroutines.Editor;
@@ -154,9 +155,21 @@ namespace VaporEditor.Inspector
                 }
                 else
                 {
-                    if (nodeBag.TryGetValue(groupNode.Group.ParentName, out var parentGroupNode))
+                    string parentName = groupNode.Group.ParentName;
+                    while (!parentName.EmptyOrNull())
                     {
-                        parentGroupNode.AddTreeElement(groupNode);
+                        if (nodeBag.TryGetValue(parentName, out var parentGroupNode))
+                        {
+                            parentGroupNode.AddTreeElement(groupNode);
+                            break;
+                        }
+                        
+                        parentName = MoveUpParentName(parentName);
+                    }
+
+                    if (parentName.EmptyOrNull())
+                    {
+                        rootNodeList.Add(groupNode);
                     }
                 }
             }
@@ -176,6 +189,10 @@ namespace VaporEditor.Inspector
                     {
                         node.AddTreeElement(child);
                     }
+                    else
+                    {
+                        unmanagedNode?.AddTreeElement(child);
+                    }
                 }
             }
 
@@ -188,6 +205,12 @@ namespace VaporEditor.Inspector
             {
                 AddTreeElement(unmanagedNode);
             }
+        }
+
+        private static string MoveUpParentName(string parentName)
+        {
+            var last = parentName.LastIndexOf('/');
+            return last != -1 ? parentName[..last] : null;
         }
 
         public void AddTreeElement(InspectorTreeElement child)

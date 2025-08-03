@@ -166,8 +166,8 @@ namespace VaporEditor.Keys
             List<string> keys = new();
             List<object> values = new();
 
-            Debug.Log(Property.PropertyPath);
-            Debug.Log(Property.PropertyInfoType);
+            // Debug.Log(Property.PropertyPath);
+            // Debug.Log(Property.PropertyInfoType);
             Property.TryGetAttribute<DropdownAttribute>(out var dropdownAttribute);
             switch (dropdownAttribute.Filter)
             {

@@ -4,21 +4,19 @@ using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
+    public enum ClickTypes
+    {
+        ClickOnUp,
+        ClickOnDown
+    }
+    
     public class ButtonManipulator : SelectableManipulator
     {
-        #region Types
-        public enum ClickType
-        {
-            ClickOnUp,
-            ClickOnDown
-        }
-        #endregion
-
         public InputAction Hotkey { get; private set; }
 
-        private ClickType _clickType;
+        public ClickTypes ClickType { get; set; }
 
-        public event Action<EventBase> Clicked = delegate { };
+        public event Action<EventBase> Clicked;
 
         public ButtonManipulator(string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
         {
@@ -26,9 +24,9 @@ namespace Vapor.Inspector
         }
 
         #region - Fluent -
-        public ButtonManipulator WithOnClick(ClickType clickType, Action<EventBase> callback)
+        public ButtonManipulator WithOnClick(ClickTypes clickType, Action<EventBase> callback)
         {
-            _clickType = clickType;
+            ClickType = clickType;
             Clicked += callback;
             return this;
         }
@@ -137,7 +135,7 @@ namespace Vapor.Inspector
         protected override void InvokePressed(EventBase evt)
         {
             base.InvokePressed(evt);
-            if(_clickType == ClickType.ClickOnDown)
+            if(ClickType == ClickTypes.ClickOnDown)
             {
                 InvokeClicked(evt);
             }    
@@ -146,7 +144,7 @@ namespace Vapor.Inspector
         protected override void InvokeRelease(EventBase evt)
         {
             base.InvokeRelease(evt);
-            if (_clickType == ClickType.ClickOnUp)
+            if (ClickType == ClickTypes.ClickOnUp)
             {
                 InvokeClicked(evt);
             }
@@ -154,7 +152,7 @@ namespace Vapor.Inspector
 
         protected virtual void InvokeClicked(EventBase evt)
         {
-            Clicked.Invoke(evt);
+            Clicked?.Invoke(evt);
         }
         #endregion
     }

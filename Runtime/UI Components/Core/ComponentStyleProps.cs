@@ -73,6 +73,9 @@ namespace Vapor.UIComponents
 
             // Combo
             ["pm"] = (s, v) => s.pm = StyleHelper.TryParseEnum<PickingMode>(v.Trim().ToLowerInvariant(), out var parsed) ? parsed : null,
+            ["ov"] = (s, v) => s.ov = StyleHelper.TryParseEnum<Overflow>(v.Trim().ToLowerInvariant(), out var parsed) ? parsed : null,
+            ["justify"] = (s, v) => s.justify = StyleHelper.TryParseEnum<Justify>(v.Trim().ToLowerInvariant(), out var parsed) ? parsed : null,
+            ["align"] = (s, v) => s.align = StyleHelper.TryParseEnum<Align>(v.Trim().ToLowerInvariant(), out var parsed) ? parsed : null,
         };
         
         public StyleLength? m, mt, mb, ml, mr, mx, my;
@@ -92,6 +95,9 @@ namespace Vapor.UIComponents
         public Position? pos;
         public DisplayStyle? display;
         public PickingMode? pm;
+        public Overflow? ov;
+        public Justify? justify;
+        public Align? align;
 
         public bool IsDirty { get; private set; }
         private string _style;
@@ -157,6 +163,9 @@ namespace Vapor.UIComponents
                 pos = null; // nullable Position
                 display = null; // nullable DisplayStyle
                 pm = null; // nullable PickingMode
+                ov = null;
+                justify = null;
+                align = null;
             }
             else
             {

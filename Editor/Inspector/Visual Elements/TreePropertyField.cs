@@ -1910,48 +1910,96 @@ namespace VaporEditor.Inspector
         #region - Decorators -
         private void DrawLabel()
         {
-            if (Property.TryGetAttribute<LabelAttribute>(out var atr))
+            if (Property.TryGetAttribute<LabelAttribute>(out var labelAtr))
             {
                 var type = Property.ParentType;
                 var label = _internalLabel;
-                if (atr.HasLabelResolver)
+                if (labelAtr.HasLabelResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<string>(Property, ReflectionUtility.GetMember(type, atr.LabelResolver), s => label.text = s);
+                    var resolverContainerProp = new SerializedResolverContainerType<string>(Property, ReflectionUtility.GetMember(type, labelAtr.LabelResolver), s => label.text = s);
                     AddResolver(resolverContainerProp);
                 }
                 else
                 {
-                    label.text = atr.Label;
+                    label.text = labelAtr.Label;
                 }
 
-                if (atr.HasLabelColorResolver)
+                if (labelAtr.HasLabelColorResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, atr.LabelColorResolver), c => label.style.color = c);
+                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, labelAtr.LabelColorResolver), c => label.style.color = c);
                     AddResolver(resolverContainerProp);
                 }
                 else
                 {
-                    label.style.color = atr.LabelColor;
+                    label.style.color = labelAtr.LabelColor;
                 }
 
-                if (atr.HasIcon)
+                if (labelAtr.HasIcon)
                 {
                     var image = new Image
                     {
-                        image = EditorGUIUtility.IconContent(atr.Icon).image,
+                        image = EditorGUIUtility.IconContent(labelAtr.Icon).image,
                         scaleMode = ScaleMode.ScaleToFit,
                         pickingMode = PickingMode.Ignore
                     };
                     image.style.alignSelf = Align.FlexEnd;
 
-                    if (atr.HasIconColorResolver)
+                    if (labelAtr.HasIconColorResolver)
                     {
-                        var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, atr.IconColorResolver), c => image.tintColor = c);
+                        var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, labelAtr.IconColorResolver), c => image.tintColor = c);
                         AddResolver(resolverContainerProp);
                     }
                     else
                     {
-                        image.tintColor = atr.IconColor.value;
+                        image.tintColor = labelAtr.IconColor.value;
+                    }
+
+                    label.Add(image);
+                }
+            }
+
+            if (Property.TryGetAttribute<InheritedLabel>(out var inheritedLabelAtr))
+            {
+                var type = Property.ParentType;
+                var label = _internalLabel;
+                if (inheritedLabelAtr.HasLabelResolver)
+                {
+                    var resolverContainerProp = new SerializedResolverContainerType<string>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.LabelResolver), s => label.text = s);
+                    AddResolver(resolverContainerProp);
+                }
+                else
+                {
+                    label.text = Property.ParentProperty.DisplayName;
+                }
+
+                if (inheritedLabelAtr.HasLabelColorResolver)
+                {
+                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.LabelColorResolver), c => label.style.color = c);
+                    AddResolver(resolverContainerProp);
+                }
+                else
+                {
+                    label.style.color = inheritedLabelAtr.LabelColor;
+                }
+
+                if (inheritedLabelAtr.HasIcon)
+                {
+                    var image = new Image
+                    {
+                        image = EditorGUIUtility.IconContent(inheritedLabelAtr.Icon).image,
+                        scaleMode = ScaleMode.ScaleToFit,
+                        pickingMode = PickingMode.Ignore
+                    };
+                    image.style.alignSelf = Align.FlexEnd;
+
+                    if (inheritedLabelAtr.HasIconColorResolver)
+                    {
+                        var resolverContainerProp = new SerializedResolverContainerType<Color>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.IconColorResolver), c => image.tintColor = c);
+                        AddResolver(resolverContainerProp);
+                    }
+                    else
+                    {
+                        image.tintColor = inheritedLabelAtr.IconColor.value;
                     }
 
                     label.Add(image);

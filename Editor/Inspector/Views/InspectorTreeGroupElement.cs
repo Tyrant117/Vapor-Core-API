@@ -1,3 +1,4 @@
+using System;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
@@ -115,6 +116,18 @@ namespace VaporEditor.Inspector
                     {
                         tab.Add(child);
                     }
+                    else if (child is InspectorTreeGroupElement childGroup)
+                    {
+                        var splitName = childGroup.Group.ParentName?.Split('/') ?? Array.Empty<string>();
+                        if (splitName.Length > 0 && TryGetTab(splitName[^1], out var tab2))
+                        {
+                            tab2.Add(child);
+                        }
+                        else
+                        {
+                            Add(child);
+                        }
+                    }
                     else
                     {
                         Add(child);
@@ -131,6 +144,7 @@ namespace VaporEditor.Inspector
 
         public bool TryGetTab(string tabName, out Tab tab)
         {
+            
             var styledTabs = (StyledTabGroup)GroupContent;
             return styledTabs.TryGetTab(tabName, out tab);
         }
