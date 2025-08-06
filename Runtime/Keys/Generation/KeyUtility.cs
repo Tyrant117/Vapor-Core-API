@@ -11,9 +11,14 @@ namespace Vapor.Keys
     public static class KeyUtility
     {
 #if UNITY_EDITOR
+        private static bool s_Cached;
         [InitializeOnLoadMethod]
         private static void InitEditor()
-        {           
+        {
+            if (s_Cached)
+            {
+                return;
+            }
             s_CachedFieldInfos.Clear();
             s_CachedCategories.Clear();
             s_CachedTypeNames.Clear();
@@ -35,6 +40,7 @@ namespace Vapor.Keys
                 typeSet.Add(keysType);
                 nameSet.Add(keysType);
             }
+            s_Cached = true;
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(KeyUtility), nameof(InitEditor))} - Cached Keys");
         }
 #endif
@@ -47,6 +53,7 @@ namespace Vapor.Keys
         public static List<DropdownModel> GetAllKeysFromTypeName(string typeName)
         {
 #if UNITY_EDITOR
+            InitEditor();
             if (s_CachedTypeNames.ContainsKey(typeName))
             {
                 List<DropdownModel> result = new();
@@ -71,6 +78,7 @@ namespace Vapor.Keys
         public static List<DropdownModel> GetAllKeysFromCategory(string category)
         {
 #if UNITY_EDITOR
+            InitEditor();
             if (s_CachedCategories.TryGetValue(category, out var cachedCategory))
             {
                 List<DropdownModel> result = new();

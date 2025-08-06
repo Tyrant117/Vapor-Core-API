@@ -8,7 +8,7 @@ namespace Vapor.UIComponents
 {
     public static class StyleHelper
     {
-        public static string GetInspectorLabelStyle() => "fg=1 fs=1 ov=hidden tt=ellipsis ta=middleleft miw=33% maw=33%";
+        public static string GetInspectorLabelStyle() => "ml=3 fg=1 fs=1 ov=hidden tt=ellipsis ta=middleleft miw=33% maw=33%";
 
         public static void ApplyStyleProps(VisualElement ve, ComponentStyleProps props)
         {

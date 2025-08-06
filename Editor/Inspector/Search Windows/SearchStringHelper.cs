@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace VaporEditor.Inspector
 {
-    internal static class SearchStringHelper
+    public static class SearchStringHelper
     {
         private static readonly Regex s_NodeNameParser = new("(?<label>[|]?[^\\|]*)", RegexOptions.Compiled);
         

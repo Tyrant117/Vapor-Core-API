@@ -1,13 +1,43 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace Vapor
 {
     public static class RuntimeReflectionUtility
     {
+        public static List<Type> GetTypesDerivedFrom<T>()
+        {
+            var baseType = typeof(T);
+            var result = new List<Type>();
+
+            // Search all loaded assemblies
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                Type[] types;
+                try
+                {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    types = e.Types.Where(t => t != null).ToArray();
+                }
+
+                foreach (var type in types)
+                {
+                    if (type != null && baseType.IsAssignableFrom(type) && type != baseType && !type.IsAbstract)
+                    {
+                        result.Add(type);
+                    }
+                }
+            }
+
+            return result;
+        }
+        
         public static MethodInfo GetMethodInfo(Type declaringType, string methodName, string[] parameterTypes)
         {
             if (declaringType == null)

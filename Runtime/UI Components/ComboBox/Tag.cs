@@ -25,19 +25,9 @@ namespace Vapor.UIComponents
             style.alignItems = Align.Center;
             style.alignSelf = Align.FlexStart;
             style.justifyContent = Justify.Center;
-            style.paddingLeft = 6;
-            style.paddingRight = 6;
-            style.paddingTop = 2;
-            style.paddingBottom = 2;
-            style.marginLeft = 6;
-            style.marginRight = 6;
-            style.marginTop = 2;
-            style.marginBottom = 2;
-            style.borderBottomLeftRadius = 7;
-            style.borderTopLeftRadius = 7;
-            style.borderBottomRightRadius = 7;
-            style.borderTopRightRadius = 7;
-            this.WithBorder(1,7, new Color(0.188f, 0.188f, 0.188f));
+            this.WithPadding(6, 6, 2, 2);
+            this.WithMargins(6, 6, 2, 2);
+            this.WithBorder(1,4, new Color(0.188f, 0.188f, 0.188f));
             style.maxHeight = 18;
             style.backgroundColor =  new Color(0.345f, 0.345f, 0.345f);
 
@@ -76,9 +66,11 @@ namespace Vapor.UIComponents
                 style =
                 {
                     unityTextAlign = TextAnchor.MiddleCenter,
+                    unityFontStyleAndWeight = FontStyle.Bold,
                     flexGrow = 0,
                     flexShrink = 0,
-                    marginLeft = 6
+                    marginLeft = 6,
+                    translate = new StyleTranslate(new Translate(0,-1)),
                 }
             };
             var xBtn = new ButtonManipulator("highlight").WithOnClick(ClickTypes.ClickOnDown, evt =>
@@ -88,7 +80,7 @@ namespace Vapor.UIComponents
                 parent.Remove(this);
             }).WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse).WithHoverEntered<ButtonManipulator>(evt =>
             {
-                var hoverC = new Color(0.827f, 0.133f, 0.133f);
+                var hoverC = new Color(1.0f, 1.0f, 1.0f);
                 x.style.color = hoverC;
             })
             .WithHoverExited<ButtonManipulator>(evt =>
