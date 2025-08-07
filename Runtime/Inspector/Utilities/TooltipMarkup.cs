@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using UnityEngine;
 
@@ -23,6 +22,9 @@ namespace Vapor.Inspector
 
         public const string StructStart = "<b><color=#85C490FF>";
         public const string StructEnd = "</color></b>";
+        
+        public const string InsertTextStart = "<i><color=#CC5500>";
+        public const string InsertTextEnd = "</color></i>";
 
         private static readonly StringBuilder s_Sb = new();
 
@@ -51,6 +53,8 @@ namespace Vapor.Inspector
             s_Sb.Replace("</str>", StructEnd);
             s_Sb.Replace("<mth>", MethodStart);
             s_Sb.Replace("</mth>", MethodEnd);
+            s_Sb.Replace("<otx>", InsertTextStart);
+            s_Sb.Replace("</otx>", InsertTextEnd);
             return s_Sb.ToString();
         }
     }

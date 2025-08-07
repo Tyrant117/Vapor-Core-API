@@ -1,7 +1,5 @@
 using System;
-using UnityEngine;
 using UnityEngine.UIElements;
-using Vapor.Inspector;
 
 namespace Vapor.Inspector
 {
@@ -31,7 +29,7 @@ namespace Vapor.Inspector
                     PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
                 }
                  
-                if (!target.enabledInHierarchy)
+                if (!(target.enabledInHierarchy || IgnoreDisabled))
                 {
                     return;
                 }

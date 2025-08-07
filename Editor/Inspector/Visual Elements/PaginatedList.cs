@@ -276,7 +276,7 @@ namespace VaporEditor.Inspector
             };
 
             Header.Add(Label);
-            Header.Add(new VisualElement() { style = { flexGrow = 1f } });
+            Header.Add(new VisualElement { style = { flexGrow = 1f } });
             Header.Add(pgLeft);
             Header.Add(PageNumber);
             Header.Add(pgRight);

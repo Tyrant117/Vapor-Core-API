@@ -88,6 +88,7 @@ namespace VaporEditor.Inspector
                 DrawLabelWidth();
                 DrawHideLabel();
                 DrawRichTooltip();
+                DrawHelpUrl();
                 DrawDecorators();
                 DrawConditionals();
                 DrawReadOnly();
@@ -425,19 +426,24 @@ namespace VaporEditor.Inspector
                         {
                             label = niceName,
                             toggleOnLabelClick = false,
+                            style =
+                            {
+                                paddingRight = 0,
+                            }
                         };
-                        field.RegisterCallback<GeometryChangedEvent>(evt =>
-                        {
-                            var ve = (VisualElement)evt.target;
-                            ve.hierarchy[0].style.width = this.layout.width * 0.33f;
-                            ve.hierarchy[1].style.width = this.layout.width * 0.67f;
-                        });
-                        var label = field.Q<Label>();
-                        label.style.flexGrow = 1f;
-                        label.style.flexShrink = 1f;
-                        label.style.overflow = Overflow.Hidden;
-                        label.style.textOverflow = TextOverflow.Ellipsis;
-                        label.style.unityTextAlign = TextAnchor.MiddleLeft;
+                        StyleLabel(field);
+                        // field.RegisterCallback<GeometryChangedEvent>(evt =>
+                        // {
+                        //     var ve = (VisualElement)evt.target;
+                        //     ve.hierarchy[0].style.width = this.layout.width * 0.33f;
+                        //     ve.hierarchy[1].style.width = this.layout.width * 0.67f;
+                        // });
+                        // var label = field.Q<Label>();
+                        // label.style.flexGrow = 1f;
+                        // label.style.flexShrink = 1f;
+                        // label.style.overflow = Overflow.Hidden;
+                        // label.style.textOverflow = TextOverflow.Ellipsis;
+                        // label.style.unityTextAlign = TextAnchor.MiddleLeft;
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<bool>());
@@ -2035,10 +2041,34 @@ namespace VaporEditor.Inspector
         {
             if (!Property.TryGetAttribute<RichTextTooltipAttribute>(out var rtAtr)) return;
 
-            var label = this.Q<Label>();
+            var label = _internalLabel;
             if (label != null)
             {
                 label.tooltip = rtAtr.Tooltip;
+            }
+        }
+
+        private void DrawHelpUrl()
+        {
+            if (!Property.TryGetAttribute<HelpUrlAttribute>(out var helpUrlAtr)) return;
+
+            if (_internalField is PaginatedList paginatedList)
+            {
+                var helpView = new HelpUrlView(helpUrlAtr)
+                {
+                    style =
+                    {
+                        alignSelf = Align.Center,
+                        marginLeft = 3,
+                    }
+                };
+                paginatedList.Header.Insert(1, helpView);
+            }
+            else if (_internalLabel != null)
+            {
+                _internalLabel.Add(new HelpUrlView(helpUrlAtr));
+                _internalLabel.style.alignItems = Align.FlexEnd;
+                _internalLabel.style.justifyContent = Justify.Center;
             }
         }
 
@@ -2258,8 +2288,12 @@ namespace VaporEditor.Inspector
         {
             if (Property.HasAttribute<ReadOnlyAttribute>())
             {
-                _internalLabel?.SetEnabled(false);
-                _internalField.SetEnabled(false);
+                // _internalLabel?.SetEnabled(false);
+                // _internalField.SetEnabled(false);
+                foreach (var visualElement in _internalField.Children())
+                {
+                    visualElement.SetEnabled(false);
+                }
             }
         }
 
@@ -2283,9 +2317,9 @@ namespace VaporEditor.Inspector
                 image.style.width = 16;
                 image.style.height = 16;
                 inlineButton.Add(image);
-                Add(inlineButton);
                 style.flexDirection = FlexDirection.Row;
                 hierarchy[0].style.flexGrow = 1f;
+                filePathTextField.Add(inlineButton);
             }
 
             if (Property.TryGetAttribute<FolderPathAttribute>(out var folderAtr) && hierarchy[0] is TextField folderPathTextField)
@@ -2306,9 +2340,9 @@ namespace VaporEditor.Inspector
                 image.style.width = 16;
                 image.style.height = 16;
                 inlineButton.Add(image);
-                Add(inlineButton);
                 style.flexDirection = FlexDirection.Row;
                 hierarchy[0].style.flexGrow = 1f;
+                folderPathTextField.Add(inlineButton);
             }
 
             string _FormatFilePath(bool absolutePath, string fileExtension)
@@ -2372,20 +2406,31 @@ namespace VaporEditor.Inspector
                     var methodInfo = ReflectionUtility.GetMethod(type, atr.MethodName);
                     if (methodInfo != null)
                     {
-                        string tooltip = TooltipMarkup.FormatString(atr.Tooltip);
-                        var inlineButton = new Button(() => {
+                        string tooltipText = TooltipMarkup.FormatString(atr.Tooltip);
+                        var inlineButton = new VisualElement()
+                        {
+                            // text = atr.Label,
+                            tooltip = tooltipText,
+                            style =
+                            {
+                                flexDirection = FlexDirection.Row,
+                                paddingLeft = 3,
+                                paddingRight = 3
+                            }
+                        }.WithManipulator(new ButtonManipulator(Button.ussClassName)
+                        {
+                            IgnoreDisabled = true,
+                        }.WithOnClick(ClickTypes.ClickOnDown, _ =>
+                        {
                             methodInfo.Invoke(Property.GetParentObject(), null);
                             if (atr.RebuildTree)
                             {
                                 GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
                             }
-                        })
-                        {
-                            text = atr.Label,
-                            tooltip = tooltip,
-                        };
-                        inlineButton.style.paddingLeft = 3;
-                        inlineButton.style.paddingRight = 3;
+                        }).WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse));
+
+                        inlineButton.AddToClassList(Button.ussClassName);
+                        inlineButton.AddStylesheetFromResourcePath("Styles/InlineButton");
                         if (atr.Icon != string.Empty)
                         {
                             var image = new Image
@@ -2403,9 +2448,22 @@ namespace VaporEditor.Inspector
                             inlineButton.Add(image);
                         }
 
-                        Add(inlineButton);
-                        style.flexDirection = FlexDirection.Row;
-                        hierarchy[0].style.flexGrow = 1f;
+                        if (atr.Label != string.Empty)
+                        {
+                            var textField = new TextField(atr.Label);
+                            inlineButton.Add(textField);
+                        }
+
+                        if (_internalField is PaginatedList list)
+                        {
+                            list.Header.Add(inlineButton);
+                        }
+                        else
+                        {
+                            style.flexDirection = FlexDirection.Row;
+                            hierarchy[0].style.flexGrow = 1f;
+                            hierarchy[0].Add(inlineButton);
+                        }
                     }
                 }
             }
@@ -2481,23 +2539,9 @@ namespace VaporEditor.Inspector
 
         private void DrawAutoReference()
         {
-            //if (Property.HasAttribute<AutoReferenceAttribute>())
-            //{
-            //    Debug.Log($"Attribute: {Property.TryGetAttribute<AutoReferenceAttribute>(out var dAtr)}");
-            //    Debug.Log($"Prop Match: {Property.SerializedPropertyType == SerializedPropertyType.ObjectReference}");
-            //    Debug.Log($"Obj Null: {(Object)Property.GetObject() == null}");
-            //    Debug.Log($"Root Component: {Property.InspectorObject.Object is Component}");
-
-            //    Debug.Log(Property.GetObject());
-            //}
-            //else
-            //{
-            //    return;
-            //}
-
             if (Property.TryGetAttribute<AutoReferenceAttribute>(out var atr)
                 && Property.SerializedPropertyType == SerializedPropertyType.ObjectReference
-                && (Object)Property.GetValue() == null
+                && !(Object)Property.GetValue()
                 && Property.InspectorObject.Object is Component component)
             {
                 var comp = component.GetComponent(PropertyType);
@@ -2510,9 +2554,8 @@ namespace VaporEditor.Inspector
                 {
                     comp = component.GetComponentInParent(PropertyType, true);
                 }
-
-                //Property.SetValue(comp);
-                schedule.Execute(() => Property.SetValue(comp));
+                
+                schedule.Execute(() => MarkDirtyWithValue(comp, comp));
             }
         }
 

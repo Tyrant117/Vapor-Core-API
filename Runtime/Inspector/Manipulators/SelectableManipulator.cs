@@ -7,6 +7,7 @@ namespace Vapor.Inspector
     public class SelectableManipulator : HoverManipulator
     {
         public bool Active { get; protected set; }
+        public bool IgnoreDisabled { get; set; }
 
         public bool IsRepeatable => StartDelay > 0 || RepeatInterval > 0;
         public Vector2 LastLocalMousePosition { get; protected set; }
@@ -100,7 +101,7 @@ namespace Vapor.Inspector
         {
             if (IsRepeatable)
             {
-                if (ContainsPointer(LastWorldMousePosition) && target.enabledInHierarchy)
+                if (ContainsPointer(LastWorldMousePosition) && (target.enabledInHierarchy || IgnoreDisabled))
                 {
                     Repeat?.Invoke(target);
                     PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
@@ -162,7 +163,7 @@ namespace Vapor.Inspector
             LastLocalMousePosition = evt.localPosition;
             LastWorldMousePosition = evt.position;
 
-            if (ContainsPointer(evt.position) && target.enabledInHierarchy)
+            if (ContainsPointer(evt.position) && (target.enabledInHierarchy || IgnoreDisabled))
             {
                 InvokePressed(evt);
             }
@@ -210,7 +211,7 @@ namespace Vapor.Inspector
             {
                 Repeater?.Pause();
             }
-            else if (ContainsPointer(evt.position) && target.enabledInHierarchy)
+            else if (ContainsPointer(evt.position) && (target.enabledInHierarchy || IgnoreDisabled))
             {
                 InvokeRelease(evt);
             }

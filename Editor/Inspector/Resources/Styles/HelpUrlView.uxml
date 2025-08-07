@@ -1,0 +1,6 @@
+<engine:UXML xmlns:engine="UnityEngine.UIElements"
+             noNamespaceSchemaLocation="../../../../../../UIElementsSchema/UIElements.xsd"
+             editor-extension-mode="False">
+    <Style src="project://database/Assets/Vapor%20Core%20API/Editor/Inspector/Resources/Styles/HelpUrlView.uss?fileID=7433441132597879392&amp;guid=9b978a1c7ea197f428ac6570f7ac1882&amp;type=3#HelpUrlView" />
+    <engine:Button class="help-url" />
+</engine:UXML>
