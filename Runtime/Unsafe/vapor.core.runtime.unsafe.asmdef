@@ -1,0 +1,14 @@
+{
+    "name": "vapor.core.runtime.unsafe",
+    "rootNamespace": "Vapor.Unsafe",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

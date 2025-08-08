@@ -5,7 +5,8 @@
         "Unity.InputSystem",
         "Unity.Addressables",
         "Unity.ResourceManager",
-        "Unity.Netcode.Runtime"
+        "Unity.Netcode.Runtime",
+        "vapor.core.runtime.unsafe"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
