@@ -5,8 +5,7 @@
   - [Keys](#keys)
   - [Events](#events)
   - [Observable Values](#observable-values)
-  - [State Machine](#state-machine)
-  - [Networking](#networking)
+  - [UI Components](#state-machine)
   - [Inspector](#inspector)
 
 ## Introduction
@@ -94,60 +93,8 @@ public class ExampleHealth : MonoBehaviour
 }
 ```
 
-### State Machine
-A simple state machine system that is code-first and can optionally handle layers for running multiple machines at once.
-
-#### How To Use
-Here is an example of a simple state machine that constantly loops around three states.
-```csharp
-public class ExampleStateMachine : MonoBehaviour
-{
-    private StateMachine _stateMachine;
-
-    private void Awake()
-    {
-        _stateMachine = new StateMachine("Example FSM", false);
-        
-        _stateMachine.AddState(new State("First", false));
-        _stateMachine.AddState(new State("Second", false));
-        _stateMachine.AddState(new State("Third", false));
-        
-        _stateMachine.AddTransition(new Transition("First", "Second", 1, FirstToSecondCondition));
-        _stateMachine.AddTransition(new Transition("Second", "Third", 1, SecondToThirdCondition));
-        _stateMachine.AddTransition(new Transition("Third", "First", 1, ThirdToFirstCondition));
-        
-        _stateMachine.Init();
-    }
-
-    private void Update()
-    {
-        _stateMachine.OnUpdate();
-    }
-
-    private bool FirstToSecondCondition(Transition arg)
-    {
-        return true;
-    }
-    
-    private bool SecondToThirdCondition(Transition arg)
-    {
-        return true;
-    }
-    
-    private bool ThirdToFirstCondition(Transition arg)
-    {
-        return true;
-    }
-}
-```
-
-### Networking
-A networking system with the KCP and SteamP2P as optional transport layers. Shares similarities to Mirror but is made the way I like it. 
-Has interest management, automatic partial state synchronization, and snapshot interpolation. 
-Has expanded functionality for MMO-like account and backend management.
-
-#### How To Use
- - Coming Soon
+### UI Components
+A simple Mantine-like component library for UI Toolkit.
 
 ### Inspector
 An Odin-like custom inspector system fully running in the new Unity UI Toolkit. The backbone of custom drawers for the rest of the SDK.
