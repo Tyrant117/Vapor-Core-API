@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using Vapor.Inspector;
 using Vapor.Keys;
@@ -8,7 +6,7 @@ namespace Vapor.Events
 {
     public class ProvidesTransform : VaporBehaviour
     {
-        [SerializeField, Dropdown("@GetAllProviderKeyValues", searchable: true), IgnoreCustomDrawer]
+        [SerializeField, Dropdown(EventKeyUtility.PROVIDERS_CATEGORY_NAME, DropdownAttribute.FilterType.Category), IgnoreCustomDrawer]
         private KeyDropdownValue _key;
         [SerializeField]
         private Transform _transform;
@@ -30,11 +28,6 @@ namespace Vapor.Events
         private Transform OnComponentRequested()
         {
             return _transform;
-        }
-
-        public static List<DropdownModel> GetAllProviderKeyValues()
-        {
-            return EventKeyUtility.GetAllProviderKeyValues();
         }
     }
 }
