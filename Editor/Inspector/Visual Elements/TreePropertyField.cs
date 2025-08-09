@@ -162,6 +162,12 @@ namespace VaporEditor.Inspector
                 List<object> values = new();
                 keys.Add("Null");
                 values.Add(null);
+                if (!PropertyType.IsAbstract)
+                {
+                    keys.Add($"{PropertyType.Namespace}/{PropertyType.Name}");
+                    values.Add(PropertyType);
+                }
+
                 var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Select(t => new DropdownModel(t.Namespace, t.Name, t));
                 SplitTupleToDropdown(keys, values, types);
 
