@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Vapor;
 using Vapor.Inspector;
 using Vapor.Keys;
 
@@ -23,7 +20,7 @@ namespace Vapor.Events
         public static List<DropdownModel> GetAllEventKeys()
         {
             var allProviderKeys = RuntimeAssetDatabaseUtility.FindAssetsByType<EventKeySo>();
-            return allProviderKeys.Select(so => new DropdownModel(so.DisplayName, so)).ToList();
+            return allProviderKeys.Select(so => new DropdownModel(so.DisplayName, so, so.DisplayName)).ToList();
         }
         
         /// <summary>
@@ -42,7 +39,7 @@ namespace Vapor.Events
         public static List<DropdownModel> GetAllProviderKeys()
         {
             var allProviderKeys = RuntimeAssetDatabaseUtility.FindAssetsByType<ProviderKeySo>();
-            return allProviderKeys.Select(so => new DropdownModel(so.DisplayName, so)).ToList();
+            return allProviderKeys.Select(so => new DropdownModel(so.DisplayName, so, so.DisplayName)).ToList();
         }
 
         /// <summary>

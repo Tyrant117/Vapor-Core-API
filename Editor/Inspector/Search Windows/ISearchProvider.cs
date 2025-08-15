@@ -90,7 +90,7 @@ namespace VaporEditor.Inspector
 
         public void SetModelToggled(string uniqueName)
         {
-            var model = _cachedDescriptors.FirstOrDefault(sm => sm.Category.EmptyOrNull() ? sm.Name == uniqueName : sm.GetFullName() == uniqueName);
+            var model = _cachedDescriptors.FirstOrDefault(sm => sm.Category.EmptyOrNull() ? sm.Name == uniqueName : sm.UniqueName == uniqueName);
             if (model != null)
             {
                 model.IsToggled = true;

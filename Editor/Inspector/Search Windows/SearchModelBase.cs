@@ -1,26 +1,27 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace VaporEditor.Inspector
 {
     public abstract class SearchModelBase
     {
         // Required
+        public string UniqueName { get; }
         public string Category { get; }
         public string Name { get; }
         public bool SupportFavorite { get; private set; }
         
         // Optional
         public List<string> Synonyms { get; private set; }
+        public string Tooltip { get; set; }
 
         // User Data
         public object UserData { get; private set; }
 
         public string GetFullName() => $"{Category}/{Name}";
 
-        protected SearchModelBase(string category, string name, bool supportFavorite = true)
+        protected SearchModelBase(string uniqueName, string category, string name, bool supportFavorite = true)
         {
+            UniqueName = uniqueName;
             Category = category;
             Name = name;
             SupportFavorite = supportFavorite;

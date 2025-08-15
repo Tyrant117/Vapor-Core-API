@@ -156,33 +156,75 @@ namespace VaporEditor.Inspector
                 {
                     referenceGroup = new StyledFoldout(niceName);
                 }
-                
 
-                List<string> keys = new();
-                List<object> values = new();
-                keys.Add("Null");
-                values.Add(null);
-                if (!PropertyType.IsAbstract)
+                bool flattenCategories = false;
+                bool showNullType = true;
+                bool drawSelector = true;
+                if (Property.TryGetAttribute<SerializeReferenceDrawerAttribute>(out var drawerAttribute))
                 {
-                    keys.Add($"{PropertyType.Namespace}/{PropertyType.Name}");
-                    values.Add(PropertyType);
+                    flattenCategories = drawerAttribute.FlattenCategories;
+                    showNullType = drawerAttribute.ShowNullType;
+                    drawSelector = drawerAttribute.DrawSelector;
                 }
 
-                var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Select(t => new DropdownModel(t.Namespace, t.Name, t));
-                SplitTupleToDropdown(keys, values, types);
 
-                var current = Property.GetValue();
-                var cIdx = current == null ? 0 : Mathf.Max(0, values.IndexOf(current.GetType()));
-                var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, false);                
-
-                comboBox.SelectionChanged += OnSerializeReferenceSelectionChanged;
-                referenceGroup.Add(comboBox);
-                if (cIdx > 0)
+                if (drawSelector)
                 {
-                    InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
-                    InspectorTreeRootElement subRoot = new(ito);
-                    subRoot.DrawToScreen(referenceGroup);
+                    List<string> keys = new();
+                    List<object> values = new();
+                    List<string> tooltips = new();
+                    if (showNullType)
+                    {
+                        keys.Add("Null");
+                        values.Add(null);
+                    }
+
+                    if (!PropertyType.IsAbstract)
+                    {
+                        keys.Add($"{PropertyType.Namespace}/{PropertyType.Name}");
+                        values.Add(PropertyType);
+                    }
+
+                    var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Where(t => !t.IsDefined(typeof(IgnoreDropdownAttribute)));
+                    var dropdownModels = types.Select(t => new DropdownModel(t.Namespace, t.Name, t, t.GetCustomAttribute<DropdownTooltipAttribute>()?.Tooltip ?? t.Name));
+                    SplitTupleToDropdown(keys, values, tooltips, dropdownModels);
+
+                    var current = Property.GetValue();
+                    var cIdx = current == null ? 0 : Mathf.Max(0, values.IndexOf(current.GetType()));
+                    var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, tooltips, false, flattenCategories: flattenCategories);
+
+                    comboBox.SelectionChanged += OnSerializeReferenceSelectionChanged;
+                    referenceGroup.Add(comboBox);
+                    
+                    if (current != null)
+                    {
+                        InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
+                        InspectorTreeRootElement subRoot = new(ito);
+                        subRoot.DrawToScreen(referenceGroup);
+                    }
                 }
+                else
+                {
+                    var current = Property.GetValue();
+                    ValueChanged += (sender, old, @new) =>
+                    {
+                        referenceGroup.Q<InspectorTreeRootElement>().RemoveFromHierarchy();
+                        if (@new != null)
+                        {
+                            InspectorTreeObject ito = new InspectorTreeObject(@new, @new.GetType()).WithParent(Property.InspectorObject);
+                            InspectorTreeRootElement subRoot = new(ito);
+                            subRoot.DrawToScreen(referenceGroup);
+                        }
+                    };
+
+                    if (current != null)
+                    {
+                        InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
+                        InspectorTreeRootElement subRoot = new(ito);
+                        subRoot.DrawToScreen(referenceGroup);
+                    }
+                }
+
                 return referenceGroup;
             }
 
@@ -190,6 +232,7 @@ namespace VaporEditor.Inspector
             {
                 List<string> keys = new();
                 List<object> values = new();
+                List<string> tooltips = new();
 
                 switch (dropdownAttribute.Filter)
                 {
@@ -197,35 +240,36 @@ namespace VaporEditor.Inspector
                         var mi = ReflectionUtility.GetMember(Property.ParentType, dropdownAttribute.Resolver);
                         if (ReflectionUtility.TryResolveMemberValue<IEnumerable<DropdownModel>>(Property.GetParentObject(), mi, null, out var convert))
                         {
-                            SplitTupleToDropdown(keys, values, convert);
+                            SplitTupleToDropdown(keys, values, tooltips, convert);
                         }
                         else
                         {
                             Debug.LogError($"Could Not Resolve IEnumerable<DropdownModel> at Property: {Property.InspectorObject.Type.Name} Resolver: {dropdownAttribute.Resolver}");
                         }
+
                         break;
                     case 1:
-                        {
-                           
-                            // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                            // if(keyUtilityType == null)
-                            // {
-                                // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
-                            // }
-                            // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromCategory", BindingFlags.Public | BindingFlags.Static);
-                            SplitTupleToDropdown(keys, values, KeyUtility.GetAllKeysFromCategory(dropdownAttribute.Resolver));
-                        }
+                    {
+
+                        // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                        // if(keyUtilityType == null)
+                        // {
+                        // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
+                        // }
+                        // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromCategory", BindingFlags.Public | BindingFlags.Static);
+                        SplitTupleToDropdown(keys, values, tooltips, KeyUtility.GetAllKeysFromCategory(dropdownAttribute.Resolver));
+                    }
                         break;
                     case 2:
-                        {
-                            // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
-                            // if (keyUtilityType == null)
-                            // {
-                                // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
-                            // }
-                            // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromTypeName", BindingFlags.Public | BindingFlags.Static);
-                            SplitTupleToDropdown(keys, values, KeyUtility.GetAllKeysFromTypeName(dropdownAttribute.Resolver));
-                        }
+                    {
+                        // var keyUtilityType = Type.GetType("Vapor.Keys.KeyUtility, vapor.core.runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null");
+                        // if (keyUtilityType == null)
+                        // {
+                        // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
+                        // }
+                        // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromTypeName", BindingFlags.Public | BindingFlags.Static);
+                        SplitTupleToDropdown(keys, values, tooltips, KeyUtility.GetAllKeysFromTypeName(dropdownAttribute.Resolver));
+                    }
                         break;
                 }
 
@@ -241,7 +285,7 @@ namespace VaporEditor.Inspector
                             values.RemoveAt(idNone);
                         }
                         
-                        var comboBox = new ComboBox<object>(niceName, -1, keys, values, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
+                        var comboBox = new ComboBox<object>(niceName, -1, keys, values, null, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
                         List<int> selectedIdx = new();
                         foreach (var elem in Property.ArrayData)
                         {
@@ -267,7 +311,7 @@ namespace VaporEditor.Inspector
                 {
                     var current = Property.GetValue();
                     var cIdx = Mathf.Max(0, values.IndexOf(current));
-                    var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, false, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
+                    var comboBox = new ComboBox<object>(niceName, cIdx, keys, values, null, false, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
 
                     comboBox.SelectionChanged += OnComboBoxSelectionChanged;
                     return comboBox;
@@ -438,11 +482,14 @@ namespace VaporEditor.Inspector
                             }
                         };
                         StyleLabel(field);
+                        // var label = field.Q<Label>();
+                        // label.style.minWidth = StyleKeyword.Null;
+                        // label.style.maxWidth = StyleKeyword.Null;
                         // field.RegisterCallback<GeometryChangedEvent>(evt =>
                         // {
                         //     var ve = (VisualElement)evt.target;
-                        //     ve.hierarchy[0].style.width = this.layout.width * 0.33f;
-                        //     ve.hierarchy[1].style.width = this.layout.width * 0.67f;
+                        //     ve.hierarchy[0].style.width = layout.width * 0.33f;
+                        //     ve.hierarchy[1].style.width = layout.width * 0.67f;
                         // });
                         // var label = field.Q<Label>();
                         // label.style.flexGrow = 1f;
@@ -2056,7 +2103,17 @@ namespace VaporEditor.Inspector
 
         private void DrawHelpUrl()
         {
-            if (!Property.TryGetAttribute<HelpUrlAttribute>(out var helpUrlAtr)) return;
+            if (!Property.TryGetAttribute<HelpUrlAttribute>(out var helpUrlAtr))
+            {
+                // This is a hack to get the width of labels working correctly, because Unity's Toggle is not good.
+                if (_internalField is Toggle)
+                {
+                    _internalLabel.Add(new VisualElement());
+                    _internalLabel.style.alignItems = Align.FlexEnd;
+                    _internalLabel.style.justifyContent = Justify.Center;
+                }
+                return;
+            }
 
             if (_internalField is PaginatedList paginatedList)
             {
@@ -2770,7 +2827,7 @@ namespace VaporEditor.Inspector
         #endregion
 
         #region - Helper -
-        private static void SplitTupleToDropdown(List<string> keys, List<object> values, IEnumerable<DropdownModel> toConvert)
+        private static void SplitTupleToDropdown(List<string> keys, List<object> values, List<string> tooltips, IEnumerable<DropdownModel> toConvert)
         {
             if (toConvert == null)
             {
@@ -2782,6 +2839,7 @@ namespace VaporEditor.Inspector
                 var category = model.Category;
                 var name = model.Name;
                 var value = model.Value;
+                var tooltip = model.Tooltip;
 
                 if (name == null || value == null)
                 {
@@ -2796,6 +2854,7 @@ namespace VaporEditor.Inspector
 
                 keys.Add(name);
                 values.Add(value);
+                tooltips.Add(tooltip ?? name);
             }
         }
 
@@ -2847,18 +2906,21 @@ namespace VaporEditor.Inspector
             label.style.maxWidth = new StyleLength(new Length(33, LengthUnit.Percent));
         }
 
-        public static VisualElement DrawSerializableReference(string displayName, VisualElement outerElement, object currentType, Type referenceType, Action<ComboBox<object>, List<int>> OnReferenceChanged, InspectorTreeObject parent)
+        public static VisualElement DrawSerializableReference(string displayName, VisualElement outerElement, object currentType, Type referenceType,
+            Action<ComboBox<object>, List<int>> OnReferenceChanged, InspectorTreeObject parent)
         {
             List<string> keys = new();
             List<object> values = new();
+            List<string> tooltips = new();
             keys.Add("Null");
             values.Add(null);
-            var types = ReflectionUtility.GetAssignableTypesOf(referenceType).Select(t => new DropdownModel(t.Namespace, t.Name, t));
-            SplitTupleToDropdown(keys, values, types);
+            var types = ReflectionUtility.GetAssignableTypesOf(referenceType)
+                .Select(t => new DropdownModel(t.Namespace, t.Name, t, t.GetCustomAttribute<DropdownTooltipAttribute>()?.Tooltip ?? t.Name));
+            SplitTupleToDropdown(keys, values, tooltips, types);
 
             var current = currentType;
             var cIdx = current == null ? 0 : Mathf.Max(0, values.IndexOf(current.GetType()));
-            var comboBox = new ComboBox<object>(displayName, cIdx, keys, values, false);                
+            var comboBox = new ComboBox<object>(displayName, cIdx, keys, values, null, false);
 
             comboBox.SelectionChanged += OnReferenceChanged;
             outerElement.Add(comboBox);
@@ -2868,8 +2930,10 @@ namespace VaporEditor.Inspector
                 InspectorTreeRootElement subRoot = new(ito);
                 subRoot.DrawToScreen(outerElement);
             }
+
             return outerElement;
         }
+
         #endregion
     }
 }

@@ -8,7 +8,7 @@ namespace Vapor
     [Serializable, DrawWithVapor(UIGroupType.Vertical)]
     public class SubclassOf<T>
     {
-        [SerializeField, TypeSelector("@GetSubclassType", flattenCategories: true)]
+        [SerializeField, TypeSelector("@GetSubclassType", flattenCategories: true), InheritedLabel]
         private string _assemblyQualifiedType;
         
         [NonSerialized]

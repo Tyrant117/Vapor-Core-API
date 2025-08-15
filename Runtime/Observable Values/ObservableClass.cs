@@ -56,7 +56,7 @@ namespace Vapor.Observables
         /// <summary>
         /// A unique id for this instance of the class.
         /// </summary>
-        public ushort Id { get; }
+        public ushort Key { get; }
 
         /// <summary>
         /// Gets a field based on the ID and casts it to a type that inherits from <see cref="Observable"/>. There is no checking, will throw errors on invalid id.
@@ -81,16 +81,16 @@ namespace Vapor.Observables
         /// </summary>
         public event Action<ObservableClass, Observable> Dirtied;
 
-        protected ObservableClass(ushort id)
+        protected ObservableClass(ushort key)
         {
-            Name = id.ToString();
-            Id = id;
+            Name = key.ToString();
+            Key = key;
         }
 
         protected ObservableClass(string className)
         {
             Name = className;
-            Id = Name.GetStableHashU16();
+            Key = Name.GetStableHashU16();
         }
 
         #region - Fields -

@@ -24,8 +24,9 @@ namespace VaporEditor.Inspector
 
         private string _categorySplitCharacter;
         private GenericSearchProvider _searchProvider;
-        private readonly List<string> _pendingSelection = new();
+        private readonly List<string> _pendingSelection;
         private readonly StringBuilder _stringBuilder = new();
+        private readonly bool _flattenCategories;
 
         public event Action<ComboBox<T>, List<int>> SelectionChanged;
 
@@ -41,7 +42,10 @@ namespace VaporEditor.Inspector
             Values.Add(default);
             var searchModels = new List<GenericSearchModel>()
             {
-                new(string.Empty, "Invalid Choices")
+                new("Invalid Choices", string.Empty, "Invalid Choices")
+                {
+                    Tooltip = string.Empty,
+                }
             };
             _searchProvider = new GenericSearchProvider(OnSelect, searchModels, false);
 
@@ -101,7 +105,8 @@ namespace VaporEditor.Inspector
             Select(Choices[0]);
         }
 
-        public ComboBox(string label, int selectedIndex, List<string> choices, List<T> values, bool multiSelect, bool noCopy = false, string categorySplitCharacter = null)
+        public ComboBox(string label, int selectedIndex, List<string> choices, List<T> values, List<string> tooltips, bool multiSelect, bool noCopy = false, string categorySplitCharacter = null,
+            bool flattenCategories = false)
         {
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
             style.flexDirection = FlexDirection.Row;
@@ -118,6 +123,7 @@ namespace VaporEditor.Inspector
                 Values = new List<T>(values);
             }
             _categorySplitCharacter = categorySplitCharacter;
+            _flattenCategories = flattenCategories;
             
 
             if (Choices.Count == 0)
@@ -132,6 +138,7 @@ namespace VaporEditor.Inspector
             CurrentSelectedIndices = new List<int>(count);
 
             var searchModels = new List<GenericSearchModel>();
+            int idx = 0;
             foreach (var choice in choices)
             {
                 string c = _categorySplitCharacter.EmptyOrNull() ? choice : choice.Replace(_categorySplitCharacter[0], '/');
@@ -144,8 +151,12 @@ namespace VaporEditor.Inspector
                     cName = c[(lastIdx + 1)..];
                 }
 
-                var sm = new GenericSearchModel(category, cName);
+                var sm = new GenericSearchModel(category.EmptyOrNull() ? cName : $"{category}/{cName}", _flattenCategories ? string.Empty : category, cName)
+                {
+                    Tooltip = (tooltips?.IsValidIndex(idx) ?? false) ? tooltips[idx] : string.Empty, 
+                };
                 searchModels.Add(sm);
+                idx++;
             }
 
             _searchProvider = new GenericSearchProvider(OnSelect, searchModels, multiSelect);
@@ -211,17 +222,19 @@ namespace VaporEditor.Inspector
         {
             if (searchModels != null)
             {
-                Select(searchModels.Select(sm => sm.Category.EmptyOrNull() ? sm.Name : $"{sm.Category}/{sm.Name}"));
+                Select(searchModels.Select(sm => sm.UniqueName /*sm.Category.EmptyOrNull() ? sm.Name : $"{sm.Category}/{sm.Name}"*/));
             }
         }
 
-        public void SetChoices(List<string> choices, List<T> values, string categorySplitCharacter = null)
+        public void SetChoices(List<string> choices, List<T> values, List<string> tooltips, string categorySplitCharacter = null)
         {
             Assert.IsTrue(choices.Count == values.Count, "Choices and Values length must match");
             Choices = new List<string>(choices);
             Values = new List<T>(values);
             var searchModels = new List<GenericSearchModel>();
             _categorySplitCharacter = categorySplitCharacter.EmptyOrNull() ? _categorySplitCharacter : categorySplitCharacter;
+            
+            int idx = 0;
             foreach (var choice in choices)
             {
                 string c = _categorySplitCharacter.EmptyOrNull() ? choice : choice.Replace(_categorySplitCharacter[0], '/');
@@ -234,8 +247,12 @@ namespace VaporEditor.Inspector
                     cName = c[(lastIdx + 1)..];
                 }
 
-                var sm = new GenericSearchModel(category, cName);
+                var sm = new GenericSearchModel(category.EmptyOrNull() ? cName : $"{category}/{cName}", _flattenCategories ? string.Empty : category, cName)
+                {
+                    Tooltip = (tooltips?.IsValidIndex(idx) ?? false) ? tooltips[idx] : string.Empty,
+                };
                 searchModels.Add(sm);
+                idx++;
             }
 
             var multiSelect = _searchProvider.AllowMultiSelect;

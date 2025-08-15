@@ -68,7 +68,7 @@ namespace Vapor.Keys
             }
             else
             {
-                return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
+                return new List<DropdownModel>() { new ("None", KeyDropdownValue.None, "None") };
             }
 #else
             return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
@@ -93,7 +93,7 @@ namespace Vapor.Keys
             }
             else
             {
-                return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
+                return new List<DropdownModel>() { new ("None", KeyDropdownValue.None, "None") };
             }
 #else
             return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
@@ -107,7 +107,7 @@ namespace Vapor.Keys
                 {
                     ("None", KeyDropdownValue.None),
                 })
-                .Select(t => new DropdownModel(t.Item1,t.Item2)).ToList();
+                .Select(t => new DropdownModel(t.Item1,t.Item2, t.Item1)).ToList();
 #else
             return new List<DropdownModel>() { new ("None", KeyDropdownValue.None) };
 #endif
@@ -119,7 +119,7 @@ namespace Vapor.Keys
                 {
                     ("None", KeyDropdownValue.None),
                 })
-                .Select(t => new DropdownModel(t.Item1, t.Item2)).ToList();
+                .Select(t => new DropdownModel(t.Item1, t.Item2, t.Item1)).ToList();
         }
 
         private static string GetKeyCategory(Type type)

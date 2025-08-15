@@ -73,7 +73,7 @@ namespace Vapor.Keys
         /// <summary>
         /// Returns the "None" KeyDropdownValue.
         /// </summary>
-        public static KeyDropdownValue None => new(string.Empty, 0, string.Empty);
+        public static KeyDropdownValue None => new(null, 0, "None");
 
         [Conditional("UNITY_EDITOR")]
         public void Select()

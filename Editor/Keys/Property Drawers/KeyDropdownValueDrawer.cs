@@ -199,7 +199,7 @@ namespace VaporEditor.Keys
                     return null;
                 }
 
-                var comboBox = new ComboBox<object>(displayName, -1, keys, values, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
+                var comboBox = new ComboBox<object>(displayName, -1, keys, values, null, true, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
                 List<int> selectedIdx = new();
                 foreach (var elem in Property.ArrayData)
                 {
@@ -225,7 +225,7 @@ namespace VaporEditor.Keys
                 var horizontal = new StyledHorizontalGroup();
                 var current = Property.GetValue();
                 var cIdx = Mathf.Max(0, values.IndexOf(current));
-                var comboBox = new ComboBox<object>(displayName, cIdx, keys, values, false, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
+                var comboBox = new ComboBox<object>(displayName, cIdx, keys, values, null, false, categorySplitCharacter: dropdownAttribute.CategorySplitCharacter);
 
                 comboBox.SelectionChanged += Field.OnComboBoxSelectionChanged;
                 horizontal.Add(comboBox);

@@ -19,7 +19,7 @@ namespace VaporEditor.Events
 
             _ConvertToTupleList(keys, values, EventKeyUtility.GetAllEventKeyValues());
             var indexOfCurrent = values.IndexOf((KeyDropdownValue)key.boxedValue);
-            var dropdown = new ComboBox<KeyDropdownValue>(property.displayName, indexOfCurrent, keys, values, false)
+            var dropdown = new ComboBox<KeyDropdownValue>(property.displayName, indexOfCurrent, keys, values, null, false)
             {
                 name = fieldInfo.Name,
                 userData = key,

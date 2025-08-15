@@ -16,8 +16,8 @@ namespace VaporEditor.Inspector
             SetMultiSelect(MultiSelect);
         }
 
-        public DropdownElement(string label, int selectedIndex, List<string> choices, List<object> values, bool multiSelect, bool noCopy = false) : base(label, selectedIndex, choices, values,
-            multiSelect, noCopy)
+        public DropdownElement(string label, int selectedIndex, List<string> choices, List<object> values, bool multiSelect, bool noCopy = false) : base(label, selectedIndex, choices, values, null,
+            multiSelect, noCopy: noCopy)
         {
             
         }

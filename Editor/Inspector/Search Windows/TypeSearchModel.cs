@@ -5,8 +5,8 @@ namespace VaporEditor.Inspector
     public class TypeSearchModel : SearchModelBase
     {
         public Type Type { get; set; }
-        
-        public TypeSearchModel(string category, string name, bool supportFavorite, Type type) : base(category, name, supportFavorite)
+
+        public TypeSearchModel(string category, string name, bool supportFavorite, Type type) : base($"{category}/{name}", category, name, supportFavorite)
         {
             Type = type;
         }

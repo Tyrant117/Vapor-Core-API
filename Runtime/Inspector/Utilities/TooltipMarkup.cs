@@ -26,6 +26,13 @@ namespace Vapor.Inspector
         public const string InsertTextStart = "<i><color=#CC5500>";
         public const string InsertTextEnd = "</color></i>";
 
+        public const string NewLine = "\u000A";
+        public const string Tab = "\u0009";
+        public const string ListBullet = "\u2022";
+
+        public const string ListStart = "\u2022\u0009";
+        public const string ListEnd = "\u000A";
+
         private static readonly StringBuilder s_Sb = new();
 
         public static string LangWord(string langWord) => $"{LangWordStart}{langWord}{LangWordEnd}";
@@ -55,6 +62,10 @@ namespace Vapor.Inspector
             s_Sb.Replace("</mth>", MethodEnd);
             s_Sb.Replace("<otx>", InsertTextStart);
             s_Sb.Replace("</otx>", InsertTextEnd);
+            s_Sb.Replace("<br>", NewLine);
+            s_Sb.Replace("<tab>", Tab);
+            s_Sb.Replace("<lst>", ListStart);
+            s_Sb.Replace("</lst>", ListEnd);
             return s_Sb.ToString();
         }
     }
