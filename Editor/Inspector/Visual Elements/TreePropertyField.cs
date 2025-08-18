@@ -2513,7 +2513,10 @@ namespace VaporEditor.Inspector
 
                         if (atr.Label != string.Empty)
                         {
-                            var textField = new TextField(atr.Label);
+                            var textField = new TextElement()
+                            {
+                                text = atr.Label,
+                            };
                             inlineButton.Add(textField);
                         }
 
