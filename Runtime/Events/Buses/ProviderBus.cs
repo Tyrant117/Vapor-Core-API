@@ -122,6 +122,8 @@ namespace Vapor.Events
             ProviderMap.Add(eventID, Activator.CreateInstance<T>());
             return (T)ProviderMap[eventID];
         }
+        
+        public static T GetBehaviour<T>(int providerId) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).Request<T>();
 
         /// <summary>
         /// Directly attempts to get the component associated with a <see cref="CachedProviderData{TResult}"/>
@@ -145,6 +147,8 @@ namespace Vapor.Events
         /// <returns>The component of type T or null</returns>
         public static T GetComponent<T>(ProviderKeySo providerKey) where T : Component => Get<CachedProviderData<Component>>(providerKey).Request<T>();
 
+        public static IEnumerator GetBehaviourRoutine<T>(int providerId, Action<T> callback) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestRoutine(callback);
+        
         /// <summary>
         /// Retrieves the component of type T from a provider once its value is not null.
         /// </summary>
@@ -170,6 +174,12 @@ namespace Vapor.Events
         /// <returns>An enumerator that should be used in a <see cref="MonoBehaviour.StartCoroutine(IEnumerator)"/></returns>
         public static IEnumerator GetComponentRoutine<T>(ProviderKeySo providerKey, Action<T> callback) where T : Component => Get<CachedProviderData<Component>>(providerKey).RequestRoutine(callback);
 
+        public static async Awaitable<T> GetBehaviourAsync<T>(int providerId) where T : ProvidesBehaviour
+        {
+            var c = await Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestAsync<T>();
+            return c;
+        }
+        
         public static async Awaitable<T> GetComponentAsync<T>(int providerId) where T : Component
         {
             var c = await Get<CachedProviderData<Component>>(providerId).RequestAsync<T>();

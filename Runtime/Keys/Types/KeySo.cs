@@ -34,8 +34,8 @@ namespace Vapor.Keys
             var type = GetKeyScriptType();
             var scriptName = type.Name;
             scriptName = scriptName.Replace("Scriptable", "");
-            scriptName = scriptName.Replace("SO", "");
-            scriptName = scriptName.Replace("So", "");
+            scriptName = scriptName.EndsWith("SO") ? scriptName[..^2] : scriptName;
+            scriptName = scriptName.EndsWith("So") ? scriptName[..^2] : scriptName;
             scriptName = scriptName.Replace("Key", "");
             KeyGenerator.GenerateKeys(type, $"{scriptName}Keys");
             GenerateAdditionalKeys();
