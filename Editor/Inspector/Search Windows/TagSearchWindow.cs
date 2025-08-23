@@ -356,6 +356,11 @@ namespace VaporEditor.Inspector
                 if (evt.button == (int)MouseButton.LeftMouse && evt.clickCount == 2)
                 {
                     var item = (Descriptor)treeView.selectedItem;
+                    if (item == null)
+                    {
+                        return;
+                    }
+                    
                     if(item.SearchModel.CanToggle())
                     {
                         Select(item);
