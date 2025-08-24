@@ -372,8 +372,10 @@ namespace VaporEditor.Inspector
                 _stringBuilder.Append("None");
             }
 
-            DropdownLabel.text = _stringBuilder.ToString();
-            Dropdown.tooltip = _stringBuilder.ToString().Replace(',', '\n');
+            var labelName = _stringBuilder.ToString();
+            var lastIndex = labelName.LastIndexOf(_categorySplitCharacter.EmptyOrNull() ? '/' : _categorySplitCharacter[0]);
+            DropdownLabel.text = labelName[(lastIndex + 1)..];
+            Dropdown.tooltip = labelName.Replace(',', '\n').Replace('/', '\n');
             SelectionChanged?.Invoke(this, CurrentSelectedIndices);
         }
 
