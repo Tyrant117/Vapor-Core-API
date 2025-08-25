@@ -185,7 +185,7 @@ namespace VaporEditor.Inspector
                         values.Add(PropertyType);
                     }
 
-                    var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Where(t => !t.IsDefined(typeof(IgnoreDropdownAttribute)));
+                    var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Where(t => !t.IsDefined(typeof(IgnoreDropdownAttribute)) && t.IsDefined(typeof(SerializableAttribute)) && !t.IsSubclassOf(typeof(Object)));
                     var dropdownModels = types.Select(t => new DropdownModel(t.Namespace, t.Name, t, t.GetCustomAttribute<DropdownTooltipAttribute>()?.Tooltip ?? t.Name));
                     SplitTupleToDropdown(keys, values, tooltips, dropdownModels);
 

@@ -35,7 +35,7 @@ namespace Vapor.Inspector
 
             foreach (var tag in tags)
             {
-                string[] parts = tag.Name.Split('.');
+                string[] parts = tag.Name.Split('.', StringSplitOptions.RemoveEmptyEntries);
                 string currentPath = "";
                 TNode parent = null;
 
@@ -48,7 +48,7 @@ namespace Vapor.Inspector
                         currentNode = new TNode()
                         {
                             Name = currentPath,
-                            Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.GetStableHashU16(),
+                            Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.Replace(" ", "").GetStableHashU16(),
                             Children = new List<TNode>(),
                             Parent = parent,
                         };

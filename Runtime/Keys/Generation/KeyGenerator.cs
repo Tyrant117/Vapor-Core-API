@@ -538,7 +538,7 @@ namespace Vapor.Keys
             
             string dataPath = Application.dataPath;
             string projectRoot = Directory.GetParent(dataPath)!.FullName;
-            Debug.Log("Project Root: " + projectRoot);
+            // Debug.Log("Project Root: " + projectRoot);
             
             // Move up to the parent directory
             currentDirectory = Directory.GetParent(currentDirectory)?.FullName;

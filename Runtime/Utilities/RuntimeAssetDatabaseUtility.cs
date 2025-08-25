@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using System;
+using Vapor.Keys;
 using Object = UnityEngine.Object;
 
 
@@ -34,6 +35,17 @@ namespace Vapor
             return guids.Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Object>).Where(asset => asset != null).ToList();
 #else
             return null;
+#endif
+        }
+
+        public static T FindAssetByKey<T>(ushort key) where T : NamedKeySo
+        {
+
+#if UNITY_EDITOR
+            var guids = AssetDatabase.FindAssets($"t:{typeof(T)}");
+            return guids.Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<T>).FirstOrDefault(asset => asset && asset.Key == key);
+#else
+            return RuntimeDatabase<T>.Get(key);
 #endif
         }
     }
