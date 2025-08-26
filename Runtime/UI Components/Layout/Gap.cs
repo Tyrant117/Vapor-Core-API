@@ -64,20 +64,24 @@ namespace Vapor.UIComponents
             {
                 return;
             }
+           
+            schedule.Execute(_ =>
+            {
+                var fd = parent.resolvedStyle.flexDirection;
+                if (fd is FlexDirection.Column or FlexDirection.ColumnReverse)
+                {
+                    style.height = Size;
+                    style.minHeight = Size;
+                    style.maxHeight = Size;
+                }
+                else
+                {
+                    style.width = Size;
+                    style.minWidth = Size;
+                    style.maxWidth = Size;
+                }
+            }).ExecuteLater(100);
             
-            var fd = parent.style.flexDirection.value;
-            if (fd is FlexDirection.Column or FlexDirection.ColumnReverse)
-            {
-                style.height = Size;
-                style.minHeight = Size;
-                style.maxHeight = Size;
-            }
-            else
-            {
-                style.width = Size;
-                style.minWidth = Size;
-                style.maxWidth = Size;
-            }
         }
     }
 }
