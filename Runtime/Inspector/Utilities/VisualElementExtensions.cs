@@ -432,6 +432,13 @@ namespace Vapor.Inspector
             
             return visualElement;
         }
+
+        public static VisualElement SetImage(this VisualElement visualElement, Sprite image)
+        {
+            visualElement.style.backgroundImage = new StyleBackground(image);
+            return visualElement;
+        }
+
         #endregion
 
         #region - Utility -
