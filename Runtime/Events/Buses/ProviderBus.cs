@@ -174,9 +174,9 @@ namespace Vapor.Events
         /// <returns>An enumerator that should be used in a <see cref="MonoBehaviour.StartCoroutine(IEnumerator)"/></returns>
         public static IEnumerator GetComponentRoutine<T>(ProviderKeySo providerKey, Action<T> callback) where T : Component => Get<CachedProviderData<Component>>(providerKey).RequestRoutine(callback);
 
-        public static async Awaitable<T> GetBehaviourAsync<T>(int providerId) where T : ProvidesBehaviour
+        public static Awaitable<T> GetBehaviourAsync<T>(int providerId) where T : ProvidesBehaviour
         {
-            var c = await Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestAsync<T>();
+            var c = Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestAsync<T>();
             return c;
         }
         
