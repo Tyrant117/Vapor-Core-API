@@ -435,7 +435,7 @@ namespace Vapor.Inspector
 
         public static VisualElement SetImage(this VisualElement visualElement, Sprite image)
         {
-            visualElement.style.backgroundImage = new StyleBackground(image);
+            visualElement.style.backgroundImage = image ? new StyleBackground(image) : StyleKeyword.Initial;
             return visualElement;
         }
 
