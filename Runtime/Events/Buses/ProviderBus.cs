@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Vapor;
+using Vapor.Unsafe;
 
 namespace Vapor.Events
 {    
@@ -19,10 +20,10 @@ namespace Vapor.Events
             // => addons can work with each other without knowing their ids before
             // => 2 bytes is enough to avoid collisions.
             //    registering a messageId twice will log a warning anyway.
-            public static readonly ushort Id = typeof(T).FullName.GetStableHashU16();
+            public static readonly uint Id = typeof(T).FullName.Hash32();
         }
 
-        public static readonly Dictionary<int, IProviderData> ProviderMap = new();
+        public static readonly Dictionary<uint, IProviderData> ProviderMap = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Init()
@@ -70,7 +71,7 @@ namespace Vapor.Events
         /// <typeparam name="T">The type of provider. Must implement <see cref="IProviderData"/></typeparam>
         /// <param name="providerId">The id of the provider</param>
         /// <returns>The <see cref="IProviderData"/> associated with the id</returns>
-        public static T Get<T>(int providerId) where T : IProviderData
+        public static T Get<T>(uint providerId) where T : IProviderData
         {
             if (ProviderMap.TryGetValue(providerId, out var handler))
             {
@@ -92,7 +93,7 @@ namespace Vapor.Events
         /// <returns>The <see cref="IProviderData"/> associated with the name</returns>
         public static T Get<T>(string eventName) where T : IProviderData
         {
-            var eventID = eventName.GetStableHashU16();
+            var eventID = eventName.Hash32();
             if (ProviderMap.TryGetValue(eventID, out var handler))
             {
                 return (T)handler;
@@ -123,7 +124,7 @@ namespace Vapor.Events
             return (T)ProviderMap[eventID];
         }
         
-        public static T GetBehaviour<T>(int providerId) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).Request<T>();
+        public static T GetBehaviour<T>(uint providerId) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).Request<T>();
 
         /// <summary>
         /// Directly attempts to get the component associated with a <see cref="CachedProviderData{TResult}"/>
@@ -131,7 +132,7 @@ namespace Vapor.Events
         /// <param name="providerId">The id of the provider</param>
         /// <typeparam name="T">The type to return. Must inherit from <see cref="Component"/></typeparam>
         /// <returns>The component of type T or null</returns>
-        public static T GetComponent<T>(int providerId) where T : Component => Get<CachedProviderData<Component>>(providerId).Request<T>();
+        public static T GetComponent<T>(uint providerId) where T : Component => Get<CachedProviderData<Component>>(providerId).Request<T>();
         /// <summary>
         /// Directly attempts to get the component associated with a <see cref="CachedProviderData{TResult}"/>
         /// </summary>
@@ -147,7 +148,7 @@ namespace Vapor.Events
         /// <returns>The component of type T or null</returns>
         public static T GetComponent<T>(ProviderKeySo providerKey) where T : Component => Get<CachedProviderData<Component>>(providerKey).Request<T>();
 
-        public static IEnumerator GetBehaviourRoutine<T>(int providerId, Action<T> callback) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestRoutine(callback);
+        public static IEnumerator GetBehaviourRoutine<T>(uint providerId, Action<T> callback) where T : ProvidesBehaviour => Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestRoutine(callback);
         
         /// <summary>
         /// Retrieves the component of type T from a provider once its value is not null.
@@ -156,7 +157,7 @@ namespace Vapor.Events
         /// <param name="callback">The callback to fire once the result is not null</param>
         /// <typeparam name="T">The type to return. Must inherit from <see cref="Component"/></typeparam>
         /// <returns>An enumerator that should be used in a <see cref="MonoBehaviour.StartCoroutine(IEnumerator)"/></returns>
-        public static IEnumerator GetComponentRoutine<T>(int providerId, Action<T> callback) where T : Component => Get<CachedProviderData<Component>>(providerId).RequestRoutine(callback);
+        public static IEnumerator GetComponentRoutine<T>(uint providerId, Action<T> callback) where T : Component => Get<CachedProviderData<Component>>(providerId).RequestRoutine(callback);
         /// <summary>
         /// Retrieves the component of type T from a provider once its value is not null.
         /// </summary>
@@ -174,13 +175,13 @@ namespace Vapor.Events
         /// <returns>An enumerator that should be used in a <see cref="MonoBehaviour.StartCoroutine(IEnumerator)"/></returns>
         public static IEnumerator GetComponentRoutine<T>(ProviderKeySo providerKey, Action<T> callback) where T : Component => Get<CachedProviderData<Component>>(providerKey).RequestRoutine(callback);
 
-        public static Awaitable<T> GetBehaviourAsync<T>(int providerId) where T : ProvidesBehaviour
+        public static Awaitable<T> GetBehaviourAsync<T>(uint providerId) where T : ProvidesBehaviour
         {
             var c = Get<CachedProviderData<ProvidesBehaviour>>(providerId).RequestAsync<T>();
             return c;
         }
         
-        public static async Awaitable<T> GetComponentAsync<T>(int providerId) where T : Component
+        public static async Awaitable<T> GetComponentAsync<T>(uint providerId) where T : Component
         {
             var c = await Get<CachedProviderData<Component>>(providerId).RequestAsync<T>();
             return c;

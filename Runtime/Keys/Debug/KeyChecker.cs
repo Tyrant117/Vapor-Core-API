@@ -1,6 +1,7 @@
 using UnityEngine;
 using Vapor;
 using Vapor.Inspector;
+using Vapor.Unsafe;
 
 namespace Vapor.Keys
 {
@@ -8,11 +9,11 @@ namespace Vapor.Keys
     {
         [InlineButton("Check", "Check")]
         public string Name;
-        public ushort Key;
+        public uint Key;
 
         private void Check()
         {
-            Key = Name.GetStableHashU16();
+            Key = Name.Hash32();
         }
     }
 }

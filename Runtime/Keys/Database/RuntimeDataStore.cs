@@ -7,10 +7,10 @@ namespace Vapor.Keys
 {
     public class RuntimeDataStore<T>
     {
-        private static Dictionary<int, T> s_Db;
-        public static T Get(int id) => s_Db[id];
-        public static U Get<U>(int id) where U : T => (U)s_Db[id];
-        public static bool TryGet(int id, out T value) => s_Db.TryGetValue(id, out value);
+        private static Dictionary<uint, T> s_Db;
+        public static T Get(uint id) => s_Db[id];
+        public static TValue GetAs<TValue>(uint id) where TValue : T => (TValue)s_Db[id];
+        public static bool TryGet(uint id, out T value) => s_Db.TryGetValue(id, out value);
         public static IEnumerable<T> All() => s_Db.Values;
         public static int Count => s_Db.Count;
 
@@ -21,14 +21,14 @@ namespace Vapor.Keys
                 return;
             }
 
-            s_Db ??= new Dictionary<int, T>();
+            s_Db ??= new Dictionary<uint, T>();
             s_Db.Clear();
             s_Db.EnsureCapacity(capacity);
             DatabaseBootstrapper.InitDataStore(typeof(T));
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(RuntimeDataStore<T>), nameof(InitDatabase))} - {capacity}");
         }
 
-        public static void Add(int key, T value)
+        public static void Add(uint key, T value)
         {
             s_Db[key] = value;
         }

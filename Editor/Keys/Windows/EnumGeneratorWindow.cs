@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Keys;
+using Vapor.Unsafe;
 using VaporEditor.Inspector;
 
 namespace VaporEditor.Keys
@@ -207,11 +208,11 @@ namespace VaporEditor.Keys
             var category = rootVisualElement.Q<TextField>("category-name-text").value;
             var createNone = rootVisualElement.Q<Toggle>("create-none-toggle").value;
             var customOrder = rootVisualElement.Q<Toggle>("custom-order-toggle").value;
-            var startingValue = rootVisualElement.Q<IntegerField>("starting-value-int").value;
+            var startingValue = (uint)rootVisualElement.Q<IntegerField>("starting-value-int").value;
             var orderDirection = (OrderDirection)rootVisualElement.Q<EnumField>("order-direction-enum").value;
 
             var kvp = new List<KeyGenerator.KeyValuePair>();
-            int currentValue = startingValue;
+            uint currentValue = startingValue;
             if (createNone)
             {
                 if (customOrder)
@@ -249,7 +250,7 @@ namespace VaporEditor.Keys
                 }
                 else
                 {
-                    kvp.Add(new KeyGenerator.KeyValuePair(enumName.Value, enumName.Value.GetStableHashU16(), string.Empty));
+                    kvp.Add(new KeyGenerator.KeyValuePair(enumName.Value, enumName.Value.Hash32(), string.Empty));
                 }
             }
 
@@ -308,7 +309,7 @@ namespace VaporEditor.Keys
                         rootVisualElement.Q<TextField>("class-name-text").value = definition.DefinitionName;
                         rootVisualElement.Q<Toggle>("create-none-toggle").value = definition.CreateNone;
                         rootVisualElement.Q<Toggle>("custom-order-toggle").value = definition.CustomOrder;
-                        rootVisualElement.Q<IntegerField>("starting-value-int").value = definition.StartingValue;
+                        rootVisualElement.Q<IntegerField>("starting-value-int").value = (int)definition.StartingValue;
                         rootVisualElement.Q<EnumField>("order-direction-enum").value = (OrderDirection)definition.OrderDirection;
                         _enums.Clear();
                         foreach (var e in definition.EnumContent)

@@ -13,11 +13,11 @@ namespace Vapor.Keys
         [BoxGroup("Key", "Key Data"), SerializeField, ReadOnly, RichTextTooltip("The unique for this object.")]
         [InlineToggleButton("ToggleDeprecated", "@Deprecated", "d_VisibilityOff", "d_VisibilityOn", tooltip: "If <lw>Shut</lw>, this key will be ignored by KeyGenerator.GenerateKeys().")]
         [InlineButton("GenerateKeys", icon: "d_Refresh", tooltip: "Forces Generation of the keys for this Type")]
-        private int _key;
+        private uint _key;
         [SerializeField, HideInInspector]
         protected bool Deprecated;
 
-        public int Key => _key;
+        public uint Key => _key;
         public string DisplayName => name;
         public bool IsDeprecated => Deprecated;
 

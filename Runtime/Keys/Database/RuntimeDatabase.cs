@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Vapor.Inspector;
+using Vapor.Unsafe;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Keys
@@ -52,15 +53,15 @@ namespace Vapor.Keys
 
     public class RuntimeDatabase<T> where T : Object
     {
-        private static Dictionary<int, T> s_Db;
-        public static T Get(int id) => s_Db[id];
-        public static bool TryGet(int id, out T value) => s_Db.TryGetValue(id, out value);
+        private static Dictionary<uint, T> s_Db;
+        public static T Get(uint id) => s_Db[id];
+        public static bool TryGet(uint id, out T value) => s_Db.TryGetValue(id, out value);
         public static IEnumerable<T> All() => s_Db.Values;
         public static int Count => s_Db.Count;
 
         public static void InitDatabase(IList<Object> keyValuePairs)
         {
-            s_Db ??= new Dictionary<int, T>();
+            s_Db ??= new Dictionary<uint, T>();
             s_Db.Clear();
 
             if (typeof(T).GetInterfaces().Any(t => t == typeof(IKey)))
@@ -87,7 +88,7 @@ namespace Vapor.Keys
                     {
                         continue;
                     }
-                    s_Db.Add(data.name.GetStableHashU16(), tData);
+                    s_Db.Add(data.name.Hash32(), tData);
                 }
             }
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(RuntimeDatabase<T>), nameof(InitDatabase))} - {TooltipMarkup.Class(typeof(T).Name)} - Loaded {s_Db.Count} Items");
@@ -113,7 +114,7 @@ namespace Vapor.Keys
             }
         }
 
-        public static void InitKeyDatabase<U>(KeyDatabaseSo<U> db) where U : ScriptableObject, IKey, T
+        public static void InitKeyDatabase<TKey>(KeyDatabaseSo<TKey> db) where TKey : ScriptableObject, IKey, T
         {
             Debug.Log($"RuntimeDatabase of type:{typeof(T).Name}. Init!");
             s_Db.Clear();
@@ -123,14 +124,14 @@ namespace Vapor.Keys
             }
         }
 
-        public static void InitValueDatabase<U>(TypeDatabaseSo<U> db) where U : Object, T
+        public static void InitValueDatabase<TValue>(TypeDatabaseSo<TValue> db) where TValue : Object, T
         {
             Debug.Log($"RuntimeDatabase of type:{typeof(T).Name}. Init!");
             s_Db.Clear();
 
             foreach (var data in db.Data)
             {
-                s_Db.Add(data.name.GetStableHashU16(), data);
+                s_Db.Add(data.name.Hash32(), data);
             }
         }
     }

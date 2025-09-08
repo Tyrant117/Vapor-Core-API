@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Method)]
     public class ButtonAttribute : Attribute
     {
         public string Label { get; }

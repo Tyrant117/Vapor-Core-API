@@ -9,7 +9,7 @@ namespace Vapor.Keys
         /// <summary>
         /// The unique key.
         /// </summary>
-        int Key { get; }
+        uint Key { get; }
 
         /// <summary>
         /// Method that refreshes the value of the key before a rebuild.

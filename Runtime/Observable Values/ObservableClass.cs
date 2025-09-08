@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json;
 using UnityEngine;
 using Vapor.NewtonsoftConverters;
+using Vapor.Unsafe;
 
 namespace Vapor.Observables
 {
@@ -56,7 +57,7 @@ namespace Vapor.Observables
         /// <summary>
         /// A unique id for this instance of the class.
         /// </summary>
-        public ushort Key { get; }
+        public uint Key { get; }
 
         /// <summary>
         /// Gets a field based on the ID and casts it to a type that inherits from <see cref="Observable"/>. There is no checking, will throw errors on invalid id.
@@ -64,16 +65,16 @@ namespace Vapor.Observables
         /// <param name="fieldName">The id of the field to retrieve</param>
         /// <typeparam name="T">The type to cast the field to</typeparam>
         /// <returns>The <see cref="Observable"/> of type T</returns>
-        public T GetField<T>(string fieldName) where T : Observable => (T)Fields[fieldName.GetStableHashU16()];
-        public T GetField<T>(ushort fieldId) where T : Observable => (T)Fields[fieldId];
+        public T GetField<T>(string fieldName) where T : Observable => (T)Fields[fieldName.Hash32()];
+        public T GetField<T>(uint fieldId) where T : Observable => (T)Fields[fieldId];
 
         public T GetFieldValue<T>(string fieldName) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldName).Value;
-        public T GetFieldValue<T>(ushort fieldId) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldId).Value;
+        public T GetFieldValue<T>(uint fieldId) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldId).Value;
 
         public void SetFieldValue<T>(string fieldName, T value) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldName).Value = value;
-        public void SetFieldValue<T>(ushort fieldId, T value) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldId).Value = value;
+        public void SetFieldValue<T>(uint fieldId, T value) where T : struct, IEquatable<T> => GetField<Observable<T>>(fieldId).Value = value;
 
-        protected readonly Dictionary<ushort, Observable> Fields = new();
+        protected readonly Dictionary<uint, Observable> Fields = new();
         protected bool IsLoaded;
 
         /// <summary>
@@ -81,7 +82,7 @@ namespace Vapor.Observables
         /// </summary>
         public event Action<ObservableClass, Observable> Dirtied;
 
-        protected ObservableClass(ushort key)
+        protected ObservableClass(uint key)
         {
             Name = key.ToString();
             Key = key;
@@ -90,11 +91,11 @@ namespace Vapor.Observables
         protected ObservableClass(string className)
         {
             Name = className;
-            Key = Name.GetStableHashU16();
+            Key = Name.Hash32();
         }
 
         #region - Fields -
-        public Observable<T> GetOrAddField<T>(ushort fieldId, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
+        public Observable<T> GetOrAddField<T>(uint fieldId, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
         {
             if (!Fields.ContainsKey(fieldId))
             {
@@ -110,7 +111,7 @@ namespace Vapor.Observables
 
         public Observable<T> GetOrAddField<T>(string fieldName, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
         {
-            var id = fieldName.GetStableHashU16();
+            var id = fieldName.Hash32();
             if (!Fields.ContainsKey(id))
             {
                 return AddField(fieldName, saveValue, value, callback);
@@ -123,7 +124,7 @@ namespace Vapor.Observables
             }
         }
 
-        public Observable<T> AddField<T>(ushort fieldId, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
+        public Observable<T> AddField<T>(uint fieldId, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
         {
             if (!Fields.ContainsKey(fieldId))
             {
@@ -142,7 +143,7 @@ namespace Vapor.Observables
 
         public Observable<T> AddField<T>(string fieldName, bool saveValue, T value, Action<Observable<T>, T> callback = null) where T : struct, IEquatable<T>
         {
-            var id = fieldName.GetStableHashU16();
+            var id = fieldName.Hash32();
             if (!Fields.ContainsKey(id))
             {
                 var field = new Observable<T>(fieldName, saveValue, value).WithChanged(callback);
@@ -173,9 +174,9 @@ namespace Vapor.Observables
 
         public void RemoveField(string fieldName)
         {
-            RemoveField(fieldName.GetStableHashU16());
+            RemoveField(fieldName.Hash32());
         }
-        public void RemoveField(ushort fieldId)
+        public void RemoveField(uint fieldId)
         {
             if (Fields.TryGetValue(fieldId, out var field))
             {

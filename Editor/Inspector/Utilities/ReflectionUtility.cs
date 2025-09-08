@@ -300,18 +300,24 @@ namespace VaporEditor.Inspector
             {
                 value = (T)fieldInfo.GetValue(target);
                 return true;
+            }
 
-            }
-            else if (member is PropertyInfo propertyInfo)
+            if (member is PropertyInfo propertyInfo)
             {
-                value = (T)propertyInfo.GetValue(target);
-                return true;
+                try
+                {
+                    value = (T)propertyInfo.GetValue(target);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Unable to get value for {propertyInfo.Name} - Cannot Cast to {typeof(T)} from {target} - {e.Message}");
+                    throw;
+                }
             }
-            else
-            {
-                value = default;
-                return false;
-            }
+
+            value = default;
+            return false;
         }
 
         public static bool TrySetMemberValue(object target, MemberInfo member, object value)

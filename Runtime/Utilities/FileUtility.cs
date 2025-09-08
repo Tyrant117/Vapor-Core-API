@@ -12,7 +12,20 @@ namespace Vapor
 {
     public static class FileUtility
     {
+        public const string GAME_CONFIG_FOLDER = "Game Config";
+
+        public static T ReadFromGameConfigOrDefault<T>(string fileName, T defaultValue)
+        {
+            var filePath = $"{GAME_CONFIG_FOLDER}/{fileName}";
+            var text = Resources.Load<TextAsset>(filePath);
+            return text ? JsonUtility.FromJson<T>(text.text) : defaultValue;
+        }
+
 #if UNITY_EDITOR
+        
+        public static string FullGameConfigPath => Application.dataPath + "/Vapor/Resources/Game Config";
+        public static string FullConfigPath => Application.dataPath + "/Vapor/Keys/Config";
+        
         public static Assembly FindNearestAssembly(Object obj)
         {
             string path = AssetDatabase.GetAssetPath(obj);
@@ -131,6 +144,26 @@ namespace Vapor
             }
 
             throw new ArgumentException($"Invalid full path: {fullPath}");
+        }
+
+        public static void WriteToConfig(string fileName, string jsonContent)
+        {
+            var filePath = $"{FullConfigPath}/{fileName}.json".Replace("\\", "/");
+            File.WriteAllText(filePath, jsonContent);
+        }
+
+        public static T ReadFromConfig<T>(string fileName)
+        {
+            var filePath = $"{FullConfigPath}/{fileName}.json";
+            var json = File.ReadAllText(filePath);
+            return JsonUtility.FromJson<T>(json);
+        }
+        
+        public static void WriteToGameConfig(string fileName, string jsonContent)
+        {
+            var filePath = $"{FullGameConfigPath}/{fileName}.json".Replace("\\", "/");
+            File.WriteAllText(filePath, jsonContent);
+            AssetDatabase.Refresh();
         }
 #endif
     }

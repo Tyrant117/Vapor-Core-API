@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Vapor;
 using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
@@ -22,7 +23,7 @@ namespace VaporEditor.Inspector
             {
                 Name = name;
                 var splitIdx = name.LastIndexOf('.');
-                DisplayName = splitIdx != -1 ? name[(splitIdx + 1)..] : name;
+                DisplayName = (splitIdx != -1 ? name[(splitIdx + 1)..] : name).ToTitleCase();
                 SearchModel = searchModel;
                 NameMatch = match;
                 SynonymMatch = synonym;
@@ -241,7 +242,7 @@ namespace VaporEditor.Inspector
             item.SearchModel.EntryElement.LabelContainer.Clear();
             foreach (var label in labels)
             {
-                label.tooltip = item.Name.ToHumanReadable();
+                label.tooltip = item.SearchModel.Tooltip;
                 label.AddToClassList("node-name");
                 item.SearchModel.EntryElement.LabelContainer.Add(label);
             }

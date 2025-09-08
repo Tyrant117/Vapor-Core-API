@@ -29,7 +29,7 @@ namespace Vapor.Keys
         /// <summary>
         /// The staring value when <see cref="CustomOrder"/> is true.
         /// </summary>
-        public int StartingValue;
+        public uint StartingValue;
         /// <summary>
         /// If the <see cref="StartingValue"/> should count up or down when <see cref="CustomOrder"/> is true.
         /// </summary>

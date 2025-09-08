@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using Vapor.Unsafe;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Keys
@@ -18,10 +19,10 @@ namespace Vapor.Keys
     /// </summary>
     public static class KeyGenerator
     {
-        public const string KeyFolderName = "Vapor Key Definitions";
-        public const string RelativeKeyPath = "Assets/Vapor/Keys/Definitions";
+        public const string KEY_FOLDER_NAME = "Vapor Key Definitions";
+        public const string RELATIVE_KEY_PATH = "Assets/Vapor/Keys/Definitions";
         public const string RelativeConfigPath = "Assets/Vapor/Keys/Config";
-        public const string NamespaceName = "VaporKeyDefinitions";
+        public const string NAMESPACE_NAME = "VaporKeyDefinitions";
 
         public const string RELATIVE_PATH = "RELATIVE_PATH";
         public const string ASSEMBLY_QUALIFIED_CLASS_NAME = "ASSEMBLY_QUALIFIED_CLASS_NAME";
@@ -40,9 +41,9 @@ namespace Vapor.Keys
             public readonly string DisplayName;
             public readonly string VariableName;
             public readonly string Guid;
-            public readonly int Key;
+            public readonly uint Key;
 
-            public KeyValuePair(string name, int key, string guid)
+            public KeyValuePair(string name, uint key, string guid)
             {
 #if UNITY_EDITOR
                 DisplayName = ObjectNames.NicifyVariableName(name);
@@ -73,7 +74,7 @@ namespace Vapor.Keys
             public string GetFormat(int placeholderIndex)
             {
                 var vName = VariableName.Length > 0 ? VariableName : "Placeholder_" + placeholderIndex;
-                return $"public const int {vName} = {Key};";
+                return $"public const uint {vName} = {Key};";
             }
         }
 
@@ -84,7 +85,7 @@ namespace Vapor.Keys
         /// <returns>The KeyValuePair generated from the string.</returns>
         public static KeyValuePair StringToKeyValuePair(string key)
         {
-            return new KeyValuePair(key, key.GetStableHashU16(), string.Empty);
+            return new KeyValuePair(key, key.Hash32(), string.Empty);
         }
         #endregion
 
@@ -94,7 +95,7 @@ namespace Vapor.Keys
         public static void GenerateKeys(Type typeFilter, string scriptName)
         {
             var guids = AssetDatabase.FindAssets($"t:{typeFilter.Name}");
-            HashSet<int> takenKeys = new();
+            HashSet<uint> takenKeys = new();
             Dictionary<string, List<KeyValuePair>> formattedKeys = new();
             List<string> namespaces = new();
 
@@ -106,16 +107,16 @@ namespace Vapor.Keys
             {
                 takenKeys.Add(0);
                 List<KeyValuePair> list = new();
-                formattedKeys.Add(RelativeKeyPath, list);
-                namespaces.Add(NamespaceName);
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
                 list.Add(new KeyValuePair("None", 0, string.Empty));
             }
             else
             {
                 takenKeys.Add(0);
                 List<KeyValuePair> list = new();
-                formattedKeys.Add(RelativeKeyPath, list);
-                namespaces.Add(NamespaceName);
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
                 list.Add(new KeyValuePair("None", 0, string.Empty));
             }
 
@@ -148,7 +149,7 @@ namespace Vapor.Keys
                     {
                         list = new();
                         formattedKeys.Add(path, list);
-                        namespaces.Add(FileUtility.FindNearestNamespace(item) + $".{NamespaceName}");
+                        namespaces.Add(FileUtility.FindNearestNamespace(item) + $".{NAMESPACE_NAME}");
                     }
                     list.Add(new KeyValuePair(item.name, key.Key, guid));
                 }
@@ -167,7 +168,7 @@ namespace Vapor.Keys
 
         public static void GenerateKeys(string searchFilter, string scriptName, bool includeNone, string category)
         {
-            HashSet<int> takenKeys = new();
+            HashSet<uint> takenKeys = new();
             Dictionary<string, List<KeyValuePair>> formattedKeys = new();
             List<string> namespaces = new();
 
@@ -175,8 +176,8 @@ namespace Vapor.Keys
             {
                 takenKeys.Add(0);
                 List<KeyValuePair> list = new();
-                formattedKeys.Add(RelativeKeyPath, list);
-                namespaces.Add(NamespaceName);
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
                 list.Add(new KeyValuePair("None", 0, string.Empty));
             }
 
@@ -191,7 +192,7 @@ namespace Vapor.Keys
                 var options = refVal.GetType().GetCustomAttribute<KeyOptionsAttribute>();
                 bool hasOptions = options != null;
 
-                var key = refVal.name.GetStableHashU16();
+                var key = refVal.name.Hash32();
                 if (!takenKeys.Add(key))
                 {
                     Debug.LogError($"Key Collision: {refVal.name}. Objects cannot share a name.");
@@ -211,17 +212,17 @@ namespace Vapor.Keys
                         {
                             list = new();
                             formattedKeys.Add(path, list);
-                            namespaces.Add(FileUtility.FindNearestNamespace(refVal) + $".{NamespaceName}");
+                            namespaces.Add(FileUtility.FindNearestNamespace(refVal) + $".{NAMESPACE_NAME}");
                         }
                         list.Add(new KeyValuePair(refVal.name, key, soGuid));
                     }
                     else
                     {
-                        if (!formattedKeys.TryGetValue(RelativeKeyPath, out var list))
+                        if (!formattedKeys.TryGetValue(RELATIVE_KEY_PATH, out var list))
                         {
                             list = new();
-                            formattedKeys.Add(RelativeKeyPath, list);
-                            namespaces.Add(NamespaceName);
+                            formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                            namespaces.Add(NAMESPACE_NAME);
                         }
 
                         list.Add(new KeyValuePair(refVal.name, key, refVal.name));
@@ -249,7 +250,7 @@ namespace Vapor.Keys
 
         public static void GenerateKeys<T>(IEnumerable<string> guids, string scriptName, bool includeNone) where T : ScriptableObject, IKey
         {
-            HashSet<int> takenKeys = new();
+            HashSet<uint> takenKeys = new();
             Dictionary<string, List<KeyValuePair>> formattedKeys = new();
             List<string> namespaces = new();
 
@@ -260,16 +261,16 @@ namespace Vapor.Keys
             {
                 takenKeys.Add(0);
                 List<KeyValuePair> list = new();
-                formattedKeys.Add(RelativeKeyPath, list);
-                namespaces.Add(NamespaceName);
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
                 list.Add(new KeyValuePair("None", 0, string.Empty));
             }
             else
             {
                 takenKeys.Add(0);
                 List<KeyValuePair> list = new();
-                formattedKeys.Add(RelativeKeyPath, list);
-                namespaces.Add(NamespaceName);
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
                 list.Add(new KeyValuePair("None", 0, string.Empty));
             }
             
@@ -300,7 +301,7 @@ namespace Vapor.Keys
                     {
                         list = new();
                         formattedKeys.Add(path, list);
-                        namespaces.Add(FileUtility.FindNearestNamespace(item) + $".{NamespaceName}");
+                        namespaces.Add(FileUtility.FindNearestNamespace(item) + $".{NAMESPACE_NAME}");
                     }
                     list.Add(new KeyValuePair(item.name, item.Key, guid));
                 }
@@ -404,7 +405,7 @@ namespace Vapor.Keys
             List<KeyValuePair> keyValuePairs = new();
             foreach (var value in values)
             {
-                if (newKeyValuePairs.Exists(_Match))
+                if (newKeyValuePairs.Exists(Match))
                 {
                     Debug.LogError($"Key Collision: {value.Item1}. Objects cannot share a name.");
                     return;
@@ -412,7 +413,7 @@ namespace Vapor.Keys
                 keyValuePairs.Add(new(value.Item1, value.Item2.Key, string.Empty));
                 continue;
 
-                bool _Match(KeyValuePair x) => x.Key == value.Item2.Key;
+                bool Match(KeyValuePair x) => x.Key == value.Item2.Key;
             }
             foreach (var newKvp in newKeyValuePairs)
             {
@@ -555,7 +556,7 @@ namespace Vapor.Keys
                 foreach (var dir in directories)
                 {
                     var dirName = Path.GetFileName(dir);
-                    if (!dirName.Equals(KeyFolderName))
+                    if (!dirName.Equals(KEY_FOLDER_NAME))
                     {
                         continue;
                     }
@@ -574,12 +575,14 @@ namespace Vapor.Keys
         }
 
         #region Format Keys
+
         /// <summary>
         /// Formats a list of <see cref="KeyValuePair"/> into a custom enum class.
         /// </summary>
         /// <param name="relativeFilePath">The relative path to the save folder including the /Assets or /Packages folders.</param>
         /// <param name="namespaceName">The namespace that the resulting class should be in</param>
         /// <param name="scriptName">The name of resulting class</param>
+        /// <param name="category"></param>
         /// <param name="keys">The keys to be used</param>
         public static void FormatKeyFiles(string relativeFilePath, string namespaceName, string scriptName, string category, List<KeyValuePair> keys)
         {
@@ -644,7 +647,7 @@ namespace Vapor.Keys
 
         private static void FormatEnum(StringBuilder sb, List<KeyValuePair> keys)
         {
-            sb.Append($"\t\tpublic enum Enum : int\n");
+            sb.Append($"\t\tpublic enum Enum : uint\n");
             sb.Append("\t\t{\n");
             for (int i = 0; i < keys.Count; i++)
             {
@@ -669,7 +672,7 @@ namespace Vapor.Keys
                 sb.Append($"\t\t\tEverything = ~0,\n");
                 sb.Append("\t\t}\n\n");
 
-                sb.Append($"\t\tpublic static Dictionary<int, int> FlagToValueMap = new()\n");
+                sb.Append($"\t\tpublic static Dictionary<int, uint> FlagToValueMap = new()\n");
                 sb.Append("\t\t{\n");
                 skipNone = 0;
                 for (int i = 0; i < keys.Count; i++)
@@ -697,7 +700,7 @@ namespace Vapor.Keys
         private static void FormatList(StringBuilder sb, List<KeyValuePair> keys)
         {
             sb.Append("\n");
-            sb.Append($"\t\tpublic static List<int> Values = new ()\n");
+            sb.Append($"\t\tpublic static List<uint> Values = new ()\n");
             sb.Append("\t\t{\n");
             for (int i = 0; i < keys.Count; i++)
             {
@@ -708,7 +711,7 @@ namespace Vapor.Keys
 
         private static void FormatLookup(StringBuilder sb)
         {
-            sb.Append($"\t\tpublic static string Lookup(int id)\n");
+            sb.Append($"\t\tpublic static string Lookup(uint id)\n");
             sb.Append("\t\t{\n");
 
             sb.Append($"\t\t\treturn {KEYS_FIELD_NAME}.Find((x) => x.Item2.Key == id).Item1;\n");
@@ -718,7 +721,7 @@ namespace Vapor.Keys
 
         private static void FormatGet(StringBuilder sb)
         {
-            sb.Append($"\t\tpublic static KeyDropdownValue Get(int id)\n");
+            sb.Append($"\t\tpublic static KeyDropdownValue Get(uint id)\n");
             sb.Append("\t\t{\n");
 
             sb.Append($"\t\t\treturn {KEYS_FIELD_NAME}.Find((x) => x.Item2.Key == id).Item2;\n");

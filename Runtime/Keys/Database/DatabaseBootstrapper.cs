@@ -15,7 +15,7 @@ namespace Vapor.Keys
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         private static void Init()
         {
-            s_TypeInitDataStoreCounter ??= new();
+            s_TypeInitDataStoreCounter ??= new HashSet<Type>();
             s_TypeInitDataStoreCounter.Clear();
             if (Application.isEditor)
             {
@@ -35,7 +35,7 @@ namespace Vapor.Keys
             else
             {
                 // Get all loaded assemblies in the current application domain
-                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
                 // Iterate through each assembly
                 foreach (Assembly assembly in assemblies)

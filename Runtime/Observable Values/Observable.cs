@@ -2,6 +2,7 @@ using System;
 using Newtonsoft.Json;
 using UnityEngine.Assertions;
 using Vapor.NewtonsoftConverters;
+using Vapor.Unsafe;
 #if VAPOR_NETCODE
 using Unity.Netcode;
 #endif
@@ -35,7 +36,7 @@ namespace Vapor.Observables
         /// <summary>
         /// The Id of the field.
         /// </summary>
-        public ushort Id { get; }
+        public uint Id { get; }
 
         /// <summary>
         /// If true, this value will be saved.
@@ -45,7 +46,7 @@ namespace Vapor.Observables
         // ***** Events ******
         public event Action<Observable> Dirtied;
 
-        protected Observable(ushort id, bool saveValue)
+        protected Observable(uint id, bool saveValue)
         {
             Name = id.ToString();
             Id = id;
@@ -55,7 +56,7 @@ namespace Vapor.Observables
         protected Observable(string name, bool saveValue)
         {
             Name = name;
-            Id = Name.GetStableHashU16();
+            Id = Name.Hash32();
             SaveValue = saveValue;
         }
 
@@ -168,12 +169,12 @@ namespace Vapor.Observables
 
         public event Action<Observable<T>, T> ValueChanged; // Value and Old Value
 
-        public Observable(ushort id, bool saveValue) : base(id, saveValue)
+        public Observable(uint id, bool saveValue) : base(id, saveValue)
         {
             Value = default;
         }
 
-        public Observable(ushort id, bool saveValue, T value) : base(id, saveValue)
+        public Observable(uint id, bool saveValue, T value) : base(id, saveValue)
         {
             Value = value;
         }

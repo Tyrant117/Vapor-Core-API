@@ -31,9 +31,9 @@ namespace Vapor.Keys
     /// </example>
     /// </summary>
     [Serializable, IgnoreChildNodes]
-    public struct KeyDropdownValue : IEquatable<KeyDropdownValue>
+    public struct KeyDropdownValue : IEquatable<KeyDropdownValue>, IEquatable<uint>
     {
-        public static implicit operator ushort(KeyDropdownValue kdv) => kdv.Key;
+        public static implicit operator uint(KeyDropdownValue kdv) => kdv.Key;
         public static bool operator ==(KeyDropdownValue left, KeyDropdownValue right) => left.Equals(right);
         public static bool operator !=(KeyDropdownValue left, KeyDropdownValue right) => !(left == right);
 
@@ -45,7 +45,7 @@ namespace Vapor.Keys
         /// <summary>
         /// The unique key.
         /// </summary>
-        public ushort Key;
+        public uint Key;
 
         /// <summary>
         /// The nice display name.
@@ -63,7 +63,7 @@ namespace Vapor.Keys
         /// <param name="guid">The guid of the linked object (can be empty)</param>
         /// <param name="key">the unique key</param>
         /// <param name="displayName">The displayed name of the key</param>
-        public KeyDropdownValue(string guid, ushort key, string displayName)
+        public KeyDropdownValue(string guid, uint key, string displayName)
         {
             Guid = guid;
             Key = key;
@@ -95,20 +95,17 @@ namespace Vapor.Keys
             
             if (refVal is not IKey rfk) return;
             rfk.ForceRefreshKey();
-            Key = (ushort)rfk.Key;
+            Key = rfk.Key;
             RuntimeEditorUtility.DirtyAndSave(refVal);
 #endif
         }
 
         public readonly override string ToString() => $"Key: {Key} belonging to [{Guid}] with name [{DisplayName}]";
 
-        public readonly override bool Equals(object obj)
-        {
-            return obj is KeyDropdownValue other && Equals(other);
-        }
-
         public readonly bool Equals(KeyDropdownValue other) => Key == other.Key;
 
-        public readonly override int GetHashCode() => Key;
+        public bool Equals(uint other) => Key == other;
+        public readonly override int GetHashCode() => (int)Key;
+        
     }
 }

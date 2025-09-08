@@ -38,7 +38,7 @@ namespace Vapor
 #endif
         }
 
-        public static T FindAssetByKey<T>(ushort key) where T : NamedKeySo
+        public static T FindAssetByKey<T>(uint key) where T : NamedKeySo
         {
 
 #if UNITY_EDITOR

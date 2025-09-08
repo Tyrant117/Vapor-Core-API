@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Vapor.Inspector;
+using Vapor.Unsafe;
 
 namespace Vapor.Keys
 {
@@ -48,12 +49,12 @@ namespace Vapor.Keys
             for (int i = 0; i < guids.Count; i++)
             {
                 var refVal = UnityEditor.AssetDatabase.LoadAssetAtPath<T>(UnityEditor.AssetDatabase.GUIDToAssetPath(guids[i]));
-                var key = refVal.name.GetStableHashU16();
+                var key = refVal.name.Hash32();
                 var guid = UnityEditor.AssetDatabase.AssetPathToGUID(UnityEditor.AssetDatabase.GetAssetPath(refVal));
                 kvpList.Add(new KeyGenerator.KeyValuePair(refVal.name, key, guid));
             }
 
-            KeyGenerator.FormatKeyFiles(KeyGenerator.RelativeKeyPath, KeyGenerator.NamespaceName, KeyName, KeyCategory, kvpList);
+            KeyGenerator.FormatKeyFiles(KeyGenerator.RELATIVE_KEY_PATH, KeyGenerator.NAMESPACE_NAME, KeyName, KeyCategory, kvpList);
 #endif
         }
     }

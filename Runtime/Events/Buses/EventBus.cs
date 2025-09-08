@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Vapor;
+using Vapor.Unsafe;
 
 namespace Vapor.Events
 {
@@ -10,7 +11,7 @@ namespace Vapor.Events
     /// </summary>
     public static class EventBus
     {
-        public static readonly Dictionary<int, IEventData> EventMap = new();
+        public static readonly Dictionary<uint, IEventData> EventMap = new();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Init()
@@ -25,7 +26,7 @@ namespace Vapor.Events
         /// <typeparam name="T">The type of event. Must implement <see cref="IEventData"/></typeparam>
         /// <param name="eventID">The id of the event.</param>
         /// <returns>The <see cref="IEventData"/> associated with the id</returns>
-        public static T Get<T>(int eventID) where T : IEventData
+        public static T Get<T>(uint eventID) where T : IEventData
         {
             if (EventMap.TryGetValue(eventID, out var handler))
             {
@@ -47,7 +48,7 @@ namespace Vapor.Events
         /// <returns>The <see cref="IEventData"/> associated with the name</returns>
         public static T Get<T>(string eventName) where T : IEventData
         {
-            var eventID = eventName.GetStableHashU16();
+            var eventID = eventName.Hash32();
             if (EventMap.TryGetValue(eventID, out var handler))
             {
                 return (T)handler;

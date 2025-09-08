@@ -25,7 +25,7 @@ namespace Vapor.Keys
             public string Name;
             [HorizontalGroup("H")]
             [ShowIf("@UseInteger")]
-            public ushort Key;
+            public uint Key;
 
 
 #pragma warning disable IDE0051 // Remove unused private members
@@ -66,7 +66,7 @@ namespace Vapor.Keys
             if (kvps.Count > 0)
             {
                 string namespaceName = FileUtility.FindNearestNamespace(this);
-                namespaceName = namespaceName == null ? KeyGenerator.NamespaceName : $"{namespaceName}.{KeyGenerator.NamespaceName}";
+                namespaceName = namespaceName == null ? KeyGenerator.NAMESPACE_NAME : $"{namespaceName}.{KeyGenerator.NAMESPACE_NAME}";
 
                 var path = FileUtility.ConvertFullPathToRelative(KeyGenerator.FindNearestDirectory(this));
                 KeyGenerator.FormatKeyFiles(path, namespaceName, name, Category, kvps);
