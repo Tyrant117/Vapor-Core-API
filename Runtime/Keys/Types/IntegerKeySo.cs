@@ -10,14 +10,14 @@ namespace Vapor.Keys
     /// </summary>
     public class IntegerKeySo : VaporScriptableObject, IKey
     {
-        [BoxGroup("Key", "Key Data"), SerializeField, ReadOnly, RichTextTooltip("The unique for this object.")]
+        [BoxGroup("Key", "Key Data"), SerializeField, RichTextTooltip("The unique for this object.")]
         [InlineToggleButton("ToggleDeprecated", "@Deprecated", "d_VisibilityOff", "d_VisibilityOn", tooltip: "If <lw>Shut</lw>, this key will be ignored by KeyGenerator.GenerateKeys().")]
         [InlineButton("GenerateKeys", icon: "d_Refresh", tooltip: "Forces Generation of the keys for this Type")]
         private uint _key;
         [SerializeField, HideInInspector]
         protected bool Deprecated;
 
-        public uint Key => _key;
+        public uint Key { get => _key; set => _key = value; }
         public string DisplayName => name;
         public bool IsDeprecated => Deprecated;
 

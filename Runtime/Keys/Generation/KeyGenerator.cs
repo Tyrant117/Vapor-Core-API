@@ -241,14 +241,14 @@ namespace Vapor.Keys
             AssetDatabase.Refresh();
         }
 
-        public static void GenerateKeys<T>(string scriptName, bool includeNone) where T : ScriptableObject, IKey
+        public static void GenerateKeys<T>(string scriptName) where T : ScriptableObject, IKey
         {
             var typeFilter = typeof(T).Name;
             Debug.Log($"Generating Keys of Type: {typeFilter}");
-            GenerateKeys<T>(AssetDatabase.FindAssets($"t:{typeFilter}"), scriptName, includeNone);
+            GenerateKeys<T>(AssetDatabase.FindAssets($"t:{typeFilter}"), scriptName);
         }
 
-        public static void GenerateKeys<T>(IEnumerable<string> guids, string scriptName, bool includeNone) where T : ScriptableObject, IKey
+        public static void GenerateKeys<T>(IEnumerable<string> guids, string scriptName) where T : ScriptableObject, IKey
         {
             HashSet<uint> takenKeys = new();
             Dictionary<string, List<KeyValuePair>> formattedKeys = new();
@@ -276,6 +276,76 @@ namespace Vapor.Keys
             
 
             foreach (var item in GetAllAssetsFromGUIDs<T>(guids))
+            {
+                if (item == null) { continue; }
+                if (item.IsDeprecated) { continue; }
+                if (!item.ValidKey()) { continue; }
+
+                item.ForceRefreshKey();
+                if (takenKeys.Contains(item.Key))
+                {
+                    Debug.LogError($"Key Collision: {item.name}. Objects cannot share a name.");
+                }
+                else
+                {
+                    EditorUtility.SetDirty(item);
+                    takenKeys.Add(item.Key);
+                    var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(item));
+                    var path = FileUtility.ConvertFullPathToRelative(FindNearestDirectory(item));
+                    if (path.EmptyOrNull())
+                    {
+                        continue;
+                    }
+                    guid = hasOptions ? options.UseNameAsGuid ? item.DisplayName : guid : guid;
+                    if (!formattedKeys.TryGetValue(path, out var list))
+                    {
+                        list = new();
+                        formattedKeys.Add(path, list);
+                        namespaces.Add(FileUtility.FindNearestNamespace(item) + $".{NAMESPACE_NAME}");
+                    }
+                    list.Add(new KeyValuePair(item.name, item.Key, guid));
+                }
+            }
+
+            int idx = 0;
+            foreach (var fkvp in formattedKeys)
+            {
+                FormatKeyFiles(fkvp.Key, namespaces[idx], scriptName, hasOptions ? options.Category : null, fkvp.Value);
+                idx++;
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        public static void GenerateKeys<T>(IEnumerable<T> keys, string scriptName) where T : ScriptableObject, IKey
+        {
+            HashSet<uint> takenKeys = new();
+            Dictionary<string, List<KeyValuePair>> formattedKeys = new();
+            List<string> namespaces = new();
+
+            var options = typeof(T).GetCustomAttribute<KeyOptionsAttribute>();
+            bool hasOptions = options != null;
+
+            if (hasOptions && options.IncludeNone)
+            {
+                takenKeys.Add(0);
+                List<KeyValuePair> list = new();
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
+                list.Add(new KeyValuePair("None", 0, string.Empty));
+            }
+            else
+            {
+                takenKeys.Add(0);
+                List<KeyValuePair> list = new();
+                formattedKeys.Add(RELATIVE_KEY_PATH, list);
+                namespaces.Add(NAMESPACE_NAME);
+                list.Add(new KeyValuePair("None", 0, string.Empty));
+            }
+            
+
+            foreach (var item in keys)
             {
                 if (item == null) { continue; }
                 if (item.IsDeprecated) { continue; }

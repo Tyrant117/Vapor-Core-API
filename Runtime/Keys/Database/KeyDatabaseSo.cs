@@ -39,7 +39,7 @@ namespace Vapor.Keys
             scriptName = scriptName.Replace("SO", "");
             scriptName = scriptName.Replace("So", "");
             scriptName = scriptName.Replace("Key", "");
-            KeyGenerator.GenerateKeys<T>($"{scriptName}Keys", true);
+            KeyGenerator.GenerateKeys<T>($"{scriptName}Keys");
 #endif
         }
     }
