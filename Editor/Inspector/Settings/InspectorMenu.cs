@@ -1,7 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
@@ -40,19 +37,18 @@ namespace VaporEditor.Inspector
         {
             // Toggle the checkmark
             PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), out var defines);
-            if (defines.Contains(SymbolName) && !VaporInspectorsEnabled)
+            if (defines.Contains(SymbolName))
             {
-                ArrayUtility.Remove(ref defines, SymbolName);
-                PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), defines);
+                VaporInspectorsEnabled = true;
             }
 
-            if (!defines.Contains(SymbolName) && VaporInspectorsEnabled)
+            if (!defines.Contains(SymbolName))
             {
-                ArrayUtility.Add(ref defines, SymbolName);
-                PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), defines);
+                VaporInspectorsEnabled = false;
             }
                 
             Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
+            AssetDatabase.Refresh();
         }
 
         [MenuItem("Vapor/Installation/Inspectors Enabled")]
