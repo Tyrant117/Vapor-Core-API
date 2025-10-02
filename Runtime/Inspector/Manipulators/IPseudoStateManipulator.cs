@@ -1,4 +1,3 @@
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
@@ -13,6 +12,7 @@ namespace Vapor.Inspector
         public string PseudoStateActive { get; }
         public string PseudoStateFocus { get; }
         public string PseudoStateChecked { get; }
+        public string PseudoStateDisabled { get; }
 
         void EnablePseudoStateClass(PseudoState state)
         {
@@ -31,6 +31,9 @@ namespace Vapor.Inspector
                     break;
                 case PseudoState.Checked:
                     PseudoStateTarget.EnableInClassList(PseudoStateChecked, true);
+                    break;
+                case PseudoState.Disabled:
+                    PseudoStateTarget.EnableInClassList(PseudoStateDisabled, true);
                     break;
                 default:
                     break;
@@ -53,6 +56,9 @@ namespace Vapor.Inspector
                     break;
                 case PseudoState.Checked:
                     PseudoStateTarget.EnableInClassList(PseudoStateChecked, false);
+                    break;
+                case PseudoState.Disabled:
+                    PseudoStateTarget.EnableInClassList(PseudoStateDisabled, false);
                     break;
                 default:
                     break;

@@ -1,6 +1,4 @@
-using System;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
@@ -38,6 +36,11 @@ namespace Vapor.Inspector
 
         public void StartDrag()
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             Debug.Log("DragDrop StartDrag " + target.name);
             DragElement.SetupSwapDrag(target, DragElement.target.worldBound.center, DragElement.target.localBound.center, target.WorldToLocal(target.worldBound.center), 0, DragLocationMatch);
         }

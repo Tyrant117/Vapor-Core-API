@@ -108,6 +108,11 @@ namespace Vapor.Inspector
 
         private void OnBeginDragEvent(PointerCaptureEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             IsDragging = true;
 
             BeginDrag.Invoke();
@@ -118,6 +123,11 @@ namespace Vapor.Inspector
 
         private void OnDragUpdatedEvent(PointerMoveEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (!IsDragging)
             {
                 return;
@@ -131,6 +141,11 @@ namespace Vapor.Inspector
 
         private void OnEndDragEvent(PointerUpEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (!IsDragging)
             {
                 return;
@@ -143,12 +158,22 @@ namespace Vapor.Inspector
 
         private void OnReleaseDragEvent(PointerCaptureOutEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             IsDragging = false;
             evt.StopPropagation();
         }
 
         private void OnCancelDragEvent(PointerCancelEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             PanelElement.ReleasePointer(evt.pointerId);
             evt.StopPropagation();
         }

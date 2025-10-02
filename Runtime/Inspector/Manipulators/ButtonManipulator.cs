@@ -85,6 +85,11 @@ namespace Vapor.Inspector
 
         private void ManualKeyDown()
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             Active = true;
 
             if (target.enabledInHierarchy)
@@ -111,6 +116,11 @@ namespace Vapor.Inspector
 
         private void ManualKeyUp()
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (Active)
             {
                 Active = false;

@@ -116,6 +116,11 @@ namespace Vapor.Inspector
         #region - Clicking -
         private void OnPointerDown(PointerDownEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (CanStartManipulation(evt))
             {
                 ProcessDownEvent(evt);
@@ -124,6 +129,11 @@ namespace Vapor.Inspector
 
         private void OnPointerMove(PointerMoveEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (Active)
             {
                 ProcessMoveEvent(evt);
@@ -132,6 +142,11 @@ namespace Vapor.Inspector
 
         private void OnPointerUp(PointerUpEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (Active && CanStopManipulation(evt))
             {
                 ProcessUpEvent(evt);
@@ -140,6 +155,11 @@ namespace Vapor.Inspector
 
         private void OnPointerCancel(PointerCancelEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (Active && CanStopManipulation(evt))
             {
                 ProcessCancelEvent(evt);
@@ -148,6 +168,11 @@ namespace Vapor.Inspector
 
         private void OnPointerCaptureOut(PointerCaptureOutEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (Active)
             {
                 ProcessCaptureOutEvent(evt);
@@ -244,6 +269,19 @@ namespace Vapor.Inspector
             evt.StopPropagation();
         }
 
+        public void ForceCancelEvent()
+        {
+            Active = false;
+            target.ReleasePointer(_activePointerId);
+            _activePointerId = -1;
+
+            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+            if (IsRepeatable)
+            {
+                Repeater?.Pause();
+            }
+        }
+
 
         public void Select()
         {
@@ -254,6 +292,13 @@ namespace Vapor.Inspector
         {
             PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
         }
+
+        protected override void OnEnableStateChanged()
+        {
+            base.OnEnableStateChanged();
+            ForceCancelEvent();
+        }
+
         #endregion
 
         #region - Callbacks -

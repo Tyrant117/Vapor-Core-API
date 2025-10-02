@@ -6,12 +6,14 @@ namespace Vapor.Inspector
 {
     public class HoverManipulator : PointerManipulator, IPseudoStateManipulator
     {
+        public bool IsEnabled { get; protected set; }
         public bool IsHovering { get; protected set; }
 
         public string PseudoStateHover { get; protected set; }
         public string PseudoStateActive { get; protected set; }
         public string PseudoStateFocus { get; protected set; }
         public string PseudoStateChecked { get; protected set; }
+        public string PseudoStateDisabled { get; protected set; }
         public VisualElement PseudoStateTarget { get; set; }
 
         protected readonly IPseudoStateManipulator PsuedoStateManipulator;
@@ -25,6 +27,7 @@ namespace Vapor.Inspector
             IsHovering = false;
 
             PseudoStateHover = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Hover;
+            PseudoStateDisabled = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Disabled;
             PsuedoStateManipulator = this;
             PseudoStateTarget = pseudoStateTarget;
         }
@@ -65,6 +68,11 @@ namespace Vapor.Inspector
         #region - Hovering -
         private void OnPointerEnter(PointerEnterEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (!IsHovering)
             {
                 ProcessPointerEnter(evt);
@@ -73,6 +81,11 @@ namespace Vapor.Inspector
 
         private void OnPointerLeave(PointerLeaveEvent evt)
         {
+            if (!IsEnabled)
+            {
+                return;
+            }
+            
             if (IsHovering)
             {
                 ProcessPointerLeave(evt);
@@ -81,17 +94,27 @@ namespace Vapor.Inspector
 
         protected virtual void ProcessPointerEnter(PointerEnterEvent evt)
         {
+            ForcePointerEnter();
+            Entered.Invoke(evt);
+        }
+
+        public void ForcePointerEnter()
+        {
             PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Hover);
             IsHovering = true;
             HoveringTime = Time.time;
-            Entered.Invoke(evt);
         }
 
         protected virtual void ProcessPointerLeave(PointerLeaveEvent evt)
         {
+            ForcePointerLeave();
+            Exited.Invoke(evt);
+        }
+
+        public void ForcePointerLeave()
+        {
             PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Hover);
             IsHovering = false;
-            Exited.Invoke(evt);
         }
         #endregion
 
@@ -101,6 +124,34 @@ namespace Vapor.Inspector
             VisualElement topElementUnderPointer = target.panel.Pick(worldPoint);
             return target == topElementUnderPointer || target.Contains(topElementUnderPointer);
         }
+
+        public void SetEnabled(bool enabled)
+        {
+            var old = IsEnabled;
+            IsEnabled = enabled;
+            if (IsEnabled)
+            {
+                PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Disabled);
+            }
+            else
+            {
+                PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Disabled);
+            }
+
+            if (old != IsEnabled)
+            {
+                OnEnableStateChanged();
+            }
+        }
+
+        protected virtual void OnEnableStateChanged()
+        {
+            if (IsHovering)
+            {
+                ForcePointerLeave();
+            }
+        }
+
         #endregion
     }
 }

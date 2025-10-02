@@ -1,9 +1,9 @@
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Vapor.Inspector
 {
-    [System.Flags]
+    [Flags]
     public enum PseudoState
     {
         None = -1,
@@ -11,6 +11,7 @@ namespace Vapor.Inspector
         Active = 1 << 1,
         Focus = 1 << 2,
         Checked = 1 << 3,
+        Disabled = 1 << 4,
     }
 
     public static class StyleSheetUtility
@@ -34,6 +35,7 @@ namespace Vapor.Inspector
             public const string Active = "__active";
             public const string Focus = "__focus";
             public const string Checked = "__checked";
+            public const string Disabled = "__disabled";
         }
 
         public static class Tags
