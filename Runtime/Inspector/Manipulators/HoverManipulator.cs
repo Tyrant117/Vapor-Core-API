@@ -6,7 +6,7 @@ namespace Vapor.Inspector
 {
     public class HoverManipulator : PointerManipulator, IPseudoStateManipulator
     {
-        public bool IsEnabled { get; protected set; }
+        public bool IsEnabled { get; protected set; } = true;
         public bool IsHovering { get; protected set; }
 
         public string PseudoStateHover { get; protected set; }
