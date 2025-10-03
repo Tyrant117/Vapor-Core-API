@@ -272,7 +272,7 @@ namespace Vapor.Inspector
         public void ForceCancelEvent()
         {
             Active = false;
-            if (target.HasPointerCapture(_activePointerId))
+            if (_activePointerId >= 0 && _activePointerId < PointerId.maxPointers && target.HasPointerCapture(_activePointerId))
             {
                 target.ReleasePointer(_activePointerId);
             }
