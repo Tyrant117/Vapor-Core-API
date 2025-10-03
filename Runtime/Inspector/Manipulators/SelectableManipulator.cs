@@ -272,7 +272,11 @@ namespace Vapor.Inspector
         public void ForceCancelEvent()
         {
             Active = false;
-            target.ReleasePointer(_activePointerId);
+            if (target.HasPointerCapture(_activePointerId))
+            {
+                target.ReleasePointer(_activePointerId);
+            }
+
             _activePointerId = -1;
 
             PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
