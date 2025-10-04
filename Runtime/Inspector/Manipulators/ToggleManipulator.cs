@@ -23,6 +23,7 @@ namespace Vapor.Inspector
                 if (_isOn)
                 {
                     PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
+                    _group?.SetActiveToggle(this);
                 }
                 else
                 {
@@ -39,10 +40,19 @@ namespace Vapor.Inspector
                 InvokeToggled(evt, _isOn);
             }
         }
+        
+        private ToggleManipulatorGroup _group;
 
         public ToggleManipulator(bool isOn, string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
         {
             _isOn = isOn;
+        }
+
+        public ToggleManipulator WithGroup(ToggleManipulatorGroup group)
+        {
+            _group = group;
+            _group.AddToggle(this);
+            return this;
         }
 
         public ToggleManipulator WithOnToggle(Action<EventBase, bool> callback)
@@ -57,6 +67,7 @@ namespace Vapor.Inspector
             if (_isOn)
             {
                 PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
+                _group?.SetActiveToggleWithoutNotify(this);
             }
             else
             {
@@ -81,6 +92,7 @@ namespace Vapor.Inspector
         {
             Toggled?.Invoke(evt, isToggled);
         }
+
         #endregion
     }
 }

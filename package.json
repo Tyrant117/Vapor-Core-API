@@ -1,6 +1,6 @@
 {
   "name": "vapor.core",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "displayName": "Vapor Core API",
   "description": "Core API Tools",
   "unity": "6000.0",
