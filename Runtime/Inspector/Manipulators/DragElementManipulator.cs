@@ -247,7 +247,7 @@ namespace Vapor.Inspector
             }
             
             // Cleanup
-            _activeKeys.Clear();
+            _activeKeys?.Clear();
             
             evt.StopPropagation();
         }
