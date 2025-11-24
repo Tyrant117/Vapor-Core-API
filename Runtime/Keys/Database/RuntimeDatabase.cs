@@ -53,15 +53,28 @@ namespace Vapor.Keys
 
     public class RuntimeDatabase<T> where T : Object
     {
+        private static bool s_Initialized;
         private static Dictionary<uint, T> s_Db;
         public static T Get(uint id) => s_Db[id];
         public static bool TryGet(uint id, out T value) => s_Db.TryGetValue(id, out value);
+        public static bool SafeGet(uint id, out T value)
+        {
+            if (s_Initialized)
+            {
+                return s_Db.TryGetValue(id, out value);
+            }
+
+            value = null;
+            return false;
+        }
+        
         public static IEnumerable<T> All() => s_Db.Values;
         public static int Count => s_Db.Count;
 
         public static void InitDatabase(IList<Object> keyValuePairs)
         {
             s_Db ??= new Dictionary<uint, T>();
+            s_Initialized = true;
             s_Db.Clear();
 
             if (typeof(T).GetInterfaces().Any(t => t == typeof(IKey)))

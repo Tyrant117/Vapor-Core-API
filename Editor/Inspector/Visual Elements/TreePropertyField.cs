@@ -829,7 +829,7 @@ namespace VaporEditor.Inspector
                         StyleLabel(field);
 
                         SetupDefaultBinding(field);
-                        Debug.Log(Property.GetValue<Vector3>());
+                        // Debug.Log(Property.GetValue<Vector3>());
                         field.SetValueWithoutNotify(Property.GetValue<Vector3>());
                         field.RegisterValueChangedCallback(OnVector3Changed);
                         return field;
