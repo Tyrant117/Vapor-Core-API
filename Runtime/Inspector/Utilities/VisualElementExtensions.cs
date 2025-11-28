@@ -270,7 +270,8 @@ namespace Vapor.Inspector
             //    worldY = bound.height - element.worldBound.height;
             //}
 
-            element.transform.position = new Vector3(worldX, worldY, 0);
+            element.style.translate = new Translate(worldX, worldY);
+            // element.transform.position = new Vector3(worldX, worldY, 0);
         }
 
         public static void StretchToElementSize(this VisualElement element, VisualElement other)
