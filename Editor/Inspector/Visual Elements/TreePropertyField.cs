@@ -139,7 +139,12 @@ namespace VaporEditor.Inspector
                 }
                 else
                 {
-
+                    // return propertyDrawer.CreatePropertyGUI(Property.InspectorObject.FindSerializedProperty(Property.PropertyPath));
+                    var vaporProp = new PropertyField(Property.InspectorObject.FindSerializedProperty(Property.PropertyPath))
+                    {
+                        bindingPath = Property.PropertyPath
+                    };
+                    return vaporProp;
                     Debug.LogError($"Trying to draw {PropertyType} with a custom drawer at {Property.PropertyPath}, but drawer does not implement type:{nameof(VaporPropertyDrawer)}");
                     return null;
                 }

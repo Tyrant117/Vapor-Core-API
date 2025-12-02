@@ -4,6 +4,7 @@
     "references": [
         "vapor.core.runtime",
         "Unity.Addressables.Editor",
+        "Unity.Addressables",
         "Unity.EditorCoroutines.Editor",
         "vapor.core.runtime.unsafe"
     ],
