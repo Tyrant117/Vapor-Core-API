@@ -232,7 +232,8 @@ namespace Vapor.Inspector
 
         public static void Show(this VisualElement element) { element.style.display = DisplayStyle.Flex; }
 
-        public static void Hide(this VisualElement element) { element.style.display = DisplayStyle.None; }
+        public static VisualElement Hide(this VisualElement element) { element.style.display = DisplayStyle.None; return element; }
+        public static T Hide<T>(this T element) where T : VisualElement { element.style.display = DisplayStyle.None; return element; }
 
         public static void SetDisplay(this VisualElement element, bool isVisible)
         {

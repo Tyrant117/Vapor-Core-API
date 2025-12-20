@@ -27,11 +27,11 @@ namespace VaporEditor
                 var getAllMethod = genericType.GetMethod("GetAll");
                 var allData = (IEnumerable<IData>)getAllMethod.Invoke(null, null);
                 var keys = allData.Select(d => KeyGenerator.StringToKeyValuePair(d.Name)).ToList();
-                var category = type.Name;
+                var category = type.Name.Replace("Data", "");
                 var scriptName = $"{category}Keys";
+                category = $"{category}s";
                 KeyGenerator.FormatKeyFiles(KeyGenerator.RELATIVE_KEY_PATH, KeyGenerator.NAMESPACE_NAME, scriptName, category, keys);
             }
-
 
             RuntimeEditorUtility.SaveAndRefresh();
         }

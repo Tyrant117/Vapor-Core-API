@@ -12,6 +12,13 @@ namespace Vapor
         
         public static event Action OnRegistriesBuilt;
 
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+        public static void EditorInitialize()
+        {
+            Initialize();
+        }
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         public static void Initialize()
@@ -52,7 +59,7 @@ namespace Vapor
             if (s_RegistryMap.TryGetValue(data.Key, out var existing))
             {
                 throw new Exception(
-                    $"GlobalDataRegistry: Duplicate key {data.Key}. " +
+                    $"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}. " +
                     $"Existing={existing.GetType().Name}, New={data.GetType().Name}");
             }
 

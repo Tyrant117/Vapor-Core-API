@@ -24,7 +24,7 @@ namespace VaporEditor.Keys
 
             var labels = settings.GetLabels();
             var entries = new List<AddressableAssetEntry>(1024);
-            settings.GetAllAssets(entries, true);
+            settings.GetAllAssets(entries, false);
 
             GenerateAddressableLabels(labels);
             GenerateAddressableNames(entries.Select(e => e.address));
@@ -53,7 +53,7 @@ namespace VaporEditor.Keys
                     continue;
                 }
 
-                var constName = label.Replace(" ", "").Replace("-", "_").Replace(".", "_");
+                var constName = label.Replace(" ", "").Replace("-", "_").Replace(".", "_").Replace("(", "_").Replace(")", "_");
                 sb.AppendLine($"        public const string {constName} = \"{label}\";");
             }
 
@@ -91,7 +91,7 @@ namespace VaporEditor.Keys
                     continue;
                 }
 
-                var constName = label.Replace(" ", "").Replace("-", "_").Replace(".", "_");
+                var constName = label.Replace(" ", "").Replace("-", "_").Replace(".", "_").Replace("(", "_").Replace(")", "_");
                 sb.AppendLine($"        public const string {constName} = \"{label}\";");
             }
 

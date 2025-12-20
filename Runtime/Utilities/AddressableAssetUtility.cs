@@ -15,9 +15,10 @@ namespace Vapor
             return Addressables.InstantiateAsync(nameOrLabel, parent, instantiateInWorldSpace).WaitForCompletion();
         }
 
-        public static GameObject Instantiate(string nameOrLabel, Vector3 position, Quaternion rotation)
+        public static GameObject Instantiate(string nameOrLabel, Vector3 position, Quaternion rotation, out AsyncOperationHandle<GameObject> handle)
         {
-            return Addressables.InstantiateAsync(nameOrLabel, position, rotation).WaitForCompletion();
+            handle = Addressables.InstantiateAsync(nameOrLabel, position, rotation);
+            return handle.WaitForCompletion();
         }
 
         public static GameObject Instantiate(AssetReferenceGameObject reference, Transform parent, bool instantiateInWorldSpace)
@@ -50,14 +51,16 @@ namespace Vapor
             reference.InstantiateAsync(position, rotation).Completed += callback;
         }
 
-        public static T Load<T>(string nameOrLabel)
+        public static T Load<T>(string nameOrLabel, out AsyncOperationHandle<T> handle)
         {
-            return Addressables.LoadAssetAsync<T>(nameOrLabel).WaitForCompletion();
+            handle = Addressables.LoadAssetAsync<T>(nameOrLabel);
+            return handle.WaitForCompletion();
         }
 
-        public static T Load<T>(AssetLabelReference referenceLabel)
+        public static T Load<T>(AssetLabelReference referenceLabel, out AsyncOperationHandle<T> handle)
         {
-            return Addressables.LoadAssetAsync<T>(referenceLabel).WaitForCompletion();
+            handle = Addressables.LoadAssetAsync<T>(referenceLabel);
+            return handle.WaitForCompletion();
         }
 
         public static void LoadAsync<T>(string nameOrLabel, Action<AsyncOperationHandle<T>> callback)
