@@ -5,6 +5,6 @@ namespace Vapor
 {
     public abstract class ViewController : VisualElement
     {
-        public abstract void OnInitialized();
+        public abstract void OnInitialized(object initializer);
     }
 }

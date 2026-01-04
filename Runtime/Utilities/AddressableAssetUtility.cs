@@ -5,6 +5,8 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
 
 namespace Vapor
 {
@@ -101,6 +103,19 @@ namespace Vapor
         public static void LoadAllAsync<T>(Action<T> processor, Action<AsyncOperationHandle<IList<T>>> callback, IEnumerable enumerable)
         {
             Addressables.LoadAssetsAsync(enumerable, processor, false).Completed += callback;
+        }
+
+        public static SceneInstance LoadScene(string nameOrLabel, out AsyncOperationHandle<SceneInstance> handle, LoadSceneMode loadMode = LoadSceneMode.Single, bool activateOnLoad = true,
+            int priority = 100, SceneReleaseMode releaseMode = SceneReleaseMode.ReleaseSceneWhenSceneUnloaded)
+        {
+            handle = Addressables.LoadSceneAsync(nameOrLabel, loadMode, activateOnLoad, priority, releaseMode);
+            return handle.WaitForCompletion();
+        }
+
+        public static void LoadSceneAsync(string nameOrLabel, Action<AsyncOperationHandle<SceneInstance>> callback, LoadSceneMode loadMode = LoadSceneMode.Single, bool activateOnLoad = true,
+            int priority = 100, SceneReleaseMode releaseMode = SceneReleaseMode.ReleaseSceneWhenSceneUnloaded)
+        {
+            Addressables.LoadSceneAsync(nameOrLabel, loadMode, activateOnLoad, priority, releaseMode).Completed += callback;
         }
     }
 }
