@@ -11,6 +11,8 @@ namespace VaporEditor
         public const string DEFINITIONS_RELATIVE_PATH = FOLDER_KEYS_RELATIVE_PATH + "/Definitions";
         public const string CONFIG_RELATIVE_PATH = FOLDER_KEYS_RELATIVE_PATH + "/Config";
         
+        public const string WORLD_SETTINGS_RELATIVE_PATH = "Vapor/World Settings";
+        
 
         public const string KEY_ROOT_NAMESPACE = "Vapor.KeyDefinitions";
         public const string INTERNAL_ASSEMBLY_REFERENCE_NAME = "vapor.core.runtime";
@@ -23,6 +25,7 @@ namespace VaporEditor
             FolderUtility.CreateFolderFromPath($"Assets/{FOLDER_KEYS_RELATIVE_PATH}");
             FolderUtility.CreateFolderFromPath($"Assets/{DEFINITIONS_RELATIVE_PATH}");
             FolderUtility.CreateFolderFromPath($"Assets/{CONFIG_RELATIVE_PATH}");
+            FolderUtility.CreateFolderFromPath($"Assets/{WORLD_SETTINGS_RELATIVE_PATH}");
 
             FolderUtility.CreateAssemblyDefinition($"Assets/{FOLDER_KEYS_RELATIVE_PATH}", KEY_ROOT_NAMESPACE, KEY_ROOT_NAMESPACE, new[] { INTERNAL_ASSEMBLY_REFERENCE_NAME }, false);
         }
