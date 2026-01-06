@@ -239,6 +239,13 @@ namespace Vapor.Inspector
         {
             element.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
         }
+
+        public static T Ignore<T>(this T element) where T : VisualElement
+        {
+            element.pickingMode = PickingMode.Ignore;
+            return element;
+        }
+
         #endregion
 
         #region - Layout -
