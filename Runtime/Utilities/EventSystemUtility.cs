@@ -2,7 +2,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.UIElements;
 using Vapor.Inspector;
+using Cursor = UnityEngine.Cursor;
 
 namespace Vapor
 {
@@ -28,12 +30,11 @@ namespace Vapor
         /// Checks if the pointer is over a GUI element. Works inside InputAction callbacks
         /// </summary>
         /// <returns>True if the pointer is over a GUI element, otherwise false</returns>
-        public static bool IsPointerOverGUIAction()
+        public static bool IsPointerOverGUIAction(IPanel panel = null)
         {
             if (!EventSystem.current)
             {
-                Debug.Log($"{TooltipMarkup.ClassMethod(nameof(EventSystemUtility), nameof(IsPointerOverGUIAction))} - No Event System");
-                return false;
+                return panel?.Pick(Mouse.current.position.ReadValue()) != null;
             }
 
             if (!s_Module)
