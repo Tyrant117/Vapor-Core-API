@@ -18,13 +18,16 @@ namespace Vapor
     /// </summary>
     public static class RuntimeAssetDatabaseUtility
     {
+
 #if UNITY_EDITOR
         public static List<T> FindAssetsByType<T>() where T : Object
         {
             var guids = AssetDatabase.FindAssets($"t:{typeof(T)}");
             return guids.Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<T>).Where(asset => asset != null).ToList();
+
         }
         
+
         public static List<Object> FindAssetsByType(Type type)
         {
             var guids = AssetDatabase.FindAssets($"t:{type}");
@@ -39,6 +42,16 @@ namespace Vapor
             return guids.Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<T>).FirstOrDefault(asset => asset && asset.Key == key);
 #else
             return RuntimeDatabase<T>.Get(key);
+#endif
+        }
+
+        public static IEnumerable<T> FindAssets<T>() where T : NamedKeySo
+        {
+#if UNITY_EDITOR
+            var guids = AssetDatabase.FindAssets($"t:{typeof(T)}");
+            return guids.Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<T>).Where(asset => asset);
+#else
+            return RuntimeDatabase<T>.All();
 #endif
         }
     }

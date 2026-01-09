@@ -11,4 +11,9 @@ namespace Vapor
         /// <param name="initializer">The object calling this method, typically the PlayerController</param>
         public abstract void OnInitialized(object initializer);
     }
+    
+    /// <summary>
+    /// This is the first ViewController to be initialized. It asks as the root element for the PlayerController.HudRoot.
+    /// </summary>
+    public abstract class RootController : ViewController { }
 }
