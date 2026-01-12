@@ -110,6 +110,16 @@ namespace Vapor.Keys
         public static void PostInitDatabase()
         {
             //Debug.Log($"{TooltipMarkup.ClassMethod(nameof(RuntimeDatabase<T>), nameof(PostInitDatabase))} - {TooltipMarkup.Class(typeof(T).Name)}");
+            if(!s_Initialized)
+            {
+                return;
+            }
+
+            if (s_Db == null)
+            {
+                return;
+            }
+            
             foreach (var item in s_Db.Values)
             {
                 if (item is IDatabaseInitialize dbInit)

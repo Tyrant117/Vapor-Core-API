@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
@@ -75,9 +76,9 @@ namespace Vapor
             Addressables.LoadAssetAsync<T>(referenceLabel).Completed += callback;
         }
 
-        public static IList<T> LoadAll<T>(Action<T> callback, params string[] namesOrLabels)
+        public static IList<T> LoadAll<T>(Action<T> callback, object[] namesOrLabels)
         {
-            return Addressables.LoadAssetsAsync(namesOrLabels.AsEnumerable(), callback, Addressables.MergeMode.Union, false).WaitForCompletion();
+            return Addressables.LoadAssetsAsync(namesOrLabels, callback, Addressables.MergeMode.Union, false).WaitForCompletion();
         }
 
         public static IList<T> LoadAll<T>(Action<T> callback, AssetLabelReference referenceLabel)
@@ -85,10 +86,10 @@ namespace Vapor
             return Addressables.LoadAssetsAsync(referenceLabel, callback, false).WaitForCompletion();
         }
 
-        public static IList<T> LoadAll<T>(Action<T> callback, IEnumerable enumerable)
-        {
-            return Addressables.LoadAssetsAsync(enumerable, callback, Addressables.MergeMode.Union, false).WaitForCompletion();
-        }
+        // public static IList<T> LoadAll<T>(Action<T> callback, IEnumerable enumerable)
+        // {
+        //     return Addressables.LoadAssetsAsync(enumerable, callback, Addressables.MergeMode.Union, false).WaitForCompletion();
+        // }
 
         public static void LoadAllAsync<T>(Action<T> processor, Action<AsyncOperationHandle<IList<T>>> callback, params string[] namesOrLabels)
         {
@@ -116,6 +117,16 @@ namespace Vapor
             int priority = 100, SceneReleaseMode releaseMode = SceneReleaseMode.ReleaseSceneWhenSceneUnloaded)
         {
             Addressables.LoadSceneAsync(nameOrLabel, loadMode, activateOnLoad, priority, releaseMode).Completed += callback;
+        }
+        
+        public static bool CheckAddressableKeyValidity(object key)
+        {
+            // LoadResourceLocationsAsync returns an AsyncOperationHandle<IList<IResourceLocation>>
+            // If the key is not found, the list will be empty and the operation will succeed without error.
+            IList<IResourceLocation> opHandle = Addressables.LoadResourceLocationsAsync(key, typeof(object)).WaitForCompletion();
+            bool hasKey = opHandle.Count > 0;
+            Addressables.Release(opHandle); // Don't forget to release the handle!
+            return hasKey;
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Keys
@@ -57,11 +58,30 @@ namespace Vapor.Keys
                         var atr = type.GetCustomAttribute<DatabaseKeyValuePairAttribute>();
                         if (atr.UseAddressables)
                         {
-                            var assets = AddressableAssetUtility.LoadAll<Object>(Debug.Log, atr.AddressableLabel);
-                            var moreAssets = Resources.LoadAll(string.Empty, type);
-                            foreach (var asset in moreAssets)
+                            Debug.Log($"Loading Addressables for {type.Name} with label {atr.AddressableLabel}");
+                            if (atr.AddressableLabel == null)
                             {
-                                assets.Add(asset);
+                                Debug.LogError($"Loading Addressables for failed {type.Name} label is null");
+                                continue;
+                            }
+
+                            if (!AddressableAssetUtility.CheckAddressableKeyValidity(atr.AddressableLabel))
+                            {
+                                Debug.LogWarning($"Loading Addressables for failed {type.Name} label has no valid objects");
+                                continue;
+                            }
+                            
+                            var assets = new List<Object>();
+                            
+                            var addressableAssets = AddressableAssetUtility.LoadAll<Object>(Debug.Log, new object[] { atr.AddressableLabel });
+                            if (addressableAssets != null)
+                            {
+                                assets.AddRange(addressableAssets);
+                            }
+                            var moreAssets = Resources.LoadAll(string.Empty, type);
+                            if(moreAssets != null)
+                            {
+                                assets.AddRange(moreAssets);
                             }
 
                             RuntimeDatabaseUtility.InitializeRuntimeDatabase(type, assets);
