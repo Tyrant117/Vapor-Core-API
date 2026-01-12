@@ -34,7 +34,16 @@ namespace Vapor
         {
             if (!EventSystem.current)
             {
-                return panel?.Pick(Mouse.current.position.ReadValue()) != null;
+                if (panel == null)
+                {
+                    return false;
+                }
+
+                var mousePos = Mouse.current.position.ReadValue();
+                mousePos.y = Screen.height - mousePos.y;
+                var panelPos = RuntimePanelUtils.ScreenToPanel(panel, mousePos);
+                // Debug.Log($"{TooltipMarkup.ClassMethod(nameof(EventSystemUtility), nameof(IsPointerOverGUIAction))} - {panel} - {panelPos} - {panel?.Pick(panelPos)}");
+                return panel.Pick(panelPos) != null;
             }
 
             if (!s_Module)
