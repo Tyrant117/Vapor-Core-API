@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Vapor.Inspector;
-using Vapor.Keys;
+using Vapor.Unsafe;
 
 namespace Vapor
 {
@@ -29,7 +29,11 @@ namespace Vapor
         
         public static TData Get(uint id) => s_RegistryMap.GetValueOrDefault(id);
 
+        public static TData Get(string id) => Get(id.Hash32());
+
         public static bool TryGet(uint id, out TData value) => s_RegistryMap.TryGetValue(id, out value);
+        
+        public static bool TryGet(string id, out TData value) => TryGet(id.Hash32(), out value);
 
         public static IEnumerable<TData> GetAll() => s_RegistryMap.Values;
     }

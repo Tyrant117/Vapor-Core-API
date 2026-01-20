@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
+using Vapor.Inspector;
 using Vapor.Keys;
 
 namespace VaporEditor
@@ -25,9 +26,17 @@ namespace VaporEditor
                         continue;
                     }
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
+                    
                     if(atr is { UseAddressables: true })
                     {
                         AddToAddressables(str, atr.AddressableLabel);
+                        continue;
+                    }
+                    
+                    var atr2 = so.GetType().GetCustomAttribute<IsAddressableAttribute>();
+                    if (atr2 != null)
+                    {
+                        AddToAddressables(atr2.AddressableLabel);
                     }
                 }
             }
@@ -42,6 +51,13 @@ namespace VaporEditor
                     if (atr is { UseAddressables: true })
                     {
                         AddToAddressables(movedAssets[i], atr.AddressableLabel);
+                        continue;
+                    }
+                    
+                    var atr2 = so.GetType().GetCustomAttribute<IsAddressableAttribute>();
+                    if (atr2 != null)
+                    {
+                        AddToAddressables(atr2.AddressableLabel);
                     }
                 }
             }

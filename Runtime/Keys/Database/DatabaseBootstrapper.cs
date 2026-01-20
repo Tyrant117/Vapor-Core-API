@@ -72,8 +72,8 @@ namespace Vapor.Keys
                             }
                             
                             var assets = new List<Object>();
-                            
-                            var addressableAssets = AddressableAssetUtility.LoadAll<Object>(Debug.Log, new object[] { atr.AddressableLabel });
+
+                            var addressableAssets = AddressableAssetUtility.LoadAll<Object>(Debug.Log, new object[] { atr.AddressableLabel }, out _);
                             if (addressableAssets != null)
                             {
                                 assets.AddRange(addressableAssets);

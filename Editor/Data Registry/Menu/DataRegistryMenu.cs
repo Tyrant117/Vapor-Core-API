@@ -1,9 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-// using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine;
 using Vapor;
 using Vapor.Keys;
 
@@ -11,7 +8,7 @@ namespace VaporEditor
 {
     public static class DataRegistryMenu
     {
-    [MenuItem("Vapor/Keys/Generate Data Keys", priority = -9100)]
+        [MenuItem("Vapor/Keys/Generate Data Keys", priority = -9100)]
         private static void GenerateDataKeys()
         {
             GlobalDataRegistry.Initialize();

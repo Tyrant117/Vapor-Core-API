@@ -46,7 +46,7 @@ namespace Vapor.Inspector
 
                     if (!nodeLookup.TryGetValue(currentPath, out var currentNode))
                     {
-                        currentNode = new TNode()
+                        currentNode = new TNode
                         {
                             Name = currentPath,
                             Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.Replace(" ", "").Hash32(),
@@ -70,6 +70,43 @@ namespace Vapor.Inspector
 
                     parent = currentNode;
                 }
+            }
+        }
+
+        public static void InsertTag(string tag)
+        {
+            string[] parts = tag.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            string currentPath = "";
+            TNode parent = null;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                currentPath = i == 0 ? parts[0] : $"{currentPath}.{parts[i]}";
+
+                if (!TagMap.TryGetValue(currentPath.Replace(" ", "").Hash32(), out var currentNode))
+                {
+                    currentNode = new TNode
+                    {
+                        Name = currentPath,
+                        Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.Replace(" ", "").Hash32(),
+                        Children = new List<TNode>(),
+                        Parent = parent,
+                    };
+
+                    TagMap[currentNode.Key] = currentNode;
+
+                    if (parent != null)
+                    {
+                        currentNode.Root = parent.Root;
+                        parent.Children.Add(currentNode);
+                    }
+                    else
+                    {
+                        RootTags.Add(currentNode);
+                    }
+                }
+
+                parent = currentNode;
             }
         }
 

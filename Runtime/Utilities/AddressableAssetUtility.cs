@@ -76,9 +76,10 @@ namespace Vapor
             Addressables.LoadAssetAsync<T>(referenceLabel).Completed += callback;
         }
 
-        public static IList<T> LoadAll<T>(Action<T> callback, object[] namesOrLabels)
+        public static IList<T> LoadAll<T>(Action<T> callback, object[] namesOrLabels, out AsyncOperationHandle<IList<T>> handle)
         {
-            return Addressables.LoadAssetsAsync(namesOrLabels, callback, Addressables.MergeMode.Union, false).WaitForCompletion();
+            handle = Addressables.LoadAssetsAsync(namesOrLabels, callback, Addressables.MergeMode.Union, false);
+            return handle.WaitForCompletion();
         }
 
         public static IList<T> LoadAll<T>(Action<T> callback, AssetLabelReference referenceLabel)

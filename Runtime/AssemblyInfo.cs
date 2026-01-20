@@ -1,0 +1,3 @@
+using Vapor;
+
+[assembly: TypeCache]
