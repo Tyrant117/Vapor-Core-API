@@ -8,13 +8,13 @@ namespace Vapor.Inspector
     [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = true)]
     public class HideInEditorModeAttribute : PropertyAttribute
     {
-        public string Resolver { get; } = "";
+        // public string Resolver { get; } = "";
 
-        public HideInEditorModeAttribute(string resolver)
+        public HideInEditorModeAttribute(/*string resolver*/)
         {
-            if (!ResolverUtility.HasResolver(resolver, out var parsed)) return;
-
-            Resolver = parsed;
+            // if (!ResolverUtility.HasResolver(resolver, out var parsed)) return;
+            //
+            // Resolver = parsed;
         }
     }
 }
