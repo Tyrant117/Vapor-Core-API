@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Unity.Burst;
 using UnityEditor;
 using UnityEngine;
 using Vapor.Inspector;
@@ -100,11 +101,12 @@ namespace Vapor.Keys
 #endif
         }
 
-        public readonly override string ToString() => $"Key: {Key} belonging to [{Guid}] with name [{DisplayName}]";
+        public readonly override string ToString() => DisplayName;
 
         public readonly bool Equals(KeyDropdownValue other) => Key == other.Key;
 
         public bool Equals(uint other) => Key == other;
+        public override bool Equals(object obj) => obj is KeyDropdownValue other && Equals(other);
         public readonly override int GetHashCode() => (int)Key;
         
     }

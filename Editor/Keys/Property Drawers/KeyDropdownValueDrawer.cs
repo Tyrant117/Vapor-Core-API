@@ -22,7 +22,7 @@ namespace VaporEditor.Keys
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             List<string> keys = new();
-            List<KeyDropdownValue> values = new();
+            List<object> values = new();
             var atr = fieldInfo.GetCustomAttribute<DropdownAttribute>();
             if (atr == null)
             {
@@ -33,7 +33,7 @@ namespace VaporEditor.Keys
             {
                 case 0:
                     var mi = ReflectionUtility.GetMember(Property.ParentType, atr.Resolver);
-                    if (!ReflectionUtility.TryResolveMemberValue<IList>(Property.GetParentObject(), mi, null, out convert))
+                    if (!ReflectionUtility.TryResolveMemberValue(Property.GetParentObject(), mi, null, out convert))
                     {
                         Debug.LogError($"Could Not Resolve IEnumerable at Property: {Property.InspectorObject.Type.Name} Resolver: {atr.Resolver}");
                     }
@@ -50,10 +50,10 @@ namespace VaporEditor.Keys
             float? fixedWidth = null;
             if (fieldInfo.FieldType == typeof(List<KeyDropdownValue>))
             {
-                int index = property.propertyPath.IndexOf(".Array");
+                int index = property.propertyPath.IndexOf(".Array", StringComparison.Ordinal);
 
                 // If ".Array" is found, return the substring before it; otherwise, return the original string
-                var propName = index >= 0 ? property.propertyPath.Substring(0, index) : fieldInfo.Name;
+                var propName = index >= 0 ? property.propertyPath[..index] : fieldInfo.Name;
 
                 var outerProp = property.serializedObject.FindProperty(propName);
                 for (int i = 0; i < outerProp.arraySize; i++)
@@ -68,7 +68,7 @@ namespace VaporEditor.Keys
                 
             }
 
-            ConvertToTupleList(keys, values, convert);
+            SplitTupleToDropdown(keys, values, (IEnumerable<DropdownModel>)convert);
             var foldout = new StyledFoldoutProperty(name);
             var tooltip = "";
             if (fieldInfo.IsDefined(typeof(RichTextTooltipAttribute), true))
@@ -297,7 +297,7 @@ namespace VaporEditor.Keys
         {
             if (visualElement is SearchableDropdown<string> dropdown)
             {
-                var tuple = ((SerializedProperty, List<KeyDropdownValue>))dropdown.userData;
+                var tuple = ((SerializedProperty, List<object>))dropdown.userData;
                 var newVal = tuple.Item2[dropdown.Index];
                 Debug.Log("Applied " + newVal);
                 tuple.Item1.boxedValue = newVal;
