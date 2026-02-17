@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using Vapor;
 using Vapor.Keys;
@@ -11,6 +12,12 @@ namespace VaporEditor
         [MenuItem("Vapor/Keys/Generate Data Keys", priority = -9100)]
         private static void GenerateDataKeys()
         {
+            SetupDataKeys();
+            RuntimeEditorUtility.SaveAndRefresh();
+        }
+
+        public static void SetupDataKeys()
+        {
             GlobalDataRegistry.Initialize();
 
             var types = GlobalDataRegistry.GetAllTypes();
@@ -18,19 +25,23 @@ namespace VaporEditor
             foreach (var type in types)
             {
                 // Make generic EffectRegistry<T>
+                var keyOptions = type.GetCustomAttribute<KeyOptionsAttribute>();
                 var genericType = typeof(DataRegistry<>).MakeGenericType(type);
 
                 // Get the GetAll method via reflection
                 var getAllMethod = genericType.GetMethod("GetAll");
-                var allData = (IEnumerable<IData>)getAllMethod.Invoke(null, null);
+                var allData = (IEnumerable<IData>)getAllMethod!.Invoke(null, null);
                 var keys = allData.Select(d => KeyGenerator.StringToKeyValuePair(d.Name)).ToList();
-                var category = type.Name.Replace("Data", "");
-                var scriptName = $"{category}Keys";
-                category = $"{category}s";
+                var scriptName = type.Name;
+                scriptName = scriptName.Replace("Scriptable", "").Replace("Data", "").Replace("Key", "");
+                scriptName = scriptName.EndsWith("SO") ? scriptName[..^2] : scriptName;
+                scriptName = scriptName.EndsWith("So") ? scriptName[..^2] : scriptName;
+                scriptName = scriptName.EndsWith("s") ? scriptName[..^1] : scriptName;
+                
+                var category = keyOptions?.Category ?? $"{scriptName}s";
+                scriptName = $"{scriptName}Keys";
                 KeyGenerator.FormatKeyFiles(KeyGenerator.RELATIVE_KEY_PATH, KeyGenerator.NAMESPACE_NAME, scriptName, category, keys);
             }
-
-            RuntimeEditorUtility.SaveAndRefresh();
         }
     }
 }

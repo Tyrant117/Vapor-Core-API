@@ -18,25 +18,26 @@ namespace VaporEditor
             foreach (string str in importedAssets)
             {
                 //Debug.Log("Reimported Asset: " + str);
-                if(IsScriptableObjectAsset(str))
+                if (IsScriptableObjectAsset(str))
                 {
                     var so = AssetDatabase.LoadAssetAtPath<ScriptableObject>(str);
                     if (!so)
                     {
                         continue;
                     }
+
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
-                    
-                    if(atr is { UseAddressables: true })
+
+                    if (atr is { UseAddressables: true })
                     {
-                        AddToAddressables(str, atr.AddressableLabel);
+                        AddToAddressableAssets(str, atr.AddressableLabel);
                         continue;
                     }
-                    
+
                     var atr2 = so.GetType().GetCustomAttribute<IsAddressableAttribute>();
                     if (atr2 != null)
                     {
-                        AddToAddressables(atr2.AddressableLabel);
+                        AddToAddressableAssets(str, atr2.AddressableLabel);
                     }
                 }
             }
@@ -50,14 +51,14 @@ namespace VaporEditor
                     var atr = so.GetType().GetCustomAttribute<DatabaseKeyValuePairAttribute>();
                     if (atr is { UseAddressables: true })
                     {
-                        AddToAddressables(movedAssets[i], atr.AddressableLabel);
+                        AddToAddressableAssets(movedAssets[i], atr.AddressableLabel);
                         continue;
                     }
-                    
+
                     var atr2 = so.GetType().GetCustomAttribute<IsAddressableAttribute>();
                     if (atr2 != null)
                     {
-                        AddToAddressables(atr2.AddressableLabel);
+                        AddToAddressableAssets(movedAssets[i], atr2.AddressableLabel);
                     }
                 }
             }
@@ -70,7 +71,7 @@ namespace VaporEditor
             return extension == k_Extension;  // ScriptableObject assets usually have ".asset" extension
         }
 
-        public static void AddToAddressables(string assetPath, string withLabel = null)
+        public static void AddToAddressableAssets(string assetPath, string withLabel = null)
         {
             // Get the Addressable Asset Settings object (it manages all addressables)
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;

@@ -52,9 +52,19 @@ namespace Vapor
 
             s_CachedTypes.Clear(); // Clear any existing cache
 
-            var main = Assembly.Load("Assembly-CSharp");
-            ScanAssembly(main);
-            
+            try
+            {
+                var main = Assembly.Load("Assembly-CSharp");
+                if (main != null)
+                {
+                    ScanAssembly(main);
+                }
+            }
+            catch (Exception)
+            {
+                // Debug.LogException(e);
+            }
+
             // Get all assemblies in the current application domain
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (Assembly assembly in assemblies)

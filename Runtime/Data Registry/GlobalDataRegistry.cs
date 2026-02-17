@@ -51,7 +51,12 @@ namespace Vapor
                     assetsByOrder.Add(order, new List<IScriptableData>());
                 }
 
-                assetsByOrder[order].AddRange(assets.OfType<IScriptableData>());
+                // foreach (var asset in assets.OfType<IScriptableData>())
+                // {
+                //     Debug.Log($"Loaded Asset {asset.Name} | {asset.Key}");
+                // }
+
+                assetsByOrder[order].AddRangeUnique(assets.OfType<IScriptableData>());
             }
 
             // var types = AppDomain.CurrentDomain.GetAssemblies()
@@ -116,7 +121,7 @@ namespace Vapor
             if (s_RegistryMap.TryGetValue(data.Key, out var existing))
             {
                 throw new Exception(
-                    $"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}. " +
+                    $"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}. Existing={existing.Name}| {existing.Key}. " +
                     $"Existing={existing.GetType().Name}, New={data.GetType().Name}");
             }
 

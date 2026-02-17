@@ -14,10 +14,9 @@ namespace Vapor
         [NonSerialized]
         private Type _type;
 
-        public Type ResolveType()
-        {
-            return _type ??= _assemblyQualifiedType != null ? Type.GetType(_assemblyQualifiedType) : null;
-        }
+        public bool IsValid() => ResolveType() != null;
+
+        public Type ResolveType() => _type ??= _assemblyQualifiedType != null ? Type.GetType(_assemblyQualifiedType) : null;
 
         private IEnumerable<Type> GetSubclassType()
         {

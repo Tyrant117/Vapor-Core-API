@@ -48,6 +48,7 @@ namespace VaporEditor.Inspector
             }
                 
             Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
+            DataRegistryMenu.SetupDataKeys();
             AssetDatabase.Refresh();
         }
 
