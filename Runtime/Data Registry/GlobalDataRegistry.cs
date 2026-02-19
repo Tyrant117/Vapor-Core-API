@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
 using Vapor.Unsafe;
@@ -27,7 +28,7 @@ namespace Vapor
         public static void Initialize()
         {
             s_RegistryMap.Clear();
-            var assetTypes = VaporTypeCache.GetTypesDerivedFrom<IScriptableData>().GetTypesWithAttribute<IsAddressableAttribute>();
+            var assetTypes = VaporTypeCache.GetTypesDerivedFrom<IScriptableData>().GetTypesWithAttribute<IsAddressableAttribute>().Where(t => !t.IsInterface && !t.IsAbstract);
             SortedDictionary<int, List<IScriptableData>> assetsByOrder = new();
             List<AsyncOperationHandle<IList<ScriptableObject>>> handles = new();
             foreach (var assetType in assetTypes)
@@ -51,12 +52,20 @@ namespace Vapor
                     assetsByOrder.Add(order, new List<IScriptableData>());
                 }
 
-                // foreach (var asset in assets.OfType<IScriptableData>())
-                // {
-                //     Debug.Log($"Loaded Asset {asset.Name} | {asset.Key}");
-                // }
+                foreach (var asset in assets)
+                {
+                    if(asset is not IScriptableData data)
+                    {
+                        continue;
+                    }
 
-                assetsByOrder[order].AddRangeUnique(assets.OfType<IScriptableData>());
+                    if (assetsByOrder[order].Contains(data))
+                    {
+                        continue;
+                    }
+
+                    assetsByOrder[order].Add(data);
+                }
             }
 
             // var types = AppDomain.CurrentDomain.GetAssemblies()
@@ -81,7 +90,7 @@ namespace Vapor
 
                 registriesByOrder[order].Add(reg);
             }
-            
+
             var orders = new List<int>(registriesByOrder.Keys.Count + assetsByOrder.Keys.Count);
             orders.AddRange(registriesByOrder.Keys);
             orders.AddRangeUnique(assetsByOrder.Keys);
@@ -120,9 +129,9 @@ namespace Vapor
         {
             if (s_RegistryMap.TryGetValue(data.Key, out var existing))
             {
-                throw new Exception(
-                    $"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}. Existing={existing.Name}| {existing.Key}. " +
-                    $"Existing={existing.GetType().Name}, New={data.GetType().Name}");
+                Debug.LogError($"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}." +
+                               $" Existing={existing.GetType().Name}, New={data.GetType().Name}");
+                return;
             }
 
             s_RegistryMap[data.Key] = data;

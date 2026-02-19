@@ -20,11 +20,19 @@ namespace VaporEditor
         {
             GlobalDataRegistry.Initialize();
 
-            var types = GlobalDataRegistry.GetAllTypes();
-
+            var types = GlobalDataRegistry.GetAllTypes().ToList();
+            var baseTypes = types
+                .Select(t => t.BaseType)
+                .Where(t => t != null && t != typeof(object) && typeof(IData).IsAssignableFrom(t))
+                .ToList();
+            types.AddRange(baseTypes);
+            // Filter out types that don't implement IData
+            types = types.Distinct().ToList();
+            
+            
             foreach (var type in types)
             {
-                // Make generic EffectRegistry<T>
+                // Make generic DataRegistry<type>
                 var keyOptions = type.GetCustomAttribute<KeyOptionsAttribute>();
                 var genericType = typeof(DataRegistry<>).MakeGenericType(type);
 
