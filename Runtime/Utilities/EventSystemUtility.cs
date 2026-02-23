@@ -100,14 +100,23 @@ namespace Vapor
 
         public static void ShowMouseCursor(CursorLockMode cursorLockMode, Vector2 mousePosition)
         {
+            if (Cursor.visible)
+            {
+                return;
+            }
             Cursor.visible = true;
             Cursor.lockState = cursorLockMode;
             Mouse.current.WarpCursorPosition(mousePosition);
         }
-        
+
         public static void HideMouseCursor(bool allowMouseMovement, out Vector2 mousePosition)
         {
             mousePosition = Mouse.current.position.ReadValue();
+            if (!Cursor.visible)
+            {
+                return;
+            }
+
             Cursor.visible = false;
             Cursor.lockState = allowMouseMovement ? CursorLockMode.Confined : CursorLockMode.Locked;
         }
