@@ -2615,18 +2615,37 @@ namespace VaporEditor.Inspector
                 && !(Object)Property.GetValue()
                 && Property.InspectorObject.Object is Component component)
             {
-                var comp = component.GetComponent(PropertyType);
-                if (!comp && atr.SearchChildren)
+                // Has A Required Interface Attribute, So Check The Type of The Interface
+                if (Property.TryGetAttribute<RequireInterfaceAttribute>(out var requireInterfaceAtr))
                 {
-                    comp = component.GetComponentInChildren(PropertyType, true);
-                }
+                    var comp = component.GetComponent(requireInterfaceAtr.InterfaceType);
+                    if (!comp && atr.SearchChildren)
+                    {
+                        comp = component.GetComponentInChildren(requireInterfaceAtr.InterfaceType, true);
+                    }
 
-                if (!comp && atr.SearchParents)
-                {
-                    comp = component.GetComponentInParent(PropertyType, true);
-                }
+                    if (!comp && atr.SearchParents)
+                    {
+                        comp = component.GetComponentInParent(requireInterfaceAtr.InterfaceType, true);
+                    }
                 
-                schedule.Execute(() => MarkDirtyWithValue(comp, comp));
+                    schedule.Execute(() => MarkDirtyWithValue(comp, comp));
+                }
+                else
+                {
+                    var comp = component.GetComponent(PropertyType);
+                    if (!comp && atr.SearchChildren)
+                    {
+                        comp = component.GetComponentInChildren(PropertyType, true);
+                    }
+
+                    if (!comp && atr.SearchParents)
+                    {
+                        comp = component.GetComponentInParent(PropertyType, true);
+                    }
+                
+                    schedule.Execute(() => MarkDirtyWithValue(comp, comp));
+                }
             }
         }
 

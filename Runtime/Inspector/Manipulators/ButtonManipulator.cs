@@ -13,6 +13,7 @@ namespace Vapor.Inspector
     public class ButtonManipulator : SelectableManipulator
     {
         public InputAction Hotkey { get; private set; }
+        public uint InputActionId { get; private set; }
 
         public ClickTypes ClickType { get; set; }
 
@@ -36,6 +37,12 @@ namespace Vapor.Inspector
             Hotkey = hotkey;
             return this;
         }
+
+        public ButtonManipulator WithInputActionTrigger(uint inputActionId)
+        {
+            InputActionId = inputActionId;
+            return this;
+        }
         #endregion
 
         protected override void RegisterCallbacksOnTarget()
@@ -46,6 +53,11 @@ namespace Vapor.Inspector
             {
                 Hotkey.performed += OnKeyDown;
                 Hotkey.canceled += OnKeyUp;
+            }
+
+            if (InputActionId != 0)
+            {
+                InputActionEvents.Subscribe(InputActionId, OnKey);
             }
         }
 
@@ -58,9 +70,26 @@ namespace Vapor.Inspector
                 Hotkey.performed -= OnKeyDown;
                 Hotkey.canceled -= OnKeyUp;
             }
+            if (InputActionId != 0)
+            {
+                InputActionEvents.Unsubscribe(InputActionId, OnKey);
+            }
         }
 
         #region - Manual Input -
+
+        protected void OnKey(uint eventId, InputAction.CallbackContext context)
+        {
+            switch (context.phase)
+            {
+                case InputActionPhase.Performed:
+                    ManualKeyDown();
+                    break;
+                case InputActionPhase.Canceled:
+                    ManualKeyUp();
+                    break;
+            }
+        }
         protected void OnKeyDown(InputAction.CallbackContext context)
         {
             ManualKeyDown();
