@@ -4,6 +4,12 @@ using UnityEngine.UIElements;
 
 namespace Vapor
 {
+    public interface IDisplayStateListener
+    {
+        void OnOpened();
+        void OnClosed();
+    }
+    
     public abstract class ViewController : VisualElement
     {
         /// <summary>

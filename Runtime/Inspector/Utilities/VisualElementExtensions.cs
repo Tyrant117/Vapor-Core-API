@@ -226,18 +226,70 @@ namespace Vapor.Inspector
                     element.style.display = DisplayStyle.Flex;
                     break;
             }
+
+            if (element is IDisplayStateListener listener)
+            {
+                if (element.IsOpen())
+                {
+                    listener.OnOpened();
+                }
+                else
+                {
+                    listener.OnClosed();
+                }
+            }
         }
 
         public static bool IsOpen(this VisualElement element) => element.style.display == DisplayStyle.Flex;
 
-        public static void Show(this VisualElement element) { element.style.display = DisplayStyle.Flex; }
+        public static void Show(this VisualElement element)
+        {
+            var oldState = element.style.display.value;
+            element.style.display = DisplayStyle.Flex;
+            if (oldState != DisplayStyle.Flex && element is IDisplayStateListener listener)
+            {
+                listener.OnOpened();
+            }
+        }
 
-        public static VisualElement Hide(this VisualElement element) { element.style.display = DisplayStyle.None; return element; }
-        public static T Hide<T>(this T element) where T : VisualElement { element.style.display = DisplayStyle.None; return element; }
+        public static VisualElement Hide(this VisualElement element)
+        {
+            var oldState = element.style.display.value;
+            element.style.display = DisplayStyle.None;
+            if (oldState != DisplayStyle.None && element is IDisplayStateListener listener)
+            {
+                listener.OnClosed();
+            }
+
+            return element;
+        }
+
+        public static T Hide<T>(this T element) where T : VisualElement
+        {
+            var oldState = element.style.display.value;
+            element.style.display = DisplayStyle.None;
+            if (oldState != DisplayStyle.None && element is IDisplayStateListener listener)
+            {
+                listener.OnClosed();
+            }
+            return element;
+        }
 
         public static void SetDisplay(this VisualElement element, bool isVisible)
         {
+            var oldState = element.style.display.value;
             element.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (oldState != element.style.display && element is IDisplayStateListener listener)
+            {
+                if (element.IsOpen())
+                {
+                    listener.OnOpened();
+                }
+                else
+                {
+                    listener.OnClosed();
+                }
+            }
         }
 
         public static T Ignore<T>(this T element) where T : VisualElement
