@@ -252,6 +252,12 @@ namespace Vapor.Inspector
             }
         }
 
+        public static VisualElement ShowAfter(this VisualElement element, long milliseconds)
+        {
+            element.schedule.Execute(element.Show).StartingIn(milliseconds);
+            return element;       
+        }
+
         public static VisualElement Hide(this VisualElement element)
         {
             var oldState = element.style.display.value;
@@ -275,19 +281,51 @@ namespace Vapor.Inspector
             return element;
         }
 
-        public static void SetDisplay(this VisualElement element, bool isVisible)
+        public static T HideAfter<T>(this T element, long milliseconds) where T : VisualElement
+        {
+            element.schedule.Execute(() => element.Hide()).StartingIn(milliseconds);
+            return element;
+        }
+
+        public static void SetDisplay(this VisualElement element, bool isVisible, bool animatedListener = false)
         {
             var oldState = element.style.display.value;
-            element.style.display = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
-            if (oldState != element.style.display && element is IDisplayStateListener listener)
+            var newState = isVisible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (oldState == newState)
             {
-                if (element.IsOpen())
+                return;
+            }
+
+            if (!animatedListener)
+            {
+                element.style.display = newState;
+            }
+                
+            if(element is IDisplayStateListener listener)
+            {
+                if (animatedListener)
                 {
-                    listener.OnOpened();
+                    // Since it hasnt changed yet, if open call closed, if closed call open.
+                    if (element.IsOpen())
+                    {
+                        listener.OnClosed();
+                    }
+                    else
+                    {
+                        listener.OnOpened();
+                    }
                 }
                 else
                 {
-                    listener.OnClosed();
+                    // Since it has changed, if open call opened, if closed, call closed.
+                    if (element.IsOpen())
+                    {
+                        listener.OnOpened();
+                    }
+                    else
+                    {
+                        listener.OnClosed();
+                    }
                 }
             }
         }
@@ -557,26 +595,75 @@ namespace Vapor.Inspector
         #endregion
 
         #region - Animation -
+
+        private static class AnimationToolkitBuilder
+        {
+            private static readonly List<StylePropertyName> s_AnimationProperties = new();
+            private static readonly List<EasingFunction> s_AnimationEasing = new();
+            private static readonly List<TimeValue> s_AnimationProperDurations = new();
+            private static readonly List<TimeValue> s_AnimationDelays = new();
+
+            public static void Reset()
+            {
+                s_AnimationProperties.Clear();
+                s_AnimationEasing.Clear();
+                s_AnimationProperDurations.Clear();
+                s_AnimationDelays.Clear();
+            }
+
+            public static void AddAnimation(StylePropertyName name, EasingFunction easing, TimeValue duration, TimeValue delay)
+            {
+                s_AnimationProperties.Add(name);
+                s_AnimationEasing.Add(easing);
+                s_AnimationProperDurations.Add(duration);
+                s_AnimationDelays.Add(delay);
+            }
+
+            public static void Build(out StyleList<StylePropertyName> properties, out StyleList<EasingFunction> easing, out StyleList<TimeValue> duration, out StyleList<TimeValue> delay)
+            {
+                properties = new StyleList<StylePropertyName>(s_AnimationProperties);
+                easing = new StyleList<EasingFunction>(s_AnimationEasing);
+                duration = new StyleList<TimeValue>(s_AnimationProperDurations);
+                delay = new StyleList<TimeValue>(s_AnimationDelays);
+            }
+        }
+
+        public static VisualElement CreateAnimation(this VisualElement element)
+        {
+            AnimationToolkitBuilder.Reset();
+            return element;
+        }
+
+        public static VisualElement AddAnimation(this VisualElement element, StylePropertyName name, EasingFunction easing, TimeValue duration, TimeValue delay)
+        {
+            AnimationToolkitBuilder.AddAnimation(name, easing, duration, delay);
+            return element;
+        }
+
+        public static VisualElement EnableAnimation(this VisualElement element)
+        {
+            AnimationToolkitBuilder.Build(out var properties, out var easing, out var duration, out var delay);
+            element.style.transitionProperty = properties;
+            element.style.transitionTimingFunction = easing;
+            element.style.transitionDuration = duration;
+            element.style.transitionDelay = delay;
+            return element;
+        }
+
         public static void EnableAnimation(this VisualElement element, StyleList<StylePropertyName> name, StyleList<EasingFunction> easing, StyleList<TimeValue> duration, StyleList<TimeValue> delay)
         {
-            if (element.style.transitionProperty == StyleKeyword.Null)
-            {
-                element.style.transitionProperty = name;
-                element.style.transitionTimingFunction = easing;
-                element.style.transitionDuration = duration;
-                element.style.transitionDelay = delay;
-            }
+            element.style.transitionProperty = name;
+            element.style.transitionTimingFunction = easing;
+            element.style.transitionDuration = duration;
+            element.style.transitionDelay = delay;
         }
 
         public static void DisableAnimation(this VisualElement element)
         {
-            if(element.style.transitionProperty != StyleKeyword.Null)
-            {
-                element.style.transitionProperty = StyleKeyword.Null;
-                element.style.transitionTimingFunction = StyleKeyword.Null;
-                element.style.transitionDuration = StyleKeyword.Null;
-                element.style.transitionDelay = StyleKeyword.Null;
-            }
+            element.style.transitionProperty = StyleKeyword.Initial;
+            element.style.transitionTimingFunction = StyleKeyword.Initial;
+            element.style.transitionDuration = StyleKeyword.Initial;
+            element.style.transitionDelay = StyleKeyword.Initial;
         }
         #endregion
     }
