@@ -40,6 +40,8 @@ namespace Vapor.Inspector
 
         private float _relativeXPoint;
         private float _relativeYPoint;
+        private int _pointerId;
+        private DragLocationMatch _dragLocationMatch;
 
         public Vector2 LastWorldMousePosition { get; private set; }
         public Vector2 LastLocalMousePosition { get; private set; }
@@ -48,12 +50,13 @@ namespace Vapor.Inspector
 
         private readonly List<VisualElement> _hoverCollection = new();
         private Vector3 _releasePoint;
-
+        
         public event Action<EventBase, VisualElement> BeginDrag = delegate { };
         public event Action<EventBase, VisualElement> DragUpdated = delegate { };
         public Func<EventBase, VisualElement, bool> CanEndDrag = delegate { return true; };
         private HashSet<KeyCode> _keys;
         private List<KeyCode> _activeKeys;
+        
         public event Action<EventBase, VisualElement, bool> EndDrag = delegate { };
 
         public DragElementManipulator(VisualElement container = null)
@@ -82,7 +85,7 @@ namespace Vapor.Inspector
             target.RegisterCallback<KeyUpEvent>(OnKeyUpEvent);
 
             // Since the panel is draggable it must be absolutely positioned.
-            target.RegisterCallbackOnce<GeometryChangedEvent>(OnSwitchToAbsolute);
+            // target.RegisterCallbackOnce<GeometryChangedEvent>(OnSwitchToAbsolute);
         }
 
         protected override void UnregisterCallbacksFromTarget()
@@ -98,7 +101,7 @@ namespace Vapor.Inspector
 
         private void OnSwitchToAbsolute(GeometryChangedEvent evt)
         {
-            if (target.style.position == Position.Relative)
+            if (target.style.position == Position.Absolute)
             {
                 return;
             }
@@ -127,8 +130,44 @@ namespace Vapor.Inspector
             LastLocalMousePosition = localPosition;
             DragStartMousePosition = dragStartPosition;
             DragSourceElement = dragSourceElement;
+            _pointerId = pointerId;
+            _dragLocationMatch = dragLocationMatch;
+            
+            // Reset The Manipulator And Create A New Visual Element
+            if (DragSourceElement is not IDragDropInitializer initializer)
+            {
+                Debug.LogError($"DragSourceElement does not implement IDragDropInitializer. DragSourceElement: {DragSourceElement.name} - {DragSourceElement.GetType()}.");
+                return;
+            }
 
-            switch (dragLocationMatch)
+            var newTarget = initializer.CreateDragDropElement();
+            target = newTarget;
+            target.RegisterCallbackOnce<AttachToPanelEvent>(OnCaptureOnAttach);
+            target.RegisterCallbackOnce<GeometryChangedEvent>(OnRecenter);
+            Container.Add(newTarget);
+        }
+
+        private void OnCaptureOnAttach(AttachToPanelEvent evt)
+        {
+            Debug.Log($"OnCaptureOnAttach {DragSourceElement.name} {_dragLocationMatch} - {_relativeXPoint} , {_relativeYPoint} ");
+            target.CapturePointer(_pointerId);
+        }
+
+        private void OnBeginDragEvent(PointerCaptureEvent evt)
+        {
+            Debug.Log($"Begin Drag On {DragSourceElement.name} - From Swap [{FromSwap}]");
+            IsDragging = true;
+            _hoverCollection.Clear();
+            UpdateDragPosition(LastWorldMousePosition.x, LastWorldMousePosition.y);
+            BeginDrag.Invoke(evt, DragSourceElement);
+            target.visible = true;
+            target.BringToFront();
+            evt.StopPropagation();
+        }
+
+        private void OnRecenter(GeometryChangedEvent evt)
+        {
+            switch (_dragLocationMatch)
             {
                 case DragLocationMatch.None:
                     _relativeXPoint = 0;
@@ -141,8 +180,8 @@ namespace Vapor.Inspector
                     target.style.height = DragSourceElement.layout.height;
                     break;
                 case DragLocationMatch.MatchRelativePosition:
-                    _relativeXPoint = DragStartMousePosition.x / DragSourceElement.layout.width * target.layout.width;
-                    _relativeYPoint = DragStartMousePosition.y / DragSourceElement.layout.height * target.layout.height;
+                    _relativeXPoint = DragStartMousePosition.x / DragSourceElement.layout.width * target.style.width.value.value;
+                    _relativeYPoint = DragStartMousePosition.y / DragSourceElement.layout.height * target.style.height.value.value;
                     break;
                 case DragLocationMatch.Center:
                     _relativeXPoint = target.layout.width / 2f;
@@ -155,31 +194,19 @@ namespace Vapor.Inspector
                     target.style.height = DragSourceElement.layout.height;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(dragLocationMatch), dragLocationMatch, null);
+                    throw new ArgumentOutOfRangeException(nameof(_dragLocationMatch), _dragLocationMatch, null);
+            }
+            
+            if(evt.oldRect.width == 0 || evt.oldRect.height == 0)
+            {
+                return;
             }
 
-            target.CapturePointer(pointerId);
-        }
-
-        private void OnBeginDragEvent(PointerCaptureEvent evt)
-        {
-            Debug.Log($"Begin Drag On {DragSourceElement.name} - From Swap [{FromSwap}]");
-            IsDragging = true;
-            _hoverCollection.Clear();
-            UpdateDragPosition(LastWorldMousePosition.x, LastWorldMousePosition.y);
-            BeginDrag.Invoke(evt, DragSourceElement);
-            target.RegisterCallbackOnce<GeometryChangedEvent>(OnRecenter);
-            target.visible = true;
-            target.BringToFront();
-            evt.StopPropagation();
-        }
-
-        private void OnRecenter(GeometryChangedEvent evt)
-        {
-            var scaleX = evt.newRect.width/evt.oldRect.width;
-            var scaleY = evt.newRect.height/evt.oldRect.height;
+            var scaleX = evt.newRect.width / evt.oldRect.width;
+            var scaleY = evt.newRect.height / evt.oldRect.height;
             _relativeXPoint = scaleX * _relativeXPoint;
             _relativeYPoint = scaleY * _relativeYPoint;
+            // Debug.Log($"OnRecenter {DragSourceElement.name} -{evt.newRect.width} / {evt.oldRect.width} | {evt.newRect.height} / {evt.oldRect.height}");
         }
 
         private void OnDragUpdatedEvent(PointerMoveEvent evt)
@@ -188,7 +215,7 @@ namespace Vapor.Inspector
             {
                 return;
             }
-
+            
             var pos = target.ChangeCoordinatesTo(Container, evt.localPosition);
             UpdateDragPosition(pos.x, pos.y);
             HandleEnterExit(evt.position);
@@ -246,6 +273,8 @@ namespace Vapor.Inspector
                 }
             }
             
+            target.RemoveFromHierarchy();
+            
             // Cleanup
             _activeKeys?.Clear();
             
@@ -287,6 +316,7 @@ namespace Vapor.Inspector
             var offsetWorldX = worldX - _relativeXPoint;
             var offsetWorldY = worldY - _relativeYPoint;
 
+            // Debug.Log($"UpdateDragPosition {DragSourceElement.name} - Offset: {offsetWorldX} {offsetWorldY} - Initial: {_relativeXPoint} {_relativeYPoint} - World: {worldX} {worldY}");
             target.ClampToPanel(Container, offsetWorldX, offsetWorldY);
         }
 
@@ -310,7 +340,7 @@ namespace Vapor.Inspector
 
             foreach (var current in s_HoverCache)
             {
-                if (!_hoverCollection.Contains(current) && !IsDragChild(current) && current is IDragDropTarget)
+                if (!_hoverCollection.Contains(current) && !IsDragChild(current) && current is IDragDropEventHandler)
                 {
                     // Added
                     using var evt = DragEnterEvent.GetPooled();

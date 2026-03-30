@@ -1,6 +1,6 @@
 namespace Vapor.Inspector
 {
-    public interface IDragDropTarget
+    public interface IDragDropEventHandler
     {
         
     }
