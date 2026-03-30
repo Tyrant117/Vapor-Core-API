@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEditor;
 using UnityEngine;
-using UnityEngine.Pool;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
 using Vapor.Unsafe;
@@ -17,7 +17,7 @@ namespace Vapor
         public static event Action OnRegistriesBuilt;
 
 #if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
+        [InitializeOnLoadMethod]
         public static void EditorInitialize()
         {
             Initialize();
@@ -30,20 +30,30 @@ namespace Vapor
             s_RegistryMap.Clear();
             var assetTypes = VaporTypeCache.GetTypesDerivedFrom<IScriptableData>().GetTypesWithAttribute<IsAddressableAttribute>().Where(t => !t.IsInterface && !t.IsAbstract);
             SortedDictionary<int, List<IScriptableData>> assetsByOrder = new();
-            List<AsyncOperationHandle<IList<ScriptableObject>>> handles = new();
+            List<AsyncOperationHandle<ScriptableObject>> handles = new();
             foreach (var assetType in assetTypes)
             {
                 var atr = assetType.GetCustomAttribute<IsAddressableAttribute>();
+                // Debug.Log(atr.AddressableLabel);
                 var assets = AddressableAssetUtility.LoadAll<ScriptableObject>(null, new object[] { atr.AddressableLabel }, out var handle);
+                if (assets == null)
+                {
+                    continue;
+                }
+                
                 int order;
                 if (assets.Count > 0)
                 {
+                    Debug.Log(((IScriptableData)assets[0]).Name);
                     order = ((IScriptableData)assets[0]).GetOrder();
-                    handles.Add(handle);
+                    handles.AddRange(handle);
                 }
                 else
                 {
-                    handle.Release();
+                    foreach (var h in handle)
+                    {
+                        h.Release();
+                    }
                     continue;
                 }
 
