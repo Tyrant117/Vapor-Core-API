@@ -1,4 +1,5 @@
 using System.Text;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Vapor.Inspector
@@ -45,6 +46,21 @@ namespace Vapor.Inspector
 
         public static string Colorize(string str, Color color) => $"<color=#{ColorUtility.ToHtmlStringRGBA(color)}>{str}</color>";
         public static string BoldColorize(string str, Color color) => $"<b><color=#{ColorUtility.ToHtmlStringRGBA(color)}>{str}</color></b>";
+
+        public static string NetworkMarkup()
+        {
+            if (NetworkManager.Singleton.IsHost)
+            {
+                return BoldColorize("[Host]", Color.coral);
+            }
+
+            if (NetworkManager.Singleton.IsServer)
+            {
+                return BoldColorize("[Server]", Color.darkCyan);
+            }
+
+            return BoldColorize("[Client]", Color.darkOliveGreen);
+        }
 
         public static string FormatString(string tooltip)
         {
