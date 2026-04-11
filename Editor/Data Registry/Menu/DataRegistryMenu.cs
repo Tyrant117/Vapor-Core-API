@@ -29,7 +29,6 @@ namespace VaporEditor
             // Filter out types that don't implement IData
             types = types.Distinct().ToList();
             
-            
             foreach (var type in types)
             {
                 // Make generic DataRegistry<type>

@@ -101,11 +101,12 @@ namespace Vapor.Keys
 #endif
         }
 
-        public readonly override string ToString() => DisplayName;
+        public readonly override string ToString() => $"{Guid} - {DisplayName}";
 
         public readonly bool Equals(KeyDropdownValue other) => Key == other.Key;
 
         public bool Equals(uint other) => Key == other;
+        [BurstDiscard]
         public override bool Equals(object obj) => obj is KeyDropdownValue other && Equals(other);
         public readonly override int GetHashCode() => (int)Key;
         

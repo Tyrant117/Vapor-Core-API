@@ -71,8 +71,25 @@ namespace VaporEditor.Keys
         
         private static void GenerateAddressableNames(IEnumerable<string> labels)
         {
+            var path = "Assets/Vapor/Keys/Definitions";
             var className = "AddressableNames";
             var nameSpace = "VaporKeyDefinitions";
+
+            KeyGenerator.FormatKeyFiles(path, nameSpace, className, "Addressables", labels.Select(l =>
+            {
+                if(l == "default")
+                {
+                    return default;
+                }
+                
+                if(l.Contains("/"))
+                {
+                    return default;
+                }
+                
+                return KeyGenerator.StringToKeyValuePair(l.Replace(" ", "").Replace("-", "_").Replace(".", "_").Replace("(", "_").Replace(")", "_"), l);
+            }).ToList());
+            return;
 
             var sb = new StringBuilder();
             sb.AppendLine("namespace " + nameSpace);
@@ -98,7 +115,7 @@ namespace VaporEditor.Keys
             sb.AppendLine("    }");
             sb.AppendLine("}");
 
-            var path = "Assets/Vapor/Keys/Definitions";
+            
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);

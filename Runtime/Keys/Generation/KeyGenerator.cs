@@ -43,6 +43,8 @@ namespace Vapor.Keys
             public readonly string Guid;
             public readonly uint Key;
 
+            public bool IsValid() => !DisplayName.EmptyOrNull();
+
             public KeyValuePair(string name, uint key, string guid)
             {
 #if UNITY_EDITOR
@@ -86,6 +88,11 @@ namespace Vapor.Keys
         public static KeyValuePair StringToKeyValuePair(string key)
         {
             return new KeyValuePair(key, key.Hash32(), string.Empty);
+        }
+        
+        public static KeyValuePair StringToKeyValuePair(string key, string guid)
+        {
+            return new KeyValuePair(key, key.Hash32(), guid);
         }
         #endregion
 
@@ -672,24 +679,29 @@ namespace Vapor.Keys
             sb.Append("\t{\n");
 
 
-            FormatFilePath(sb, relativePath);
-            FormatAttributeName(sb, namespaceName, $"{scriptName}");
+            // FormatFilePath(sb, relativePath);
+            // FormatAttributeName(sb, namespaceName, $"{scriptName}");
 
             FormatCategory(sb, category.EmptyOrNull() ? scriptName : category);
 
-            FormatEnum(sb, keys);
+            // FormatEnum(sb, keys);
 
             FormatDropDown(sb, keys);
 
             for (int i = 0; i < keys.Count; i++)
             {
+                if (!keys[i].IsValid())
+                {
+                    continue;
+                }
+                
                 int pIndex = i;
                 sb.Append("\t\t");
                 sb.Append(keys[i].GetFormat(pIndex));
                 sb.Append("\n");
             }
 
-            FormatList(sb, keys);
+            // FormatList(sb, keys);
             FormatLookup(sb);
             FormatGet(sb);
 
@@ -762,6 +774,10 @@ namespace Vapor.Keys
             sb.Append("\t\t{\n");
             for (int i = 0; i < keys.Count; i++)
             {
+                if (!keys[i].IsValid())
+                {
+                    continue;
+                }
                 sb.Append($"\t\t\tnew (\"{keys[i].DisplayName}\", new (\"{keys[i].Guid}\", {keys[i].VariableName}, \"{keys[i].DisplayName}\")),\n");
             }
             sb.Append("\t\t};\n");
