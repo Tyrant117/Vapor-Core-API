@@ -84,6 +84,8 @@ namespace VaporEditor
                 "Event",
                 "Input",
                 "Cue",
+                "Addressable",
+                "Montage",
             };
             foreach (var label in prefixes)
             {
