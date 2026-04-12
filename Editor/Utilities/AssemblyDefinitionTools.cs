@@ -79,5 +79,47 @@ namespace VaporEditor
                 EditorUtility.DisplayDialog("Error", $"Failed to create AssemblyInfo.cs: {e.Message}", "OK");
             }
         }
+
+        public static void CreateAssemblyInfoFile(string directory)
+        {
+            string assemblyInfoFilePath = Path.Combine(directory, ASSEMBLY_INFO_FILENAME);
+
+            // Check if the file already exists
+            if (File.Exists(assemblyInfoFilePath))
+            {
+                if (!EditorUtility.DisplayDialog(
+                        "File Already Exists",
+                        $"An AssemblyInfo.cs file already exists at:\n{assemblyInfoFilePath}\n\nDo you want to overwrite it?",
+                        "Overwrite", "Cancel"))
+                {
+                    return;
+                }
+            }
+
+            // Content for the AssemblyInfo.cs file
+            string fileContent =
+                @"using Vapor;
+
+[assembly: TypeCache]";
+
+            try
+            {
+                File.WriteAllText(assemblyInfoFilePath, fileContent);
+                AssetDatabase.Refresh(); // Refresh the AssetDatabase to show the new file in the project window
+                Debug.Log($"Successfully created/overwrote {ASSEMBLY_INFO_FILENAME} for assembly definition at: {directory}");
+
+                // Optionally, select the newly created file in the project window
+                Object newFile = AssetDatabase.LoadAssetAtPath<TextAsset>(assemblyInfoFilePath);
+                if (newFile)
+                {
+                    Selection.activeObject = newFile;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error creating AssemblyInfo.cs: {e.Message}");
+                EditorUtility.DisplayDialog("Error", $"Failed to create AssemblyInfo.cs: {e.Message}", "OK");
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Vapor.Keys
 {
+    [TypeCache]
     public interface IKeysProvider
     {
         

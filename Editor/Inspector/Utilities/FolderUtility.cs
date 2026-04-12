@@ -65,16 +65,17 @@ namespace VaporEditor.Inspector
             
             // ReSharper disable once IdentifierTypo
             var asmdef = AssetDatabase.LoadAssetAtPath<TextAsset>($"{folderPath}/{name}.asmdef");
+            string fullPath = null;
             if (!asmdef)
             {
                 var indexOfSlash = folderPath.IndexOf('/');
-                var fullPath = Application.dataPath + $"{folderPath[indexOfSlash..]}/{name}.asmdef";
+                fullPath = Application.dataPath + $"{folderPath[indexOfSlash..]}/{name}.asmdef";
                 if (!Directory.Exists(folderPath))
                 {
                     Debug.LogError($"Directory Does Not Exist: {folderPath}");
                     return;
                 }
-                Debug.Log(fullPath);
+                // Debug.Log(fullPath);
                 StreamWriter w = new(fullPath);
                 StringBuilder sb = new();
                 sb.Append("{\n");
@@ -114,6 +115,8 @@ namespace VaporEditor.Inspector
             AssetDatabase.StopAssetEditing();
             if (!changed) return;
 
+            AssemblyDefinitionTools.CreateAssemblyInfoFile(fullPath);
+            
             AssetDatabase.Refresh();
             AssetDatabase.SaveAssets();
         }

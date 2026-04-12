@@ -101,7 +101,7 @@ namespace Vapor.Keys
 #endif
         }
 
-        public readonly override string ToString() => $"{Guid} - {DisplayName}";
+        public readonly override string ToString() => DisplayName;
 
         public readonly bool Equals(KeyDropdownValue other) => Key == other.Key;
 

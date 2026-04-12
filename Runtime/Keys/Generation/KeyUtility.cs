@@ -22,9 +22,25 @@ namespace Vapor.Keys
             s_CachedFieldInfos.Clear();
             s_CachedCategories.Clear();
             s_CachedTypeNames.Clear();
+            s_AllDropdownModels.Clear();
 
-            foreach (var keysType in TypeCache.GetTypesDerivedFrom<IKeysProvider>())
+            foreach (var keysType in VaporTypeCache.GetTypesDerivedFrom<IKeysProvider>())
             {
+                Debug.Log("KeyUtility " + keysType.Name);
+                var keyDropdowns = (List<(string, KeyDropdownValue)>)keysType.GetField(KeyGenerator.KEYS_FIELD_NAME, BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                if (keyDropdowns == null) continue;
+                if (keyDropdowns.Count == 0) continue;
+                foreach (var keyDropdown in keyDropdowns)
+                {
+                    if (keyDropdown.Item2.IsNone)
+                    {
+                        continue;
+                    }
+                    
+                    s_AllDropdownModels.Add(new DropdownModel(keyDropdown.Item1, keyDropdown.Item2, keyDropdown.Item1));
+                }
+                
+                
                 s_CachedFieldInfos.TryAdd(keysType, GetFieldInfo(keysType));
                 var category = GetKeyCategory(keysType);
                 if (!s_CachedCategories.TryGetValue(category, out var typeSet))
@@ -88,7 +104,9 @@ namespace Vapor.Keys
         private static readonly Dictionary<Type, FieldInfo> s_CachedFieldInfos = new();
         private static readonly Dictionary<string, HashSet<Type>> s_CachedCategories = new();
         private static readonly Dictionary<string, HashSet<Type>> s_CachedTypeNames = new();
-        
+        private static readonly List<DropdownModel> s_AllDropdownModels = new();
+
+        public static List<DropdownModel> AllDropdownModels => s_AllDropdownModels;
         public static List<DropdownModel> GetAllKeysFromTypeName(string typeName)
         {
 #if UNITY_EDITOR

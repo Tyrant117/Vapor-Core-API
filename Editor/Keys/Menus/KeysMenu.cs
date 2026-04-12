@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -71,6 +72,11 @@ namespace VaporEditor.Keys
         
         private static void GenerateAddressableNames(IEnumerable<string> labels)
         {
+            // Make an Addressable Data Registry;
+            GenerateAddressableDataRegistry(labels);
+            return;
+            
+            
             var path = "Assets/Vapor/Keys/Definitions";
             var className = "AddressableNames";
             var nameSpace = "VaporKeyDefinitions";
@@ -122,6 +128,57 @@ namespace VaporEditor.Keys
             }
 
             File.WriteAllText(Path.Combine(path, className + ".cs"), sb.ToString());
+        }
+
+        private static void GenerateAddressableDataRegistry(IEnumerable<string> labels)
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("using Vapor;");
+            stringBuilder.AppendLine();
+            stringBuilder.AppendLine($"public class AddressableDataRegistry : IDataRegistry");
+            stringBuilder.AppendLine("{");
+            
+            stringBuilder.AppendLine("    public int GetOrder() => 0;");
+
+            stringBuilder.AppendLine("    public void BuildRegistry()");
+            stringBuilder.AppendLine("    {");
+
+            foreach (var label in labels)
+            {
+                if(label == "default")
+                {
+                    continue;
+                }
+                
+                var dataName = label.Replace(" ", "").Replace("-", "").Replace("_", ".").Replace("(", ".").Replace(")", "").Replace("/", "");
+                if (dataName.EndsWith("."))
+                {
+                    dataName = dataName[..^1];
+                }
+                var varName = label.Replace(" ", "").Replace("-", "_").Replace(".", "_").Replace("(", "_").Replace(")", "").Replace("/", "_");
+                stringBuilder.AppendLine($"        var {varName} = new AddressableData(\"Addressable.{dataName}\", \"{label}\");");
+                stringBuilder.AppendLine($"        GlobalDataRegistry.Register({varName});");
+            }
+
+            stringBuilder.AppendLine("    }");
+            stringBuilder.AppendLine("}");
+
+            string fileContent = stringBuilder.ToString();
+
+            var directory = "Assets/Vapor/Keys/Definitions";
+            var fileName = "AddressableDataRegistry.cs";
+            var fullPath = Path.Combine(directory, fileName);
+            try
+            {
+                File.WriteAllText(fullPath, fileContent);
+                AssetDatabase.Refresh(); // Refresh the AssetDatabase to show the new file in the project window
+                Debug.Log($"Successfully created/overwrote {fileName} for assembly definition at: {directory}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error creating AssemblyInfo.cs: {e.Message}");
+                EditorUtility.DisplayDialog("Error", $"Failed to create AddressableDataRegistry.cs: {e.Message}", "OK");
+            }
         }
 
         [MenuItem("Assets/Create/Vapor/Keys/Named Key", priority = VaporConfig.AssetMenuPriority, secondaryPriority = 0)]

@@ -13,6 +13,7 @@ namespace Vapor
     {
         int GetOrder();
         void Register();
+        string GetPrefix();
     }
 
     public interface IScriptableData<out T> : IScriptableData where T : IData

@@ -8,6 +8,7 @@
         /// </summary>
         /// <remarks>If using the Gameplay Ability System: Build Attributes -> Effects -> Abilities</remarks>
         int GetOrder();
+
         void BuildRegistry();
     }
 }
