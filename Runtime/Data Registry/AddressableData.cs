@@ -1,3 +1,4 @@
+using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Unsafe;
 
@@ -25,6 +26,17 @@ namespace Vapor
             }
 
             return AddressableAssetUtility.Load(AddressableName, out handle);
+        }
+
+        public void LoadAsync<T>(out AsyncOperationHandle<T> handle) where T : class
+        {
+            if (AddressableName.EmptyOrNull())
+            {
+                handle = default;
+                return;
+            }
+
+            handle = Addressables.LoadAssetAsync<T>(AddressableName);
         }
     }
 }
