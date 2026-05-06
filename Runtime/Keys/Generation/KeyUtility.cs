@@ -106,7 +106,16 @@ namespace Vapor.Keys
         private static readonly Dictionary<string, HashSet<Type>> s_CachedTypeNames = new();
         private static readonly List<DropdownModel> s_AllDropdownModels = new();
 
-        public static List<DropdownModel> AllDropdownModels => s_AllDropdownModels;
+        public static List<DropdownModel> GetAllDropdownModels()
+        {
+#if UNITY_EDITOR
+            InitEditor();
+#else
+            InitRuntime();
+#endif
+            return s_AllDropdownModels;
+        }
+
         public static List<DropdownModel> GetAllKeysFromTypeName(string typeName)
         {
 #if UNITY_EDITOR

@@ -56,11 +56,11 @@ namespace VaporEditor
                     var endIdx = data.Name.IndexOf('.');
                     if (endIdx == -1)
                     {
-                        prefixes.Add(data.Name);
+                        prefixes.Add(data.GetType().Name.Replace(" ", ""));
                     }
                     else
                     {
-                        var prefix = data.Name[..endIdx];
+                        var prefix = data.Name[..endIdx].Replace(" ", "");
                         prefixes.Add(prefix);
                     }
                 }
