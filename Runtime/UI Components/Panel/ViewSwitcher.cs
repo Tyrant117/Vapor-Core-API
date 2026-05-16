@@ -18,7 +18,7 @@ namespace Vapor
             AddToClassList("view-switcher");
         }
 
-        public override void OnInitialized(object initializer)
+        public override void OnInitialized(object initializer, RootController root)
         {
             if (Views.IsValidIndex(0))
             {
