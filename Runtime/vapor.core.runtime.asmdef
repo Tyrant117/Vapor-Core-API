@@ -6,7 +6,8 @@
         "Unity.Addressables",
         "Unity.ResourceManager",
         "Unity.Netcode.Runtime",
-        "vapor.core.runtime.unsafe"
+        "vapor.core.runtime.unsafe",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

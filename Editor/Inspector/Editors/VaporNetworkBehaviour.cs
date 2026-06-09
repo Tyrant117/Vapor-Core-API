@@ -1,9 +1,7 @@
 using System.Reflection;
 using UnityEditor;
 using Vapor.Inspector;
-#if VAPOR_NETCODE
-using Vapor.Inspector.Netcode;
-#endif
+using Vapor.NetworkObjects;
 
 namespace VaporEditor.Inspector.Netcode
 {

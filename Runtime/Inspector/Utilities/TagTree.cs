@@ -49,7 +49,7 @@ namespace Vapor.Inspector
                         currentNode = new TNode
                         {
                             Name = currentPath,
-                            Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.Replace(" ", "").Hash32(),
+                            Key = currentPath == "None" ? 0 : currentPath/*.Replace(" ", "")*/.Hash32(),
                             Children = new List<TNode>(),
                             Parent = parent,
                         };
@@ -83,12 +83,12 @@ namespace Vapor.Inspector
             {
                 currentPath = i == 0 ? parts[0] : $"{currentPath}.{parts[i]}";
 
-                if (!TagMap.TryGetValue(currentPath.Replace(" ", "").Hash32(), out var currentNode))
+                if (!TagMap.TryGetValue(currentPath/*.Replace(" ", "")*/.Hash32(), out var currentNode))
                 {
                     currentNode = new TNode
                     {
                         Name = currentPath,
-                        Key = currentPath == "None" ? KeyDropdownValue.None : currentPath.Replace(" ", "").Hash32(),
+                        Key = currentPath == "None" ? 0 : currentPath/*.Replace(" ", "")*/.Hash32(),
                         Children = new List<TNode>(),
                         Parent = parent,
                     };

@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using UnityEngine;
 
-namespace Vapor
+namespace Vapor.NewtonsoftConverters
 {
     public class FieldsOnlyContractResolver : DefaultContractResolver
     {

@@ -20,61 +20,55 @@ namespace Vapor
 
         public T Load<T>(out AsyncOperationHandle<T> handle) where T : class
         {
-            if (AddressableName.EmptyOrNull())
+            if (string.IsNullOrEmpty(AddressableName))
             {
                 handle = default;
                 return null;
             }
 
-            return AddressableAssetUtility.Load(AddressableName, out handle);
+            handle = LoadAsync<T>();
+            handle.WaitForCompletion();
+            return handle.Result;
         }
 
-        public void LoadAsync<T>(out AsyncOperationHandle<T> handle) where T : class
+        public AsyncOperationHandle<T> LoadAsync<T>() where T : class
         {
-            if (AddressableName.EmptyOrNull())
-            {
-                handle = default;
-                return;
-            }
-
-            handle = Addressables.LoadAssetAsync<T>(AddressableName);
+            return string.IsNullOrEmpty(AddressableName) ? default : Addressables.LoadAssetAsync<T>(AddressableName);
         }
-        
+
         // GameObjects
         public GameObject Instantiate(Vector3 position, Quaternion rotation)
         {
-            InstantiateAsync(position, rotation, out var handle);
+            if (string.IsNullOrEmpty(AddressableName))
+            {
+                return null;
+            }
+            
+            var handle = InstantiateAsync(position, rotation);
             handle.WaitForCompletion();
             return handle.Result;
         }
         
         public GameObject Instantiate(Transform parent, bool instantiateInWorldSpace)
         {
-            InstantiateAsync(parent, instantiateInWorldSpace, out var handle);
+            if (string.IsNullOrEmpty(AddressableName))
+            {
+                return null;
+            }
+            
+            var handle = InstantiateAsync(parent, instantiateInWorldSpace);
             handle.WaitForCompletion();
             return handle.Result;
         }
         
-        public void InstantiateAsync(Vector3 position, Quaternion rotation, out AsyncOperationHandle<GameObject> handle)
+        public AsyncOperationHandle<GameObject> InstantiateAsync(Vector3 position, Quaternion rotation)
         {
-            if (AddressableName.EmptyOrNull())
-            {
-                handle = default;
-                return;
-            }
-
-            handle = Addressables.InstantiateAsync(AddressableName, position, rotation);
+            return string.IsNullOrEmpty(AddressableName) ? default : Addressables.InstantiateAsync(AddressableName, position, rotation);
         }
         
-        public void InstantiateAsync(Transform parent, bool instantiateInWorldSpace, out AsyncOperationHandle<GameObject> handle)
+        public AsyncOperationHandle<GameObject> InstantiateAsync(Transform parent, bool instantiateInWorldSpace)
         {
-            if (AddressableName.EmptyOrNull())
-            {
-                handle = default;
-                return;
-            }
-
-            handle = Addressables.InstantiateAsync(AddressableName, parent, instantiateInWorldSpace);
+            return string.IsNullOrEmpty(AddressableName) ? default : Addressables.InstantiateAsync(AddressableName, parent, instantiateInWorldSpace);
         }
     }
 }

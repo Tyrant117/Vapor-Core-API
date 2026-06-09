@@ -86,6 +86,9 @@ namespace VaporEditor
                 "Cue",
                 "Addressable",
                 "Montage",
+                "Items",
+                "Entity",
+                "Loot",
             };
             foreach (var label in prefixes)
             {
