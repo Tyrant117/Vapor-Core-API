@@ -11,7 +11,7 @@ namespace Vapor.Inspector
         public float DragStartDistance { get; protected set; } = 25;
         public bool ToggleDrag { get; private set; }
 
-        public DragDropManipulator(string pseudoStateBaseName, DragElementManipulator dragElement) : base(pseudoStateBaseName)
+        public DragDropManipulator(/*string pseudoStateBaseName,*/ DragElementManipulator dragElement) : base(/*pseudoStateBaseName*/)
         {
             DragElement = dragElement;
         }

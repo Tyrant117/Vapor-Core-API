@@ -114,7 +114,7 @@ namespace Vapor.Inspector
         public void SetupSwapDrag(VisualElement dragSourceElement, Vector3 worldPosition, Vector3 localPosition, Vector2 dragStartPosition, int pointerId, DragLocationMatch dragLocationMatch)
         {
             FromSwap = true;
-            Debug.Log($"Swap Drag On {dragSourceElement.name} - From Swap [{FromSwap}]");
+            Debug.Log($"Swap Drag On {dragSourceElement} - From Swap [{FromSwap}]");
             SetupForDrag(dragSourceElement, worldPosition, localPosition, dragStartPosition, pointerId, dragLocationMatch);
         }
 
@@ -122,7 +122,7 @@ namespace Vapor.Inspector
         {
             if (IsDragging)
             {
-                Debug.Log($"Drag Already Exists On {DragSourceElement.name}");
+                Debug.Log($"Drag Already Exists On {DragSourceElement}");
                 return;
             }
 
@@ -136,7 +136,7 @@ namespace Vapor.Inspector
             // Reset The Manipulator And Create A New Visual Element
             if (DragSourceElement is not IDragDropInitializer initializer)
             {
-                Debug.LogError($"DragSourceElement does not implement IDragDropInitializer. DragSourceElement: {DragSourceElement.name} - {DragSourceElement.GetType()}.");
+                Debug.LogError($"DragSourceElement does not implement IDragDropInitializer. DragSourceElement: {DragSourceElement} - {DragSourceElement.GetType()}.");
                 return;
             }
 
@@ -149,14 +149,18 @@ namespace Vapor.Inspector
 
         private void OnCaptureOnAttach(AttachToPanelEvent evt)
         {
-            Debug.Log($"OnCaptureOnAttach {DragSourceElement.name} {_dragLocationMatch} - {_relativeXPoint} , {_relativeYPoint} ");
+            Debug.Log($"OnCaptureOnAttach {DragSourceElement} {_dragLocationMatch} - {_relativeXPoint} , {_relativeYPoint} ");
             target.CapturePointer(_pointerId);
         }
 
         private void OnBeginDragEvent(PointerCaptureEvent evt)
         {
-            Debug.Log($"Begin Drag On {DragSourceElement.name} - From Swap [{FromSwap}]");
+            Debug.Log($"Begin Drag On {DragSourceElement} - From Swap [{FromSwap}]");
             IsDragging = true;
+            foreach (var oldCache in s_HoverCache)
+            {
+                oldCache.RemoveFromClassList("dragged");
+            }
             _hoverCollection.Clear();
             UpdateDragPosition(LastWorldMousePosition.x, LastWorldMousePosition.y);
             BeginDrag.Invoke(evt, DragSourceElement);
@@ -241,14 +245,14 @@ namespace Vapor.Inspector
             {
                 return;
             }
-            Debug.Log($"End Drag On {DragSourceElement.name} - Swap [{FromSwap}]");
+            Debug.Log($"End Drag On {DragSourceElement} - Swap [{FromSwap}]");
 
             IsDragging = false;
             target.visible = false;
 
             if (CanEndDrag.Invoke(evt, DragSourceElement))
             {
-                Debug.Log($"End Drag On {DragSourceElement.name} - Good Drop - Swap [{FromSwap}]");
+                Debug.Log($"End Drag On {DragSourceElement} - Good Drop - Swap [{FromSwap}]");
                 FromSwap = false;
                 if (!HandleDrop(_releasePoint))
                 {
@@ -257,7 +261,7 @@ namespace Vapor.Inspector
             }
             else
             {
-                Debug.Log($"End Drag On {DragSourceElement.name} - Resetting - Swap [{FromSwap}]");
+                Debug.Log($"End Drag On {DragSourceElement} - Resetting - Swap [{FromSwap}]");
                 if (FromSwap)
                 {
                     LastWorldMousePosition = _releasePoint;
@@ -332,6 +336,7 @@ namespace Vapor.Inspector
                     using var evt = DragExitEvent.GetPooled();
                     evt.target = _hoverCollection[i];
                     evt.source = target;
+                    _hoverCollection[i].RemoveFromClassList("dragged");
                     _hoverCollection[i].SendEvent(evt);
 
                     _hoverCollection.RemoveAt(i);
@@ -346,6 +351,7 @@ namespace Vapor.Inspector
                     using var evt = DragEnterEvent.GetPooled();
                     evt.target = current;
                     evt.source = target;
+                    current.AddToClassList("dragged");
                     current.SendEvent(evt);
 
                     _hoverCollection.Add(current);
@@ -359,22 +365,26 @@ namespace Vapor.Inspector
             // Might need to switch back to this if there is issues with the drop position.
             
             // target.panel.PickAll(position, s_HoverCache);
-            if (_hoverCollection.Count > 0)
+            if (_hoverCollection.Count <= 0)
             {
-                for (int i = 0; i < _hoverCollection.Count; i++)
+                return false;
+            }
+
+            foreach (var hover in _hoverCollection)
+            {
+                hover.RemoveFromClassList("dragged");
+                if (!target.worldBound.Overlaps(hover.worldBound))
                 {
-                    var hover = _hoverCollection[i];
-                    if (/*hover is IDragDropTarget && */target.worldBound.Overlaps(hover.worldBound))
-                    {
-                        using var evt = DragDropEvent.GetPooled();
-                        evt.target = hover;
-                        evt.source = DragSourceElement;
-                        evt.heldKeys = _activeKeys?.ToArray();
-                        evt.dropWorldPosition = position;
-                        hover.SendEvent(evt);
-                        return true;
-                    }
+                    continue;
                 }
+
+                using var evt = DragDropEvent.GetPooled();
+                evt.target = hover;
+                evt.source = DragSourceElement;
+                evt.heldKeys = _activeKeys?.ToArray();
+                evt.dropWorldPosition = position;
+                hover.SendEvent(evt);
+                return true;
             }
             return false;
         }

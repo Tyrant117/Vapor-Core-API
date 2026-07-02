@@ -32,17 +32,17 @@ namespace Vapor.UIComponents
             style.maxHeight = 18;
             style.backgroundColor = new Color(0.345f, 0.345f, 0.345f);
 
-            var btn = new ButtonManipulator("highlight").WithOnClick(ClickTypes.ClickOnDown, evt =>
+            var btn = new ButtonManipulator(/*"highlight"*/).WithOnClick(ClickTypes.ClickOnDown, _ =>
                 {
                     Debug.Log("OnTagClicked");
                     OnTagClicked?.Invoke(TagName);
-                }).WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse)
-                .WithHoverEntered<ButtonManipulator>(evt =>
+                }).WithActivator(EventModifiers.None, MouseButton.LeftMouse)
+                .WithHoverEntered(_ =>
                 {
                     var hoverC = new Color(0.404f, 0.404f, 0.404f);
                     style.backgroundColor = hoverC;
                 })
-                .WithHoverExited<ButtonManipulator>(evt =>
+                .WithHoverExited(_ =>
                 {
                     var hoverC = new Color(0.345f, 0.345f, 0.345f);
                     style.backgroundColor = hoverC;
@@ -76,18 +76,17 @@ namespace Vapor.UIComponents
                         translate = new StyleTranslate(new Translate(0, -1)),
                     }
                 };
-                var xBtn = new ButtonManipulator("highlight").WithOnClick(ClickTypes.ClickOnDown, evt =>
+                var xBtn = new ButtonManipulator(/*"highlight"*/).WithOnClick(ClickTypes.ClickOnDown, _ =>
                     {
                         Debug.Log("OnTagRemoved");
                         OnTagRemoved?.Invoke(TagName);
                         parent.Remove(this);
-                    }).WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse).WithHoverEntered<ButtonManipulator>(evt =>
+                    }).WithActivator(EventModifiers.None, MouseButton.LeftMouse).WithHoverEntered(_ =>
                     {
                         var hoverC = new Color(1.0f, 1.0f, 1.0f);
                         x.style.color = hoverC;
                     })
-                    .WithHoverExited<ButtonManipulator>(evt => { x.style.color = StyleKeyword.Null; });
-                ;
+                    .WithHoverExited(_ => { x.style.color = StyleKeyword.Null; });
                 x.WithManipulator(xBtn);
                 Add(x);
             }

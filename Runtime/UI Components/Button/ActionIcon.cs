@@ -27,8 +27,8 @@ namespace Vapor.UIComponents
             IconImage = new Image();
             Add(IconImage);
 
-            Manipulator = new ButtonManipulator(ROOT_SELECTOR)
-                .WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse);
+            Manipulator = new ButtonManipulator(/*ROOT_SELECTOR*/)
+                .WithActivator(EventModifiers.None, MouseButton.LeftMouse);
             Manipulator.Clicked += OnClicked;
             this.AddManipulator(Manipulator);
             Clicked += callback;

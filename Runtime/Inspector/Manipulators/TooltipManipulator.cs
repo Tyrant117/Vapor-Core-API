@@ -7,7 +7,7 @@ namespace Vapor.Inspector
     {       
         public float Delay { get; set; }
 
-        public TooltipManipulator(string pseudoStateBaseName, float delay) : base(pseudoStateBaseName)
+        public TooltipManipulator(/*string pseudoStateBaseName,*/ float delay) : base(/*pseudoStateBaseName*/)
         {
             Delay = delay;
         }

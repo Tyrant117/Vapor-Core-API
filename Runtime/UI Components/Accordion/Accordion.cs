@@ -80,8 +80,8 @@ namespace Vapor.UIComponents
             
             Add(_contentContainer);
             
-            var buttonManipulator = new ButtonManipulator("accordion-item")
-                .WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse)
+            var buttonManipulator = new ButtonManipulator(/*"accordion-item"*/)
+                .WithActivator(EventModifiers.None, MouseButton.LeftMouse)
                 .WithOnClick(ClickTypes.ClickOnUp, ToggleExpand);
             this.AddManipulator(buttonManipulator);
         }

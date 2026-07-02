@@ -18,6 +18,8 @@ namespace Vapor
             Runner = runner;
         }
 
+        public abstract void SetLayerVisibility(int layer, bool isVisible);
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void InitializeRootController()
         {

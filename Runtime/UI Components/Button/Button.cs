@@ -60,13 +60,13 @@ namespace Vapor.UIComponents
 
         public Button(Action<Button> clicked) : this()
         {
-            _buttonManipulator = new ButtonManipulator("button")
+            _buttonManipulator = new ButtonManipulator(/*"button"*/)
                 .WithOnClick(ClickTypes.ClickOnUp, OnClicked)
-                .WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse)
-                .WithHoverEntered<ButtonManipulator>(OnHoverEntered)
-                .WithHoverExited<ButtonManipulator>(OnHoverExited)
-                .WithOnPress<ButtonManipulator>(OnPress)
-                .WithOnRelease<ButtonManipulator>(OnRelease);
+                .WithActivator(EventModifiers.None, MouseButton.LeftMouse)
+                .WithHoverEntered(OnHoverEntered)
+                .WithHoverExited(OnHoverExited)
+                .WithOnPress(OnPress)
+                .WithOnRelease(OnRelease);
             this.AddManipulator(_buttonManipulator);
             
             Clicked += clicked;

@@ -128,6 +128,7 @@ namespace Vapor.NetworkObjects
         protected internal abstract void OnPreSpawn();
 
         protected internal abstract void OnSpawn();
+        protected internal abstract void OnPostSpawn();
         protected internal abstract void OnDespawn();
         protected internal virtual void OnTick(double deltaTime) { }
 

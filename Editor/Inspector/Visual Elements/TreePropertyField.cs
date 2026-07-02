@@ -2485,7 +2485,7 @@ namespace VaporEditor.Inspector
                                 paddingLeft = 3,
                                 paddingRight = 3
                             }
-                        }.WithManipulator(new ButtonManipulator(Button.ussClassName)
+                        }.WithManipulator(new ButtonManipulator(/*Button.ussClassName*/)
                         {
                             IgnoreDisabled = true,
                         }.WithOnClick(ClickTypes.ClickOnDown, _ =>
@@ -2495,7 +2495,7 @@ namespace VaporEditor.Inspector
                             {
                                 GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
                             }
-                        }).WithActivator<ButtonManipulator>(EventModifiers.None, MouseButton.LeftMouse));
+                        }).WithActivator(EventModifiers.None, MouseButton.LeftMouse));
 
                         inlineButton.AddToClassList(Button.ussClassName);
                         inlineButton.AddStylesheetFromResourcePath("Styles/InlineButton");

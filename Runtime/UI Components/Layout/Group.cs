@@ -97,7 +97,7 @@ namespace Vapor.UIComponents
             style.flexWrap = Wrap;
 
             _cachedGap ??= StyleHelper.ParseLength(Gap) ?? Length.Auto();
-            this.Query<Gap>().ForEach(g => g.SetGap(_cachedGap.Value));
+            this.Query<Gap>().ForEach(g => g.Horizontal = _cachedGap.Value);
 
             foreach (var c in Children().OfType<IVaporUIComponent>())
             {
@@ -131,7 +131,7 @@ namespace Vapor.UIComponents
                 // Add Gap after each element except the last
                 if (i < children.Count - 1)
                 {
-                    Add(new Gap(_cachedGap.Value)); // or whatever spacing size you prefer
+                    Add(new Gap(_cachedGap.Value, 0)); // or whatever spacing size you prefer
                 }
             }
         }
@@ -141,7 +141,7 @@ namespace Vapor.UIComponents
             _cachedGap ??= StyleHelper.ParseLength(Gap) ?? Length.Auto();
             if (childCount > 0)
             {
-                Add(new Gap(_cachedGap.Value));
+                Add(new Gap(_cachedGap.Value, 0));
             }
 
             if (Grow)

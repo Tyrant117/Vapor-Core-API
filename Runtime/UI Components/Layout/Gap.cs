@@ -6,82 +6,44 @@ namespace Vapor.UIComponents
     [UxmlElement]
     public partial class Gap : VisualElement
     {
+        private Length _horizontal;
+        private Length _vertical;
+
         [UxmlAttribute, CreateProperty]
-        public Length Size { get; private set; }
-        
+        public Length Horizontal
+        {
+            get => _horizontal;
+            set
+            {
+                _horizontal = value;
+                style.width = value;
+                style.minWidth = value;
+                style.maxWidth = value;
+            }
+        }
+
+        [UxmlAttribute, CreateProperty]
+        public Length Vertical
+        {
+            get => _vertical;
+            set
+            {
+                _vertical = value;
+                style.height = value;
+                style.minHeight = value;
+                style.maxHeight = value;
+            }
+        }
 
         public Gap()
         {
-            style.flexGrow = 0;
-            style.flexShrink = 0;
-            RegisterCallbackOnce<AttachToPanelEvent>(OnAttachToPanel);
-        }
-        
-        public Gap(string gap)
-        {
-            style.flexGrow = 0;
-            style.flexShrink = 0;
-            RegisterCallbackOnce<AttachToPanelEvent>(OnAttachToPanel);
-
-            Size = StyleHelper.ParseLength(gap) ?? Length.Auto();
+            AddToClassList("gap");
         }
 
-        public Gap(Length gap)
+        public Gap(Length horizontal, Length vertical) : this()
         {
-            style.flexGrow = 0;
-            style.flexShrink = 0;
-            RegisterCallbackOnce<AttachToPanelEvent>(OnAttachToPanel);
-
-            Size = gap;
-        }
-
-        public void SetGap(Length gap)
-        {
-            Size = gap;
-            if (parent == null)
-            {
-                return;
-            }
-
-            var fd = parent.style.flexDirection.value;
-            if (fd is FlexDirection.Column or FlexDirection.ColumnReverse)
-            {
-                style.height = Size;
-                style.minHeight = Size;
-                style.maxHeight = Size;
-            }
-            else
-            {
-                style.width = Size;
-                style.minWidth = Size;
-                style.maxWidth = Size;
-            }
-        }
-
-        private void OnAttachToPanel(AttachToPanelEvent evt)
-        {
-            if (parent == null)
-            {
-                return;
-            }
-           
-            schedule.Execute(_ =>
-            {
-                var fd = parent.resolvedStyle.flexDirection;
-                if (fd is FlexDirection.Column or FlexDirection.ColumnReverse)
-                {
-                    style.height = Size;
-                    style.minHeight = Size;
-                    style.maxHeight = Size;
-                }
-                else
-                {
-                    style.width = Size;
-                    style.minWidth = Size;
-                    style.maxWidth = Size;
-                }
-            }).ExecuteLater(100);
-            
+            Horizontal = horizontal;
+            Vertical = vertical;
         }
     }
 }

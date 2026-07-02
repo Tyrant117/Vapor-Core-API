@@ -1,3 +1,47 @@
+:root{
+    --theme-button: #00000099;
+    --theme-button-hover: #00000099;
+    --theme-button-active: #00000099;
+    --theme-button-disabled: #00000099;
+
+    --theme-background-primary: #00000099;
+    --theme-background-primary-dark: #000000CC;
+    
+    --theme-border: #E2DED366;
+    --theme-border-hover: #E2DED3;
+    --theme-border-active: #EBC86D;
+    
+    --theme-selected: #0390F9;
+    --theme-error: #f92003;
+    --theme-error-dark: #b31602;
+    
+    --theme-text: #E2DED3;
+    --theme-icon: #E2DED3;
+    --theme-icon-fade: #E2DED366;
+
+    --theme-font-size-xlarge: 90px;
+    --theme-font-size-large: 72px;
+    --theme-font-size-medium: 54px;
+    --theme-font-size-small: 36px;
+    --theme-font-size-tiny: 18px;
+
+    --theme-font-title-color: #E2DED3;
+    --theme-font-heading-color: #E2DED3;
+    --theme-font-primary-color: #E2DED3;
+    --theme-font-secondary-color: #E2DED3;
+    --theme-font-tiny-color: #E2DED3;
+}
+
+.flex {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.gap {
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
 .stack {
     flex-direction: column;
 }
@@ -15,32 +59,32 @@
 
 .text-title {
     -unity-font-definition: var(--theme-font-title);
-    font-size: var(--theme-font-size-xlarge, 72px);
-    color: var(--theme-font-title-color, #ffffff);
+    font-size: var(--theme-font-size-xlarge);
+    color: var(--theme-font-title-color);
 }
 
 .text-heading{
     -unity-font-definition: var(--theme-font-heading);
-    font-size: var(--theme-font-size-large, 60px);
-    color: var(--theme-font-heading-color, #ffffff);
+    font-size: var(--theme-font-size-large);
+    color: var(--theme-font-heading-color);
 }
 
 .text-primary {
     -unity-font-definition: var(--theme-font-primary);
-    font-size: var(--theme-font-size-large, 48px);
-    color: var(--theme-font-primary-color, #ffffff);
+    font-size: var(--theme-font-size-medium);
+    color: var(--theme-font-primary-color);
 }
 
 .text-secondary {
     -unity-font-definition: var(--theme-font-secondary);
-    font-size: var(--theme-font-size-small, 32px);
-    color: var(--theme-font-secondary-color, #ffffff);
+    font-size: var(--theme-font-size-small);
+    color: var(--theme-font-secondary-color);
 }
 
 .text-tiny{
     -unity-font-definition: var(--theme-font-tiny);
-    font-size: var(--theme-font-size-tiny, 16px);
-    color: var(--theme-font-tiny-color, #ffffff);
+    font-size: var(--theme-font-size-tiny);
+    color: var(--theme-font-tiny-color);
 }
 
 .button {
@@ -61,7 +105,7 @@
     background-color: var(--theme-primary-color, #0078d4);
 }
 
-.button-filled--hover > .button-background {
+.button-filled:hover > .button-background {
     background-color: white;
     opacity: 0.03;
 }
@@ -76,12 +120,12 @@
     border-color: var(--theme-primary-color, #0078d4);
 }
 
-.button-outline--hover > .button-background {
+.button-outline:hover > .button-background {
     background-color: var(--theme-primary-color, #0078d4);
     opacity: 0.3;
 }
 
-.button-subtle--hover > .button-background {
+.button-subtle:hover > .button-background {
     background-color: var(--theme-primary-color, #0078d4);
     opacity: 0.3;
 }
@@ -98,7 +142,7 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
-.button--pressed {
+.button:active {
     transition-property: translate;
     transition-duration: 50ms;
     transition-timing-function: ease-in;
@@ -118,4 +162,12 @@
 
 .accordion-item__expanded {
     
+}
+
+.input-background {
+    background-color: var(--theme-text);
+}
+
+.tile-view {
+    height: 100%;
 }

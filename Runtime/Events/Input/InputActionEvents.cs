@@ -21,7 +21,7 @@ namespace Vapor
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Initialize() => s_Events.Clear();
 
-        public static void Subscribe(uint eventId, Action<uint, InputAction.CallbackContext> callbackContext)
+        public static void Subscribe(uint eventId, InputActionEventHandler callbackContext)
         {
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(InputActionEvents), nameof(Subscribe))} Input Event: {eventId} | {callbackContext.Method.Name}");
             if (s_Events.TryGetValue(eventId, out InputActionEvent inputActionEvent))
@@ -38,7 +38,7 @@ namespace Vapor
             }
         }
 
-        public static void Unsubscribe(uint eventId, Action<uint, InputAction.CallbackContext> callbackContext)
+        public static void Unsubscribe(uint eventId, InputActionEventHandler callbackContext)
         {
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(InputActionEvents), nameof(Unsubscribe))} Input Event: {eventId} | {callbackContext.Method.Name}");
             if (s_Events.TryGetValue(eventId, out InputActionEvent inputActionEvent))
@@ -55,6 +55,14 @@ namespace Vapor
             }
         }
 
+        public static void TriggerManualEvent(uint eventId, InputActionPhase phase, IInputInteraction interaction = null, object manualValue = null)
+        {
+            if (s_Events.TryGetValue(eventId, out InputActionEvent inputActionEvent))
+            {
+                inputActionEvent.TriggerManualEvent(phase, interaction, manualValue);
+            }
+        }
+        
         public static bool HasEvent(uint eventId) => s_Events.ContainsKey(eventId);
     }
 }

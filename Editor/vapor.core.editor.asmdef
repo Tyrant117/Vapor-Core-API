@@ -6,7 +6,9 @@
         "Unity.Addressables.Editor",
         "Unity.Addressables",
         "Unity.EditorCoroutines.Editor",
-        "vapor.core.runtime.unsafe"
+        "vapor.core.runtime.unsafe",
+        "Unity.Localization",
+        "Unity.Localization.Editor"
     ],
     "includePlatforms": [
         "Editor"

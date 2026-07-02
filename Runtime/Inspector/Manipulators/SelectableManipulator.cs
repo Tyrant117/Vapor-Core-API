@@ -15,8 +15,8 @@ namespace Vapor.Inspector
 
         private int _activePointerId = -1;
 
-        protected long RepeatInterval;
-        protected long StartDelay;
+        protected internal long RepeatInterval;
+        protected internal long StartDelay;
         protected IVisualElementScheduledItem Repeater;
 
         public event Action<EventBase> Pressed;
@@ -24,53 +24,53 @@ namespace Vapor.Inspector
 
         public event Action<VisualElement> Repeat;
 
-        public SelectableManipulator(string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
+        public SelectableManipulator(/*string pseudoStateBaseName,*/ VisualElement pseudoStateTarget = null) : base(/*pseudoStateBaseName,*/ pseudoStateTarget)
         {
             Active = false;
 
-            PseudoStateActive = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Active;
-            PseudoStateChecked = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Checked;
+            // PseudoStateActive = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Active;
+            // PseudoStateChecked = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Checked;
         }
 
         #region - Fluent Interface -
-        public T WithOnPress<T>(Action<EventBase> callback) where T : SelectableManipulator
-        {
-            Pressed += callback;
-            return (T)this;
-        }
-
-        public T WithOnRelease<T>(Action<EventBase> callback) where T : SelectableManipulator
-        {
-            Released += callback;
-            return (T)this;
-        }
-
-        public T WithActivator<T>(EventModifiers modifiers, MouseButton button, int clickCount = 0) where T : SelectableManipulator
-        {
-            activators.Add(new ManipulatorActivationFilter()
-            {
-                modifiers = modifiers,
-                button = button,
-                clickCount = 0
-            });
-
-            return (T)this;
-        }
-
-        /// <summary>
-        /// If the button is held the invoke event will be called every interval after the delay.
-        /// </summary>
-        /// <param name="repeatInterval">The interval to call the invoke event in miliseconds.</param>
-        /// <param name="startDelay">The delay before the first repeated event is called in miliseconds.</param>
-        /// <param name="repeatCallback"></param>
-        /// <returns></returns>
-        public T WithRepeatable<T>(long repeatInterval, long startDelay, Action<VisualElement> repeatCallback) where T : SelectableManipulator
-        {
-            RepeatInterval = repeatInterval;
-            StartDelay = startDelay;
-            Repeat += repeatCallback;
-            return (T)this;
-        }
+        // public T WithOnPress<T>(Action<EventBase> callback) where T : SelectableManipulator
+        // {
+        //     Pressed += callback;
+        //     return (T)this;
+        // }
+        //
+        // public T WithOnRelease<T>(Action<EventBase> callback) where T : SelectableManipulator
+        // {
+        //     Released += callback;
+        //     return (T)this;
+        // }
+        //
+        // public T WithActivator<T>(EventModifiers modifiers, MouseButton button, int clickCount = 0) where T : SelectableManipulator
+        // {
+        //     activators.Add(new ManipulatorActivationFilter()
+        //     {
+        //         modifiers = modifiers,
+        //         button = button,
+        //         clickCount = 0
+        //     });
+        //
+        //     return (T)this;
+        // }
+        //
+        // /// <summary>
+        // /// If the button is held the invoke event will be called every interval after the delay.
+        // /// </summary>
+        // /// <param name="repeatInterval">The interval to call the invoke event in miliseconds.</param>
+        // /// <param name="startDelay">The delay before the first repeated event is called in miliseconds.</param>
+        // /// <param name="repeatCallback"></param>
+        // /// <returns></returns>
+        // public T WithRepeatable<T>(long repeatInterval, long startDelay, Action<VisualElement> repeatCallback) where T : SelectableManipulator
+        // {
+        //     RepeatInterval = repeatInterval;
+        //     StartDelay = startDelay;
+        //     Repeat += repeatCallback;
+        //     return (T)this;
+        // }
         #endregion
 
         protected override void RegisterCallbacksOnTarget()
@@ -94,7 +94,8 @@ namespace Vapor.Inspector
             target.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
             target.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
 
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(false);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
         }
 
         protected void OnTimer(TimerState timerState)
@@ -104,11 +105,13 @@ namespace Vapor.Inspector
                 if (ContainsPointer(LastWorldMousePosition) && (target.enabledInHierarchy || IgnoreDisabled))
                 {
                     Repeat?.Invoke(target);
-                    PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
+                    PseudoStateTarget.SetActivePseudoState(true);
+                    // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
                 }
                 else
                 {
-                    PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+                    PseudoStateTarget.SetActivePseudoState(false);
+                    // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
                 }
             }
         }
@@ -205,7 +208,8 @@ namespace Vapor.Inspector
                 }
             }
 
-            PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(true);
+            // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
             evt.StopPropagation();
         }
 
@@ -215,11 +219,13 @@ namespace Vapor.Inspector
             LastWorldMousePosition = evt.position;
             if (ContainsPointer(evt.position))
             {
-                PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
+                PseudoStateTarget.SetActivePseudoState(true);
+                // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
             }
             else
             {
-                PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+                PseudoStateTarget.SetActivePseudoState(false);
+                // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
             }
 
             evt.StopPropagation();
@@ -231,7 +237,8 @@ namespace Vapor.Inspector
             _activePointerId = -1;
             target.ReleasePointer(evt.pointerId);
 
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(false);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
             if (IsRepeatable)
             {
                 Repeater?.Pause();
@@ -260,7 +267,8 @@ namespace Vapor.Inspector
             _activePointerId = -1;
             target.ReleasePointer(pointerId);
 
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(false);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
             if (IsRepeatable)
             {
                 Repeater?.Pause();
@@ -279,7 +287,8 @@ namespace Vapor.Inspector
 
             _activePointerId = -1;
 
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(false);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
             if (IsRepeatable)
             {
                 Repeater?.Pause();
@@ -289,12 +298,14 @@ namespace Vapor.Inspector
 
         public void Select()
         {
-            PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
+            PseudoStateTarget.SetCheckedPseudoState(true);
+            // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
         }
 
         public void Deselect()
         {
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
+            PseudoStateTarget.SetCheckedPseudoState(false);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
         }
 
         protected override void OnEnableStateChanged()

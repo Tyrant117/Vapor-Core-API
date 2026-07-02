@@ -47,11 +47,11 @@ namespace Vapor.Keys
 
             public KeyValuePair(string name, uint key, string guid)
             {
-#if UNITY_EDITOR
-                DisplayName = ObjectNames.NicifyVariableName(name);
-#else
+// #if UNITY_EDITOR
+//                 DisplayName = ObjectNames.NicifyVariableName(name);
+// #else
+// #endif
                 DisplayName = name;
-#endif
                 VariableName = Regex.Replace(name, " ", "").Replace(".", "_");
                 Guid = guid;
                 Key = key;

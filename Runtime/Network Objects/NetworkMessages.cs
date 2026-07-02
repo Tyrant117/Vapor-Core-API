@@ -240,6 +240,7 @@ namespace Vapor.NetworkObjects
                 }
             }
             networkObject.OnSpawn();
+            networkObject.OnPostSpawn();
 
             SendSpawnMessage(networkObject);
             return networkObject;
@@ -292,6 +293,7 @@ namespace Vapor.NetworkObjects
                 }
             }
             networkObject.OnSpawn();
+            networkObject.OnPostSpawn();
 
             SendSpawnMessage(networkObject);
         }
@@ -618,6 +620,7 @@ namespace Vapor.NetworkObjects
                     }
 
                     networkObject.OnSpawn();
+                    networkObject.OnPostSpawn();
                     break;
                 }
                 case k_DestroyMessage:

@@ -22,12 +22,14 @@ namespace Vapor.Inspector
                 _isOn = value;
                 if (_isOn)
                 {
-                    PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
+                    PseudoStateTarget.SetCheckedPseudoState(true);
+                    // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
                     _group?.SetActiveToggle(this);
                 }
                 else
                 {
-                    PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
+                    PseudoStateTarget.SetCheckedPseudoState(false);
+                    // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
                 }
                  
                 if (!(target.enabledInHierarchy || IgnoreDisabled))
@@ -43,7 +45,7 @@ namespace Vapor.Inspector
         
         private ToggleManipulatorGroup _group;
 
-        public ToggleManipulator(bool isOn, string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
+        public ToggleManipulator(bool isOn, /*string pseudoStateBaseName,*/ VisualElement pseudoStateTarget = null) : base(/*pseudoStateBaseName,*/ pseudoStateTarget)
         {
             _isOn = isOn;
         }
@@ -66,12 +68,14 @@ namespace Vapor.Inspector
             _isOn = value;
             if (_isOn)
             {
-                PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
+                PseudoStateTarget.SetCheckedPseudoState(true);
+                // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Checked);
                 _group?.SetActiveToggleWithoutNotify(this);
             }
             else
             {
-                PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
+                PseudoStateTarget.SetCheckedPseudoState(false);
+                // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Checked);
             }
         }
 

@@ -1,12 +1,31 @@
-﻿using Vapor.Inspector;
+﻿using UnityEngine.Localization;
+using Vapor.Inspector;
 
 namespace Vapor
 {
+    public interface IDataExtension
+    {
+        IData Owner { get; set; }
+
+        T GetOwner<T>() where T : IData { return (T) Owner; }
+    }
+
     [TypeCache]
     public interface IData
     {
         string Name { get; }
         uint Key { get; }
+    }
+
+    public interface IDataIcon
+    {
+        public uint IconAddressableKey { get; set; }
+    }
+
+    public interface ILocalizedData : IData
+    {
+        public LocalizedString LocalizedName { get; set; }
+        public LocalizedString LocalizedDescription { get; set; }
     }
 
     public interface IScriptableData : IData

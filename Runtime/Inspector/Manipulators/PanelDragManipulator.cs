@@ -20,7 +20,7 @@ namespace Vapor.Inspector
 
 
 
-        public PanelDragManipulator(string psuedoStateBaseName, VisualElement panelElement) : base(psuedoStateBaseName)
+        public PanelDragManipulator(/*string psuedoStateBaseName,*/ VisualElement panelElement) : base(/*psuedoStateBaseName*/)
         {
             PanelElement = panelElement;
         }

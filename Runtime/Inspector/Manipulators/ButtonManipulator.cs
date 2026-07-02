@@ -12,37 +12,37 @@ namespace Vapor.Inspector
     
     public class ButtonManipulator : SelectableManipulator
     {
-        public InputAction Hotkey { get; private set; }
-        public uint InputActionId { get; private set; }
+        public InputAction Hotkey { get; protected internal set; }
+        public uint InputActionId { get; protected internal set; }
 
         public ClickTypes ClickType { get; set; }
 
         public event Action<EventBase> Clicked;
 
-        public ButtonManipulator(string pseudoStateBaseName, VisualElement pseudoStateTarget = null) : base(pseudoStateBaseName, pseudoStateTarget)
+        public ButtonManipulator(/*string pseudoStateBaseName,*/ VisualElement pseudoStateTarget = null) : base(/*pseudoStateBaseName,*/ pseudoStateTarget)
         {
 
         }
 
         #region - Fluent -
-        public ButtonManipulator WithOnClick(ClickTypes clickType, Action<EventBase> callback)
-        {
-            ClickType = clickType;
-            Clicked += callback;
-            return this;
-        }
-
-        public ButtonManipulator WithHotkey(InputAction hotkey)
-        {
-            Hotkey = hotkey;
-            return this;
-        }
-
-        public ButtonManipulator WithInputActionTrigger(uint inputActionId)
-        {
-            InputActionId = inputActionId;
-            return this;
-        }
+        // public ButtonManipulator WithOnClick(ClickTypes clickType, Action<EventBase> callback)
+        // {
+        //     ClickType = clickType;
+        //     Clicked += callback;
+        //     return this;
+        // }
+        //
+        // public ButtonManipulator WithHotkey(InputAction hotkey)
+        // {
+        //     Hotkey = hotkey;
+        //     return this;
+        // }
+        //
+        // public ButtonManipulator WithInputActionTrigger(uint inputActionId)
+        // {
+        //     InputActionId = inputActionId;
+        //     return this;
+        // }
         #endregion
 
         protected override void RegisterCallbacksOnTarget()
@@ -78,7 +78,7 @@ namespace Vapor.Inspector
 
         #region - Manual Input -
 
-        protected void OnKey(uint eventId, InputAction.CallbackContext context)
+        protected void OnKey(uint eventId, InputActionCallbackContext context)
         {
             switch (context.phase)
             {
@@ -140,7 +140,8 @@ namespace Vapor.Inspector
                 }
             }
 
-            PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
+            PseudoStateTarget.SetActivePseudoState(true);
+            // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Active);
         }
 
         private void ManualKeyUp()
@@ -164,7 +165,8 @@ namespace Vapor.Inspector
                     InvokeRelease(evt);
                 }
 
-                PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
+                PseudoStateTarget.SetActivePseudoState(false);
+                // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Active);
             }
         }
         #endregion

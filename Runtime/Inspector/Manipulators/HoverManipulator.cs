@@ -1,54 +1,50 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
-    public class HoverManipulator : PointerManipulator, IPseudoStateManipulator
+    public class HoverManipulator : PointerManipulator/*, IPseudoStateManipulator*/
     {
         public bool IsEnabled { get; protected set; } = true;
         public bool IsHovering { get; protected set; }
 
-        public string PseudoStateHover { get; protected set; }
-        public string PseudoStateActive { get; protected set; }
-        public string PseudoStateFocus { get; protected set; }
-        public string PseudoStateChecked { get; protected set; }
-        public string PseudoStateDisabled { get; protected set; }
+        // public string PseudoStateHover { get; protected set; }
+        // public string PseudoStateActive { get; protected set; }
+        // public string PseudoStateFocus { get; protected set; }
+        // public string PseudoStateChecked { get; protected set; }
+        // public string PseudoStateDisabled { get; protected set; }
         public VisualElement PseudoStateTarget { get; set; }
 
-        protected readonly IPseudoStateManipulator PsuedoStateManipulator;
+        // protected readonly IPseudoStateManipulator PsuedoStateManipulator;
         protected float HoveringTime;
 
-        public event Action<EventBase> Entered = delegate { };
-        public event Action<EventBase> Exited = delegate { };
+        public event Action<EventBase> Entered;
+        public event Action<EventBase> Exited;
 
-        public HoverManipulator(string pseudoStateBaseName, VisualElement pseudoStateTarget = null)
+        public HoverManipulator(/*string pseudoStateBaseName,*/ VisualElement pseudoStateTarget = null)
         {
             IsHovering = false;
 
-            PseudoStateHover = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Hover;
-            PseudoStateDisabled = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Disabled;
-            PsuedoStateManipulator = this;
+            // PseudoStateHover = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Hover;
+            // PseudoStateDisabled = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Disabled;
+            // PsuedoStateManipulator = this;
             PseudoStateTarget = pseudoStateTarget;
         }
 
         #region - Fluent Builder -
-        public T As<T>() where T : HoverManipulator
-        {
-            return (T)this;
-        }
-
-        public T WithHoverEntered<T>(Action<EventBase> entered) where T : HoverManipulator
-        {
-            Entered += entered;
-            return (T)this;
-        }
-
-        public T WithHoverExited<T>(Action<EventBase> exited) where T : HoverManipulator
-        {
-            Exited += exited;
-            return (T)this;
-        }
+        // public T WithHoverEntered<T>(Action<EventBase> entered) where T : HoverManipulator
+        // {
+        //     Entered += entered;
+        //     return (T)this;
+        // }
+        //
+        // public T WithHoverExited<T>(Action<EventBase> exited) where T : HoverManipulator
+        // {
+        //     Exited += exited;
+        //     return (T)this;
+        // }
         #endregion
 
         protected override void RegisterCallbacksOnTarget()
@@ -95,12 +91,12 @@ namespace Vapor.Inspector
         protected virtual void ProcessPointerEnter(PointerEnterEvent evt)
         {
             ForcePointerEnter();
-            Entered.Invoke(evt);
+            Entered?.Invoke(evt);
         }
 
         public void ForcePointerEnter()
         {
-            PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Hover);
+            // PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Hover);
             IsHovering = true;
             HoveringTime = Time.time;
         }
@@ -108,12 +104,12 @@ namespace Vapor.Inspector
         protected virtual void ProcessPointerLeave(PointerLeaveEvent evt)
         {
             ForcePointerLeave();
-            Exited.Invoke(evt);
+            Exited?.Invoke(evt);
         }
 
         public void ForcePointerLeave()
         {
-            PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Hover);
+            // PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Hover);
             IsHovering = false;
         }
         #endregion
@@ -129,14 +125,7 @@ namespace Vapor.Inspector
         {
             var old = IsEnabled;
             IsEnabled = enabled;
-            if (IsEnabled)
-            {
-                PsuedoStateManipulator.DisablePseudoStateClass(PseudoState.Disabled);
-            }
-            else
-            {
-                PsuedoStateManipulator.EnablePseudoStateClass(PseudoState.Disabled);
-            }
+            PseudoStateTarget.SetEnabled(IsEnabled);
 
             if (old != IsEnabled)
             {
@@ -153,5 +142,82 @@ namespace Vapor.Inspector
         }
 
         #endregion
+    }
+
+    public static class ManipulatorExtensions
+    {
+        // Hover
+        public static T WithHoverEntered<T>(this T manipulator, Action<EventBase> entered) where T : HoverManipulator
+        {
+            manipulator.Entered += entered;
+            return manipulator;
+        }
+
+        public static T WithHoverExited<T>(this T manipulator, Action<EventBase> exited) where T : HoverManipulator
+        {
+            manipulator.Exited += exited;
+            return manipulator;
+        }
+        
+        // Selectables
+        public static T WithOnPress<T>(this T manipulator, Action<EventBase> callback) where T : SelectableManipulator
+        {
+            manipulator.Pressed += callback;
+            return manipulator;
+        }
+
+        public static T WithOnRelease<T>(this T manipulator, Action<EventBase> callback) where T : SelectableManipulator
+        {
+            manipulator.Released += callback;
+            return manipulator;
+        }
+
+        public static T WithActivator<T>(this T manipulator, EventModifiers modifiers, MouseButton button, int clickCount = 0) where T : SelectableManipulator
+        {
+            manipulator.activators.Add(new ManipulatorActivationFilter()
+            {
+                modifiers = modifiers,
+                button = button,
+                clickCount = 0
+            });
+
+            return manipulator;
+        }
+
+        /// <summary>
+        /// If the button is held the invoke event will be called every interval after the delay.
+        /// </summary>
+        /// <param name="manipulator">The manipulator</param>
+        /// <param name="repeatInterval">The interval to call the invoke event in miliseconds.</param>
+        /// <param name="startDelay">The delay before the first repeated event is called in miliseconds.</param>
+        /// <param name="repeatCallback"></param>
+        /// <returns></returns>
+        public static T WithRepeatable<T>(this T manipulator, long repeatInterval, long startDelay, Action<VisualElement> repeatCallback) where T : SelectableManipulator
+        {
+            manipulator.RepeatInterval = repeatInterval;
+            manipulator.StartDelay = startDelay;
+            manipulator.Repeat += repeatCallback;
+            return manipulator;
+        }
+        
+        // Buttons
+        public static T WithOnClick<T>(this T manipulator, ClickTypes clickType, Action<EventBase> callback) where T : ButtonManipulator
+        {
+            manipulator.ClickType = clickType;
+            manipulator.Clicked += callback;
+            return manipulator;
+        }
+
+        public static T WithHotkey<T>(this T manipulator, InputAction hotkey) where T : ButtonManipulator
+        {
+            manipulator.Hotkey = hotkey;
+            return manipulator;
+        }
+
+        public static T WithInputActionTrigger<T>(this T manipulator, uint inputActionId) where T : ButtonManipulator
+        {
+            manipulator.InputActionId = inputActionId;
+            return manipulator;
+        }
     }
 }
