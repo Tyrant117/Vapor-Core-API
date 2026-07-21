@@ -24,7 +24,7 @@ namespace Vapor
         }
 #endif
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         public static void Initialize()
         {
             s_RegistryMap.Clear();
@@ -34,7 +34,6 @@ namespace Vapor
             foreach (var assetType in assetTypes)
             {
                 var atr = assetType.GetCustomAttribute<IsAddressableAttribute>();
-                // Debug.Log(atr.AddressableLabel);
                 var assets = AddressableAssetUtility.LoadAll<ScriptableObject>(null, new object[] { atr.AddressableLabel }, out var handle);
                 if (assets == null)
                 {

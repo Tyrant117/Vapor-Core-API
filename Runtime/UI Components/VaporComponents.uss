@@ -8,6 +8,7 @@
     --theme-background-primary-dark: #000000CC;
     
     --theme-border: #E2DED366;
+    --theme-border-fade: #E3DFD309;
     --theme-border-hover: #E2DED3;
     --theme-border-active: #EBC86D;
     
@@ -30,6 +31,27 @@
     --theme-font-primary-color: #E2DED3;
     --theme-font-secondary-color: #E2DED3;
     --theme-font-tiny-color: #E2DED3;
+    
+    --theme-value-color-1: #E2DED3;
+    --theme-value-color-2: #e1c1b1;
+    --theme-value-color-3: #a1e1b6;
+}
+
+.stretch {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+.blur {
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--theme-background-primary);
 }
 
 .flex {
@@ -85,6 +107,14 @@
     -unity-font-definition: var(--theme-font-tiny);
     font-size: var(--theme-font-size-tiny);
     color: var(--theme-font-tiny-color);
+}
+
+.icon-primary {
+    -unity-background-image-tint-color: var(--theme-icon);
+}
+
+.icon-fade {
+    -unity-background-image-tint-color: var(--theme-icon-fade);
 }
 
 .button {
@@ -170,4 +200,16 @@
 
 .tile-view {
     height: 100%;
+}
+
+.text-value-color-1 {
+    color: var(--theme-value-color-1);
+}
+
+.text-value-color-2 {
+    color: var(--theme-value-color-2);
+}
+
+.text-value-color-3 {
+    color: var(--theme-value-color-3);
 }

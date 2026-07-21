@@ -18,6 +18,7 @@ namespace Vapor.UIComponents
         private static readonly BindingId s_HorizontalSpacingProperty = (BindingId)nameof(HorizontalSpacing);
         private static readonly BindingId s_VerticalSpacingProperty = (BindingId)nameof(VerticalSpacing);
         private static readonly BindingId s_AllowSelectionProperty = (BindingId)nameof(AllowSelection);
+        private static readonly BindingId s_AllowDeselectionProperty = (BindingId)nameof(AllowDeselection);
         private static readonly BindingId s_FixedColumnCountProperty = (BindingId)nameof(FixedColumnCount);
         private static readonly BindingId s_ItemsSourceProperty = (BindingId)nameof(ItemsSource);
         private static readonly BindingId s_SelectedIndexProperty = (BindingId)nameof(SelectedIndex);
@@ -38,6 +39,7 @@ namespace Vapor.UIComponents
         private float _horizontalSpacing = 10f;
         private float _verticalSpacing = 10f;
         private bool _allowSelection = true;
+        private bool _allowDeselection = true;
         private int _fixedColumnCount = -1;
         private int _cachedColumnsPerRow = 1;
         private int _firstVisibleRow = -1;
@@ -122,6 +124,19 @@ namespace Vapor.UIComponents
                 NotifyPropertyChanged(in s_AllowSelectionProperty);
             }
         }
+
+        [CreateProperty, UxmlAttribute]
+        public bool AllowDeselection
+        {
+            get => _allowDeselection;
+            set
+            {
+                if (_allowDeselection == value)
+                    return;
+                _allowDeselection = value;
+                NotifyPropertyChanged(in s_AllowDeselectionProperty);
+            }
+        }
         
         [CreateProperty, UxmlAttribute]
         public int FixedColumnCount
@@ -173,7 +188,7 @@ namespace Vapor.UIComponents
                 if (!AllowSelection)
                     return;
                 
-                if (_selectedIndex == value)
+                if (_selectedIndex == value && !AllowDeselection)
                     return;
 
                 if (value < -1 || (_itemsSource != null && value >= _itemsSource.Count))
@@ -182,7 +197,17 @@ namespace Vapor.UIComponents
                     return;
                 }
 
-                _selectedIndex = value;
+                if (_selectedIndex == value)
+                {
+                    // Deselect
+                    _selectedIndex = -1;
+                }
+                else
+                {
+                    // Select
+                    _selectedIndex = value;
+                }
+                
                 UpdateSelectedObject();
                 NotifyPropertyChanged(in s_SelectedIndexProperty);
                 SelectionChanged?.Invoke(_selectedObject, _selectedIndex);
@@ -195,31 +220,20 @@ namespace Vapor.UIComponents
             get => _selectedObject;
             set
             {
-                if (!AllowSelection)
+                if (_itemsSource == null)
+                {
                     return;
+                }
                 
-                if (Equals(_selectedObject, value))
-                    return;
-
-                _selectedObject = value;
-
-                if (_itemsSource != null && _selectedObject != null)
+                if (value != null)
                 {
-                    int index = _itemsSource.IndexOf(_selectedObject);
-                    if (index != _selectedIndex)
-                    {
-                        _selectedIndex = index;
-                        NotifyPropertyChanged(in s_SelectedIndexProperty);
-                    }
+                    int index = _itemsSource.IndexOf(value);
+                    SelectedIndex = index;
                 }
-                else if (_selectedObject == null && _selectedIndex != -1)
+                else
                 {
-                    _selectedIndex = -1;
-                    NotifyPropertyChanged(in s_SelectedIndexProperty);
+                    SelectedIndex = -1;
                 }
-
-                NotifyPropertyChanged(in s_SelectedObjectProperty);
-                SelectionChanged?.Invoke(_selectedObject, _selectedIndex);
             }
         }
 
@@ -431,7 +445,7 @@ namespace Vapor.UIComponents
                 item.style.marginTop = 0;
                 item.style.marginRight = (i < rowData.ItemCount - 1) ? _horizontalSpacing : 0;
 
-                if(AllowSelection)
+                if (AllowSelection)
                 {
                     int capturedIndex = itemIndex;
                     if (itemIndex == _selectedIndex)
@@ -446,7 +460,7 @@ namespace Vapor.UIComponents
                     item.RegisterCallback<ClickEvent>(evt =>
                     {
                         SelectedIndex = capturedIndex;
-                        SelectedElement = item;
+                        SelectedElement = SelectedIndex == capturedIndex ? item : null;
                         evt.StopPropagation();
                     });
                 }
@@ -461,7 +475,7 @@ namespace Vapor.UIComponents
         {
             if (!AllowSelection)
                 return;
-            
+
             if (_itemsSource == null || _selectedIndex < 0 || _selectedIndex >= _itemsSource.Count)
             {
                 if (_selectedObject != null)
@@ -469,6 +483,7 @@ namespace Vapor.UIComponents
                     _selectedObject = null;
                     NotifyPropertyChanged(in s_SelectedObjectProperty);
                 }
+
                 return;
             }
 

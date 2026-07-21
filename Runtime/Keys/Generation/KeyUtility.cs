@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEditor;
 using UnityEngine;
 using Vapor.Inspector;
 
@@ -10,10 +9,11 @@ namespace Vapor.Keys
 {
     public static class KeyUtility
     {
-#if UNITY_EDITOR
         private static bool s_Cached;
-        [InitializeOnLoadMethod]
-        private static void InitEditor()
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+#endif
+        private static void Init()
         {
             if (s_Cached)
             {
@@ -57,49 +57,9 @@ namespace Vapor.Keys
                 nameSet.Add(keysType);
             }
             s_Cached = true;
-            Debug.Log($"{TooltipMarkup.ClassMethod(nameof(KeyUtility), nameof(InitEditor))} - Cached Keys");
+            Debug.Log($"{TooltipMarkup.ClassMethod(nameof(KeyUtility), nameof(Init))} - Cached Keys");
         }
-        #endif
-
-        private static bool s_RuntimeCached;
-        private static void InitRuntime()
-        {
-            if (s_RuntimeCached)
-            {
-                return;
-            }
-            s_CachedFieldInfos.Clear();
-            s_CachedCategories.Clear();
-            s_CachedTypeNames.Clear();
-
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies)
-            {
-                foreach (var type in assembly.GetTypes())
-                {
-                    if (typeof(IKeysProvider).IsAssignableFrom(type) && !type.IsInterface)
-                    {
-                        s_CachedFieldInfos.TryAdd(type, GetFieldInfo(type));
-                        var category = GetKeyCategory(type);
-                        if (!s_CachedCategories.TryGetValue(category, out var typeSet))
-                        {
-                            typeSet = new HashSet<Type>();
-                            s_CachedCategories[category] = typeSet;
-                        }
-                        if (!s_CachedTypeNames.TryGetValue(type.Name, out var nameSet))
-                        {
-                            nameSet = new HashSet<Type>();
-                            s_CachedTypeNames[type.Name] = nameSet;
-                        }
-                        typeSet.Add(type);
-                        nameSet.Add(type);
-                    }
-                }
-            }
-            s_RuntimeCached = true;
-            Debug.Log($"{TooltipMarkup.ClassMethod(nameof(KeyUtility), nameof(InitRuntime))} - Cached Keys");
-        }
-
+        
         public const string ASSEMBLY_NAME = "VaporKeyDefinitions";        
         private static readonly Dictionary<Type, FieldInfo> s_CachedFieldInfos = new();
         private static readonly Dictionary<string, HashSet<Type>> s_CachedCategories = new();
@@ -108,21 +68,13 @@ namespace Vapor.Keys
 
         public static List<DropdownModel> GetAllDropdownModels()
         {
-#if UNITY_EDITOR
-            InitEditor();
-#else
-            InitRuntime();
-#endif
+            Init();
             return s_AllDropdownModels;
         }
 
         public static List<DropdownModel> GetAllKeysFromTypeName(string typeName)
         {
-#if UNITY_EDITOR
-            InitEditor();
-#else
-            InitRuntime();
-#endif
+            Init();
             if (s_CachedTypeNames.TryGetValue(typeName, out var name))
             {
                 List<DropdownModel> result = new();
@@ -141,11 +93,7 @@ namespace Vapor.Keys
 
         public static List<DropdownModel> GetAllKeysFromCategory(string category)
         {
-#if UNITY_EDITOR
-            InitEditor();
-#else
-            InitRuntime();
-#endif
+            Init();
             if (s_CachedCategories.TryGetValue(category, out var cachedCategory))
             {
                 List<DropdownModel> result = new();

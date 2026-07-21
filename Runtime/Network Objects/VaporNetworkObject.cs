@@ -203,6 +203,7 @@ namespace Vapor.NetworkObjects
 
         protected internal virtual void SubObjectDespawned(VaporNetworkObject networkSubObject)
         {
+            SubObjects ??= new List<VaporNetworkObject>();
             SubObjects.Remove(networkSubObject);
         }
 

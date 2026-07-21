@@ -8,7 +8,7 @@ namespace Vapor
 {
     public static class DataRegistry<TData> where TData : class, IData
     {
-        private static readonly Dictionary<uint, TData> s_RegistryMap = new Dictionary<uint, TData>(256);
+        private static readonly Dictionary<uint, TData> s_RegistryMap = new(256);
 
         static DataRegistry()
         {

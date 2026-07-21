@@ -7,7 +7,7 @@ namespace Vapor.NetworkObjects
     public static class NetworkDataRegistry<TData> where TData : VaporNetworkObject
     {
         
-        private static readonly Dictionary<NetworkRegistryIdentifier, TData> s_RegistryMap = new Dictionary<NetworkRegistryIdentifier, TData>(256);
+        private static readonly Dictionary<NetworkRegistryIdentifier, TData> s_RegistryMap = new(256);
         
         static NetworkDataRegistry()
         {
