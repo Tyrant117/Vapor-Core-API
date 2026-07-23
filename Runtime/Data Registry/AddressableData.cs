@@ -14,7 +14,7 @@ namespace Vapor
         public AddressableData(string name, string addressableName)
         {
             Name = name;
-            Key = Name.Hash32();
+            Key = string.IsNullOrEmpty(name) ? 0 : name.Hash32();
             AddressableName = addressableName;
         }
 

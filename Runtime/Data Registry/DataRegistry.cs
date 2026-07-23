@@ -30,11 +30,19 @@ namespace Vapor
         
         public static TData Get(uint id) => s_RegistryMap.GetValueOrDefault(id);
 
-        public static TData Get(string id) => Get(id.Hash32());
+        public static TData Get(string id) => string.IsNullOrEmpty(id) ? null : Get(id.Hash32());
 
         public static bool TryGet(uint id, out TData value) => s_RegistryMap.TryGetValue(id, out value);
-        
-        public static bool TryGet(string id, out TData value) => TryGet(id.Hash32(), out value);
+
+        public static bool TryGet(string id, out TData value)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                value = default;
+                return false;
+            }
+            return TryGet(id.Hash32(), out value);
+        }
 
         public static IEnumerable<TData> GetAll() => s_RegistryMap.Values;
     }

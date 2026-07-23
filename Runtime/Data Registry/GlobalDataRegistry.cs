@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
@@ -20,7 +22,10 @@ namespace Vapor
         [InitializeOnLoadMethod]
         public static void EditorInitialize()
         {
-            Initialize();
+            // Defer out of the InitializeOnLoad critical path. Addressables may not be ready
+            // during a domain reload, and the synchronous loads in Initialize() would otherwise
+            // stall the editor on every recompile.
+            EditorApplication.delayCall += Initialize;
         }
 #endif
 
@@ -40,21 +45,12 @@ namespace Vapor
                     continue;
                 }
                 
-                int order;
-                if (assets.Count > 0)
-                {
-                    Debug.Log(((IScriptableData)assets[0]).Name);
-                    order = ((IScriptableData)assets[0]).GetOrder();
-                    handles.AddRange(handle);
-                }
-                else
-                {
-                    foreach (var h in handle)
-                    {
-                        h.Release();
-                    }
-                    continue;
-                }
+                // LoadAll returns null (handled above) when nothing is found, so assets is always
+                // non-empty here. Order is treated as type-level: every asset of this type is
+                // expected to return the same GetOrder(), so it is read from the first.
+                Debug.Log(((IScriptableData)assets[0]).Name);
+                int order = ((IScriptableData)assets[0]).GetOrder();
+                handles.AddRange(handle);
 
                 if (!assetsByOrder.ContainsKey(order))
                 {
@@ -136,10 +132,17 @@ namespace Vapor
         
         public static void Register(IData data)
         {
+            if (data == null)
+            {
+                Debug.LogError("GlobalDataRegistry: Attempted to register a null IData.");
+                return;
+            }
+
             if (s_RegistryMap.TryGetValue(data.Key, out var existing))
             {
-                Debug.LogError($"GlobalDataRegistry: Duplicate Key {data.Name} | {data.Key}." +
-                               $" Existing={existing.GetType().Name}, New={data.GetType().Name}");
+                bool sameName = existing.Name == data.Name;
+                Debug.LogError($"GlobalDataRegistry: {(sameName ? "Duplicate Key" : "Hash collision")} {data.Name} | {data.Key}." +
+                               $" Existing={existing.GetType().Name} ({existing.Name}), New={data.GetType().Name} ({data.Name})");
                 return;
             }
 
@@ -147,15 +150,23 @@ namespace Vapor
         }
 
         public static IData Get(uint id) => s_RegistryMap.GetValueOrDefault(id);
-        public static IData Get(string id) => Get(id.Hash32());
+        public static IData Get(string id) => string.IsNullOrEmpty(id) ? null : Get(id.Hash32());
 
         public static bool TryGet(uint id, out IData value) => s_RegistryMap.TryGetValue(id, out value);
-        public static bool TryGet(string id, out IData value) => TryGet(id.Hash32(), out value);
+        public static bool TryGet(string id, out IData value)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                value = default;
+                return false;
+            }
+            return TryGet(id.Hash32(), out value);
+        }
 
         public static IEnumerable<IData> GetAll() => s_RegistryMap.Values;
         
         public static TData Get<TData>(uint id) where TData : class, IData => s_RegistryMap.GetValueOrDefault(id) as TData;
-        public static TData Get<TData>(string id) where TData : class, IData => Get<TData>(id.Hash32());
+        public static TData Get<TData>(string id) where TData : class, IData => string.IsNullOrEmpty(id) ? null : Get<TData>(id.Hash32());
 
         public static bool TryGet<TData>(uint id, out TData value) where TData : IData
         {
@@ -168,7 +179,15 @@ namespace Vapor
             value = default;
             return false;
         }
-        public static bool TryGet<TData>(string id, out TData value) where TData : IData => TryGet(id.Hash32(), out value);
+        public static bool TryGet<TData>(string id, out TData value) where TData : IData
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                value = default;
+                return false;
+            }
+            return TryGet(id.Hash32(), out value);
+        }
 
         public static IEnumerable<TData> GetAll<TData>() where TData : class => s_RegistryMap.Values.OfType<TData>();
 

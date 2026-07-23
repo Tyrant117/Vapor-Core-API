@@ -83,8 +83,18 @@ namespace Vapor
 
         private static void ScanAssembly(Assembly assembly)
         {
-            // Get all types defined in the assembly
-            var types = assembly.GetTypes();
+            // Get all types defined in the assembly. A single assembly that fails to load its
+            // types (e.g. a missing optional dependency) would otherwise throw and abort the
+            // entire cache build, so recover whatever types did load.
+            Type[] types;
+            try
+            {
+                types = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                types = e.Types.Where(t => t != null).ToArray();
+            }
             foreach (Type type in types)
             {
                 // *** THIS IS THE CRUCIAL CHANGE ***
