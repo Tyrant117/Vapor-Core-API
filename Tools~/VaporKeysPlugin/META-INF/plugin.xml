@@ -1,0 +1,17 @@
+<idea-plugin>
+    <id>com.vapor.keys</id>
+    <name>Vapor Keys</name>
+    <version>1.4.0</version>
+    <vendor>Vapor</vendor>
+    <description><![CDATA[
+        Autocomplete and validation for Vapor data keys, driven by the generated *.keys.tsv manifests
+        (Assets/Vapor/Keys/Definitions/Generated). Provides string-literal completion and validation for
+        GameplayTag and DataRegistry&lt;T&gt;.Get/TryGet keys without requiring a Unity recompile.
+    ]]></description>
+
+    <!-- Rider 2026.1 = platform branch 261. Bump this to match if you upgrade Rider (and rebuild). -->
+    <idea-version since-build="261" until-build="261.*"/>
+
+    <!-- Marks this as a Rider (ReSharper backend) plugin. -->
+    <depends>com.intellij.modules.rider</depends>
+</idea-plugin>

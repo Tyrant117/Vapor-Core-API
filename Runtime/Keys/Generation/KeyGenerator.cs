@@ -94,6 +94,24 @@ namespace Vapor.Keys
         {
             return new KeyValuePair(key, key.Hash32(), guid);
         }
+
+        /// <summary>
+        /// Derives the generated keys-class name and category for a data <paramref name="type"/> using the same
+        /// rules as the data-key generator. Shared so the compiled .cs generation and the text-manifest
+        /// generation always agree on names (e.g. <c>AttributeData</c> -&gt; script <c>AttributeKeys</c>, category <c>Attributes</c>).
+        /// </summary>
+        public static (string scriptName, string category) DeriveScriptAndCategory(Type type, KeyOptionsAttribute keyOptions)
+        {
+            var scriptName = type.Name;
+            scriptName = scriptName.Replace("Scriptable", "").Replace("Data", "").Replace("Key", "");
+            scriptName = scriptName.EndsWith("SO") ? scriptName[..^2] : scriptName;
+            scriptName = scriptName.EndsWith("So") ? scriptName[..^2] : scriptName;
+            scriptName = scriptName.EndsWith("s") ? scriptName[..^1] : scriptName;
+
+            var category = keyOptions?.Category ?? $"{scriptName}s";
+            scriptName = $"{scriptName}Keys";
+            return (scriptName, category);
+        }
         #endregion
 
 #if UNITY_EDITOR
@@ -708,7 +726,9 @@ namespace Vapor.Keys
             sb.Append("\t}\n");
             sb.Append("}");
 
-            File.WriteAllText(filePath, sb.ToString());
+            // Only rewrite when the generated content actually changed, so re-running key generation
+            // without data changes does not trigger a Unity recompile of the key-definitions assembly.
+            FileUtility.WriteAllTextIfChanged(filePath, sb.ToString());
         }
 
         private static void FormatFilePath(StringBuilder sb, string relativePath)

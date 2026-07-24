@@ -6,6 +6,7 @@ using System.Text;
 using UnityEditor;
 using Vapor;
 using Vapor.Keys;
+using VaporEditor.Keys;
 
 namespace VaporEditor
 {
@@ -66,14 +67,7 @@ namespace VaporEditor
                 }
 
                 var keys = allData.Select(d => KeyGenerator.StringToKeyValuePair(d.Name)).ToList();
-                var scriptName = type.Name;
-                scriptName = scriptName.Replace("Scriptable", "").Replace("Data", "").Replace("Key", "");
-                scriptName = scriptName.EndsWith("SO") ? scriptName[..^2] : scriptName;
-                scriptName = scriptName.EndsWith("So") ? scriptName[..^2] : scriptName;
-                scriptName = scriptName.EndsWith("s") ? scriptName[..^1] : scriptName;
-                
-                var category = keyOptions?.Category ?? $"{scriptName}s";
-                scriptName = $"{scriptName}Keys";
+                var (scriptName, category) = KeyGenerator.DeriveScriptAndCategory(type, keyOptions);
                 KeyGenerator.FormatKeyFiles(KeyGenerator.RELATIVE_KEY_PATH, KeyGenerator.NAMESPACE_NAME, scriptName, category, keys);
             }
             
@@ -141,7 +135,11 @@ namespace VaporEditor
             // sb.AppendLine("}");
 
             string fullPath = "Assets/Vapor Gameplay Framework/Runtime/Gameplay Tags/Utilities/GameplayTagCategories.cs";
-            File.WriteAllText(fullPath, generatedCode);
+            FileUtility.WriteAllTextIfChanged(fullPath, generatedCode);
+
+            // Emit the text manifests the Rider/ReSharper plugin reads for key autocomplete + validation.
+            // Manifests are plain text (never .cs), so this adds no recompile on top of the key-class generation.
+            KeyManifestGenerator.GenerateAll();
         }
 
         private static string GenerateGameplayTagCategoriesFile(string namespaceName, string enumName, string className, HashSet<string> categoryNames)

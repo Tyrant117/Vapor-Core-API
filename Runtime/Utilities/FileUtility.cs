@@ -165,6 +165,30 @@ namespace Vapor
             File.WriteAllText(filePath, jsonContent);
             AssetDatabase.Refresh();
         }
+
+        /// <summary>
+        /// Writes <paramref name="content"/> to <paramref name="fullPath"/> only when it differs from what is
+        /// already on disk. Skipping identical writes prevents Unity from re-importing/recompiling files that
+        /// did not actually change (important for the auto-generated key scripts and manifests). Creates the
+        /// parent directory if needed.
+        /// </summary>
+        /// <returns><c>true</c> if the file was written, <c>false</c> if it was already up to date.</returns>
+        public static bool WriteAllTextIfChanged(string fullPath, string content)
+        {
+            if (File.Exists(fullPath) && File.ReadAllText(fullPath) == content)
+            {
+                return false;
+            }
+
+            var directory = Path.GetDirectoryName(fullPath);
+            if (!directory.EmptyOrNull() && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(fullPath, content);
+            return true;
+        }
 #endif
     }
 }

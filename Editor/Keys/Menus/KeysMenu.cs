@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using Vapor;
 using Vapor.Keys;
 using System.IO;
 using System.Linq;
@@ -67,9 +68,9 @@ namespace VaporEditor.Keys
                 Directory.CreateDirectory(path);
             }
 
-            File.WriteAllText(Path.Combine(path, className + ".cs"), sb.ToString());
+            FileUtility.WriteAllTextIfChanged(Path.Combine(path, className + ".cs"), sb.ToString());
         }
-        
+
         private static void GenerateAddressableNames(IEnumerable<string> labels)
         {
             // Make an Addressable Data Registry;
@@ -170,7 +171,7 @@ namespace VaporEditor.Keys
             var fullPath = Path.Combine(directory, fileName);
             try
             {
-                File.WriteAllText(fullPath, fileContent);
+                FileUtility.WriteAllTextIfChanged(fullPath, fileContent);
                 AssetDatabase.Refresh(); // Refresh the AssetDatabase to show the new file in the project window
                 Debug.Log($"Successfully created/overwrote {fileName} for assembly definition at: {directory}");
             }
