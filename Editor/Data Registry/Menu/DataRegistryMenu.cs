@@ -102,7 +102,7 @@ namespace VaporEditor
             }
 
             string generatedCode = GenerateGameplayTagCategoriesFile(
-                "Vapor.GameplayFramework.GameplayTags",
+                "Vapor.GameplayTags",
                 "GameplayTagDefaultCategories",
                 "GameplayTagCategories",
                 categories
@@ -134,7 +134,7 @@ namespace VaporEditor
             // sb.AppendLine("    }");
             // sb.AppendLine("}");
 
-            string fullPath = "Assets/Vapor Gameplay Framework/Runtime/Gameplay Tags/Utilities/GameplayTagCategories.cs";
+            string fullPath = "Assets/Vapor Core/Runtime/Gameplay Tags/Utilities/GameplayTagCategories.cs";
             FileUtility.WriteAllTextIfChanged(fullPath, generatedCode);
 
             // Emit the text manifests the Rider/ReSharper plugin reads for key autocomplete + validation.

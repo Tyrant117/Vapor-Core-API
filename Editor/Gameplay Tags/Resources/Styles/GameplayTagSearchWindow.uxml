@@ -1,0 +1,16 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <ui:VisualElement name="ListOfNodesPanel" style="flex-grow: 1;">
+        <ui:VisualElement name="Header">
+            <uie:ToolbarSearchField name="SearchField" />
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row;">
+                <ui:Button text="Add" name="Add" />
+                <ui:VisualElement style="flex-grow: 1;" />
+                <ui:Button text="All" name="All" />
+                <ui:Button text="None" name="None" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:TreeView name="ListOfNodes" selectionType="Single" virtualizationMethod="FixedHeight" fixedItemHeight="24" />
+        <ui:Button text="Confirm&#10;" name="Confirm" />
+    </ui:VisualElement>
+    <ui:VisualElement name="Resizer" />
+</ui:UXML>
