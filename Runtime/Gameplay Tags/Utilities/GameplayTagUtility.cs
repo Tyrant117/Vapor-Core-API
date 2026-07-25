@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using Vapor.Inspector;
-using Vapor.Keys;
 
 namespace Vapor.GameplayTags
 {
@@ -61,14 +59,7 @@ namespace Vapor.GameplayTags
         
         public static List<DropdownModel> GetAllKeys()
         {
-            return KeyUtility.GetAllDropdownModels();
-            // return KeyUtility.GetAllKeysFromCategory(CATEGORY_NAME);
-        }
-
-        public static string FindName(uint multicastKey)
-        {
-            var foundKey = GetAllKeys().Select(dropdown => (KeyDropdownValue)dropdown.Value).FirstOrDefault(key => key.Key == multicastKey);
-            return foundKey.IsNone ? k_MissingName : foundKey.DisplayName;
+            return DataKeyUtility.GetAllDropdownModels();
         }
     }
 }

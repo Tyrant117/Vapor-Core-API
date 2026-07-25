@@ -1,13 +1,13 @@
 ﻿using System;
 using Unity.Burst;
 using Unity.Netcode;
-using Vapor.Keys;
+using Vapor.Inspector;
 using Vapor.Unsafe;
 
 namespace Vapor.GameplayTags
 {
     [Serializable]
-    public struct GameplayTag : IEquatable<GameplayTag>, IEquatable<KeyDropdownValue>, IEquatable<uint>, INetworkSerializable
+    public struct GameplayTag : IEquatable<GameplayTag>, IEquatable<uint>, INetworkSerializable
     {
         public static implicit operator GameplayTag(uint value) => new(value);
         public static implicit operator GameplayTag(string value) => new(value);
@@ -35,13 +35,11 @@ namespace Vapor.GameplayTags
             return GameplayTagTree.HasParentTag(Key, tag.Key);
         }
 
-        public string GetName() => GameplayTagTree.GetName(this);
+        public string GetName() => GameplayTagTree.GetName(Key);
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter => serializer.SerializeValue(ref Key);
 
         public bool Equals(GameplayTag other) => Key == other.Key;
-
-        public bool Equals(KeyDropdownValue other) => Key == other.Key;
 
         public bool Equals(uint other) => Key == other;
         
@@ -54,7 +52,7 @@ namespace Vapor.GameplayTags
 
         public static GameplayTag CreateNewTag(string newTagName)
         {
-            GameplayTagTree.AddTag(newTagName);
+            GameplayTagTree.InsertTag(newTagName);
             return new GameplayTag(newTagName);
         }
     }

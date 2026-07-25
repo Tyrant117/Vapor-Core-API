@@ -8,7 +8,8 @@
         "Unity.EditorCoroutines.Editor",
         "vapor.core.runtime.unsafe",
         "Unity.Localization",
-        "Unity.Localization.Editor"
+        "Unity.Localization.Editor",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

@@ -262,7 +262,7 @@ namespace VaporEditor.Inspector
                         // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
                         // }
                         // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromCategory", BindingFlags.Public | BindingFlags.Static);
-                        SplitTupleToDropdown(keys, values, tooltips, KeyUtility.GetAllKeysFromCategory(dropdownAttribute.Resolver));
+                        SplitTupleToDropdown(keys, values, tooltips, DataKeyUtility.GetAllKeysFromCategory(dropdownAttribute.Resolver));
                     }
                         break;
                     case 2:
@@ -273,7 +273,7 @@ namespace VaporEditor.Inspector
                         // Debug.LogError("To resolve by category or type name, Vapor.Keys must be included in the project");
                         // }
                         // MethodInfo methodInfo = keyUtilityType.GetMethod("GetAllKeysFromTypeName", BindingFlags.Public | BindingFlags.Static);
-                        SplitTupleToDropdown(keys, values, tooltips, KeyUtility.GetAllKeysFromTypeName(dropdownAttribute.Resolver));
+                        SplitTupleToDropdown(keys, values, tooltips, DataKeyUtility.GetAllKeysFromTypeName(dropdownAttribute.Resolver));
                     }
                         break;
                 }

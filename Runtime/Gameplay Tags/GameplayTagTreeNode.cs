@@ -3,8 +3,14 @@ using Vapor.Inspector;
 
 namespace Vapor.GameplayTags
 {
-    public class GameplayTagTreeNode : TagTreeNode<GameplayTagTreeNode>
+    public class GameplayTagTreeNode
     {
-        public override List<DropdownModel> GetAllTags() => GameplayTagUtility.GetAllKeys();
+        public GameplayTagTreeNode Root { get; set; }
+        public GameplayTagTreeNode Parent { get; set; }
+        public string Name { get; set; }
+        public uint Key { get; set; }
+        public List<GameplayTagTreeNode> Children { get; set; }
+
+        public List<DropdownModel> GetAllTags() => GameplayTagUtility.GetAllKeys();
     }
 }

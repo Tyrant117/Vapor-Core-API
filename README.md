@@ -2,8 +2,8 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Keys](#keys)
-  - [Events](#events)
+  - [Gameplay Tags & Data Registry](#gameplay-tags--data-registry)
+  - [Gameplay Events](#gameplay-events)
   - [Observable Values](#observable-values)
   - [UI Components](#state-machine)
   - [Inspector](#inspector)
@@ -21,50 +21,41 @@ A collection of tools for developing applications in Unity.
 
 ## Usage
 
-### Keys
-The backbone of many of the systems. A set of classes to create simple, stable, and unique integer key values.
+### Gameplay Tags & Data Registry
+The backbone of many of the systems. A `GameplayTag` is a stable `uint` — an xxHash32 of a hierarchical dotted
+name such as `Ability.Fire.Burn` — and it is the lowest-level identifier the rest of the SDK is keyed on.
 
 #### How To Use
 
-Most of the functionality is done by implementing the IKey interface on your own scriptable objects.
-Optionally, you can inherit from KeySo or NamedKeySo.
-Then manually generating the keys using the "Generate Keys" button in the inspector of those scriptable objects.
+Content and identifiers are registered as `IData` into the [GlobalDataRegistry](./Runtime/Data%20Registry/GlobalDataRegistry.cs),
+keyed by that same `uint`. Register data either from code by implementing `IDataRegistry.BuildRegistry()`, or
+from an `[IsAddressable]` `IScriptableData` scriptable object that self-registers. Tags specifically are
+registered as `GameplayTagData` through any `IGameplayTagRegistry`.
 
-![image](https://github.com/Tyrant117/Vapor-SDK/assets/9998121/c0511af1-9856-408e-abb6-d8067b75c57a)
+Because every registered name hashes into the same key space, a `GameplayTag`, a data key, and any `IData.Key`
+are interchangeable `uint`s. Look content up with `DataRegistry<T>.Get(...)`, and pick tags/keys in the
+inspector with a `GameplayTag` field (a searchable, hierarchical picker) or a `[Dropdown("Category", Category)]`
+filter — both source their options from the registry.
 
-If custom implementing the IKey interface the user will need to call the formatter directly. See KeyGenerator.cs
+- [GameplayTag](./Runtime/Gameplay%20Tags/GameplayTag.cs): The core identifier struct.
+- [GlobalDataRegistry](./Runtime/Data%20Registry/GlobalDataRegistry.cs) / [DataRegistry&lt;T&gt;](./Runtime/Data%20Registry/DataRegistry.cs): Registration and typed lookup over `IData`.
+- [KeyGenerator](./Runtime/Keys/Generation/KeyGenerator.cs): Optionally emits `const uint` helper classes from the registry for compile-time-safe references; the `.tsv` manifests it emits also power IDE key/tag autocomplete.
 
-- [KeySo](./Runtime/Keys/KeySo.cs): The base scriptable object implemention of the IKey interface.
-- [KeyGenerator](./Runtime/Keys/KeyGenerator.cs): The main script that generates a Key Class File.
-
-### Events
-A global event system for tying events to the key system. 
-Also contains expanded functionality for working with a provider-based component system, similar to dependency injection, to make sure data is where it needs to be when it's needed.
+### Gameplay Events
+A `GameplayTag`-keyed, netcode-aware event and service-locator layer.
 
 #### How To Use
 
-The event system is broken into two parts. The EventBus and the ProviderBus.
-The event bus can be thought of as a globally subscribable c# Action.
-The provider bus can be thought of a globally subscribable c# Func.
+[GameplayEvents](./Runtime/Gameplay%20Events/GameplayEvents.cs) is a global publish/subscribe bus keyed by
+`GameplayTag`. Subscribe with `GameplayEvents.Subscribe(tag, callback)` and raise with
+`GameplayEvents.TriggerEvent(tag, data)`. There are channel-scoped and per-entity overloads, plus
+server/client-only variants. Event payloads implement `IGameplayEventData`, and `ValueGameplayEventData<T>`
+covers simple value payloads.
 
-The EventKeySo is used to map unique keys to the EventBus. These can be created with the Asset Create Menu -> Vapor -> Keys -> Event Key
-The ProviderKeySo is used to map unique keys to the ProviderBus. These can be created with the Asset Create Menu -> Vapor -> Keys -> Provider Key
-
-#### Provides Component Script
-A MonoBehaviour that can be used to expose a component to a ProviderKey value.
-- [ProvidesComponent](./Runtime/Events/Components/ProvidesComponent.cs)
-
-![image](https://github.com/Tyrant117/Vapor-SDK/assets/9998121/e232d6c0-4527-443d-b1dc-0488c75f67da)
-
-
-#### Helper Fields
-There are three exposed helper fields to help the user link events in the inspector.
-- [ChangedEventDataReceiver](./Runtime/Events/Fields/ChangedEventDataReceiver.cs): Receives data from a registered event key.
-- [ChangedEventDataSender](./Runtime/Events/Fields/ChangedEventDataSender.cs): Sends data to all events regiestered to an event key.
-- [RequestsProviderData](./Runtime/Events/Fields/RequestsProviderData.cs): Requests the result of a provider key.
-
-![image](https://github.com/Tyrant117/Vapor-SDK/assets/9998121/d4b3b739-1f70-4db3-a572-355c2c9d998b)
-
+[GameplayServices](./Runtime/Gameplay%20Services/GameplayServices.cs) is the provider / service-locator half:
+register a component or service under a `GameplayTag` (`GameplayServices.Register(tag, this)`, usually in
+`OnEnable`) and fetch it from anywhere with `GameplayServices.Get<T>(tag)` / `TryGet`, dependency-injection
+style, without a hard reference.
 
 ### Observable Values
 A wrapper on primitive types and some core Unity types that track when values are changed and optionally fires events when they are. 

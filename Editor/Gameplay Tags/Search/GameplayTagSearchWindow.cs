@@ -1,4 +1,5 @@
 using Vapor.GameplayTags;
+using Vapor.Inspector;
 using VaporEditor.Inspector;
 
 namespace VaporEditor.GameplayTags

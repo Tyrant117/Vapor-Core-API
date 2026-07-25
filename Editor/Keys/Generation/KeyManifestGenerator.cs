@@ -126,7 +126,7 @@ namespace VaporEditor.Keys
             // Guarded: a single malformed generated key class must not break manifest generation.
             try
             {
-                foreach (var model in KeyUtility.GetAllDropdownModels())
+                foreach (var model in DataKeyUtility.GetAllDropdownModels())
                 {
                     AddTagAndPrefixes(model.Name, tagSeen, tagRows);
                 }

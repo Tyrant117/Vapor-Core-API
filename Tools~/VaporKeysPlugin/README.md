@@ -40,7 +40,6 @@ Lines starting with `#` are headers/comments; blank lines are ignored.
 | argument to `DataRegistry<T>.Get/TryGet(...)` | index row whose `dataTypeSimpleName == T` |
 | value converted to `GameplayTag` (ctor / implicit op / assignment / argument) | `GameplayTags.keys.tsv` |
 | member marked `[DataKey(typeof(X))]` / `[DataKey("Category")]` | index row for that type / category; no row → keys under that **name prefix** (`[DataKey("Attribute")]` → `Attribute.*`, real data keys only, no synthetic tag nodes) |
-| (v2) `KeyDropdownValue` targets | resolved by nearby type context |
 
 For each context the plugin offers the display names. Insertion mode follows the **target type**:
 

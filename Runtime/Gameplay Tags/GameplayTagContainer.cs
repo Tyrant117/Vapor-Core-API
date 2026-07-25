@@ -4,6 +4,7 @@ using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Pool;
+using Vapor.Inspector;
 
 namespace Vapor.GameplayTags
 {

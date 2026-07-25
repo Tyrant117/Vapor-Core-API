@@ -6,7 +6,6 @@ using UnityEngine.UIElements;
 using Vapor;
 using Vapor.GameplayTags;
 using Vapor.Inspector;
-using Vapor.Keys;
 using Vapor.UIComponents;
 using Vapor.Unsafe;
 using VaporEditor.Inspector;
@@ -24,9 +23,8 @@ namespace VaporEditor.GameplayTags
         {
             _field = field;
             bool hasDrawer = _field.Property.TryGetAttribute<GameplayTagDrawerAttribute>(out var drawer);
-            var tagList = RuntimeAssetDatabaseUtility.FindAssetsByType<GameplayTagSo>();
             List<TagSearchModel<GameplayTagTreeNode>> searchModels = new();
-            TagTree<GameplayTagTreeNode>.Traverse(n =>
+            GameplayTagTree.Traverse(n =>
             {
                 // Debug.Log($"Gameplay Tag Drawer found: {n.Name} - {n.Key}");
                 if (n.Key == 0)
@@ -43,15 +41,15 @@ namespace VaporEditor.GameplayTags
                             continue;
                         }
 
-                        var tagSo = tagList.Find(t => t.Key == n.Key);
-                        searchModels.Add(new GameplayTagSearchModel(n.Name, tagSo.OrNull()?.EditorTooltip ?? n.Name, true) { Node = n as GameplayTagTreeNode });
+                        var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
+                        searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip, true) { Node = n as GameplayTagTreeNode });
                         break;
                     }
                 }
                 else
                 {
-                    var tagSo = tagList.Find(t => t.Key == n.Key);
-                    searchModels.Add(new GameplayTagSearchModel(n.Name, tagSo.OrNull()?.EditorTooltip ?? n.Name) { Node = n as GameplayTagTreeNode });
+                    var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
+                    searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip) { Node = n as GameplayTagTreeNode });
                 }
             });
             BuildTree(drawer, searchModels);
@@ -125,7 +123,6 @@ namespace VaporEditor.GameplayTags
 
         private void OnSelect(TagSearchModel<GameplayTagTreeNode>[] tagsSelected)
         {
-            var tags = GameplayTagUtility.GetAllKeys();
             var container = _field.Property.GetValue<GameplayTagContainer>();
             container.Tags.Clear();
             foreach (var t in tagsSelected)

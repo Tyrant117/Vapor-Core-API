@@ -26,6 +26,7 @@ namespace Vapor.GameplayTags
         Skill,
         Recipe,
         Perk,
+        GameInstanceConfig,
         WorldSettings,
     }
 
@@ -53,6 +54,7 @@ namespace Vapor.GameplayTags
         public const string SKILL = "Skill";
         public const string RECIPE = "Recipe";
         public const string PERK = "Perk";
+        public const string GAME_INSTANCE_CONFIG = "GameInstanceConfig";
         public const string WORLD_SETTINGS = "WorldSettings";
 
         public static string GetNameForCategory(GameplayTagDefaultCategories category)
@@ -81,6 +83,7 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Skill => SKILL,
                 GameplayTagDefaultCategories.Recipe => RECIPE,
                 GameplayTagDefaultCategories.Perk => PERK,
+                GameplayTagDefaultCategories.GameInstanceConfig => GAME_INSTANCE_CONFIG,
                 GameplayTagDefaultCategories.WorldSettings => WORLD_SETTINGS,
                 _ => throw new ArgumentOutOfRangeException(nameof(category), category, null)
             };
