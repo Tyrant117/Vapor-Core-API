@@ -74,46 +74,26 @@ namespace Vapor.NetworkObjects
             packetToFill.Deserialize(reader, out _);
         }
 
-        public static T FromPacket<T>(FastBufferReader reader, Allocator allocator = Allocator.Temp)
+        /// <summary>
+        /// Reads a length-prefixed packet blob written by <see cref="CreatePacket(FastBufferWriter, INetworkPacket, bool, Allocator)"/>
+        /// and reconstructs the packet polymorphically from its registry opcode.
+        /// </summary>
+        public static INetworkPacket FromPacket(FastBufferReader reader, Allocator allocator = Allocator.Temp)
         {
             reader.ReadValueSafe(out NativeArray<byte> packet, Allocator.Temp);
             if (packet.Length == 0)
             {
-                return default;
+                return null;
             }
 
             using var reader2 = new FastBufferReader(packet, allocator);
 
-            ByteUnpacker.ReadValuePacked(reader, out uint opcode);
+            ByteUnpacker.ReadValuePacked(reader2, out uint opcode);
 
             var type = PacketRegistry.GetType(opcode);
-            var instance = (T)Activator.CreateInstance(type, true);
-            if (instance is INetworkPacket networkPacket)
-            {
-                networkPacket.Deserialize(reader2, out _);
-            }
-
+            var instance = (INetworkPacket)Activator.CreateInstance(type, true);
+            instance.Deserialize(reader2, out _);
             return instance;
-        }
-
-        public static void FillPacket<T>(ref T packetToFill, FastBufferReader reader, Allocator allocator = Allocator.Temp)
-        {
-            reader.ReadValueSafe(out NativeArray<byte> packet, Allocator.Temp);
-
-            if (packet.Length == 0)
-            {
-                return;
-            }
-
-            if (packetToFill == null || packetToFill is not INetworkPacket networkPacket)
-            {
-                return;
-            }
-
-            using var reader2 = new FastBufferReader(packet, allocator);
-
-            ByteUnpacker.ReadValuePacked(reader2, out uint _);
-            networkPacket.Deserialize(reader2, out _);
         }
     }
 }

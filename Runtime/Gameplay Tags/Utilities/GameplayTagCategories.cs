@@ -25,6 +25,7 @@ namespace Vapor.GameplayTags
         Vapor,
         Profession,
         Skill,
+        Achievement,
         Recipe,
         Perk,
         GameInstanceConfig,
@@ -53,6 +54,7 @@ namespace Vapor.GameplayTags
         public const string VAPOR = "Vapor";
         public const string PROFESSION = "Profession";
         public const string SKILL = "Skill";
+        public const string ACHIEVEMENT = "Achievement";
         public const string RECIPE = "Recipe";
         public const string PERK = "Perk";
         public const string GAME_INSTANCE_CONFIG = "GameInstanceConfig";
@@ -82,6 +84,7 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Vapor => VAPOR,
                 GameplayTagDefaultCategories.Profession => PROFESSION,
                 GameplayTagDefaultCategories.Skill => SKILL,
+                GameplayTagDefaultCategories.Achievement => ACHIEVEMENT,
                 GameplayTagDefaultCategories.Recipe => RECIPE,
                 GameplayTagDefaultCategories.Perk => PERK,
                 GameplayTagDefaultCategories.GameInstanceConfig => GAME_INSTANCE_CONFIG,

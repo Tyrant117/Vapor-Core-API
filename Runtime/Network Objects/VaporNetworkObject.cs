@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.ComponentModel;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Pool;
 using Vapor.Inspector;
-using Vapor.Unsafe;
 
 namespace Vapor.NetworkObjects
 {
@@ -16,33 +15,9 @@ namespace Vapor.NetworkObjects
         public string SaveId;
         public string Json;
     }
-    
+
     public abstract class VaporNetworkObject : INetworkPacket
     {
-        private static readonly HashSet<Type> s_SerializeShortcutTypes = new()
-        {
-            typeof(bool),
-            typeof(byte),
-            typeof(sbyte),
-            typeof(char),
-            typeof(decimal),
-            typeof(double),
-            typeof(float),
-            typeof(int),
-            typeof(uint),
-            typeof(long),
-            typeof(ulong),
-            typeof(short),
-            typeof(ushort),
-            typeof(string),
-            typeof(Vector2),
-            typeof(Vector3),
-            typeof(Vector4),
-            typeof(Quaternion),
-            typeof(Color),
-            typeof(Pose),
-        };
-        
         protected VaporNetworkObject() { }
 
         protected VaporNetworkObject(bool spawnedOnlyOnOwner)
@@ -71,15 +46,10 @@ namespace Vapor.NetworkObjects
         public string SaveId { get; internal set; }
 
         private uint _networkVariableIdCounter;
-        private readonly Dictionary<uint, Action<FastBufferReader>> _rpcs = new();
-        private readonly Dictionary<uint, ValueTuple<SendTo, NetworkDelivery>> _rpcAttributes = new();
         private readonly Dictionary<uint, VaporNetworkVariableBase> _networkVariables = new();
         private readonly List<VaporNetworkVariableBase> _dirtyVariables = new();
 
-        // private static readonly uint s_AddSubObjectRpcHash = nameof(AddSubObjectRpc).Hash32();
-        // private static readonly uint s_RemoveSubObjectRpcHash = nameof(RemoveSubObjectRpc).Hash32();
-
-        public void Spawn(ulong parentNetworkId = 0, ushort parentNetworkBehaviourOrderIndex = 0, bool parentIsUnityObject = false, ulong ownerClientId = 0UL, 
+        public void Spawn(ulong parentNetworkId = 0, ushort parentNetworkBehaviourOrderIndex = 0, bool parentIsUnityObject = false, ulong ownerClientId = 0UL,
             bool onlySpawnForOwner = false, bool isPlayerObject = false) =>
             NetworkMessages.Instance.SpawnNetworkObject(this, parentNetworkId, parentNetworkBehaviourOrderIndex, parentIsUnityObject, ownerClientId, onlySpawnForOwner, isPlayerObject);
 
@@ -87,11 +57,6 @@ namespace Vapor.NetworkObjects
 
         internal void InternalInitialize()
         {
-            // _rpcs[s_AddSubObjectRpcHash] = AddSubObjectRpc;
-            // _rpcAttributes[s_AddSubObjectRpcHash] = (SendTo.Everyone, NetworkDelivery.ReliableSequenced);
-
-            // _rpcs[s_RemoveSubObjectRpcHash] = RemoveSubObjectRpc;
-            // _rpcAttributes[s_RemoveSubObjectRpcHash] = (SendTo.Everyone, NetworkDelivery.ReliableSequenced);
         }
 
         internal void InternalDestroy()
@@ -103,27 +68,13 @@ namespace Vapor.NetworkObjects
             SubObjects = null;
             IsDirty = false;
 
-            _rpcs.Clear();
-            _rpcAttributes.Clear();
             _networkVariables.Clear();
             _dirtyVariables.Clear();
             _networkVariableIdCounter = 0;
         }
 
-        protected void RegisterRpcMethod(Action<FastBufferReader> rpcMethod)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            if (!_rpcs.TryAdd(methodHash, rpcMethod))
-            {
-                return;
-            }
-
-            var atr = (VaporRpcAttribute)rpcMethod.Method.GetCustomAttributes(typeof(VaporRpcAttribute), false)[0];
-            _rpcAttributes[methodHash] = (atr.SendTo, atr.NetworkDelivery);
-        }
-
         /// <summary>
-        /// Called before OnSpawn. Rpcs and NetworkVariables should be registered and initialized here.
+        /// Called before OnSpawn. NetworkVariables should be constructed and initialized here.
         /// </summary>
         protected internal abstract void OnPreSpawn();
 
@@ -156,44 +107,6 @@ namespace Vapor.NetworkObjects
         }
 
         #region - SubObjects -
-
-        // public void AddSubObject(VaporNetworkObject subobject)
-        // {
-        //     if (!IsServer)
-        //     {
-        //         Debug.LogError($"{TooltipMarkup.ClassMethod(nameof(VaporNetworkObject), nameof(AddSubObject))} can only be called on the server.");
-        //         return;
-        //     }
-        //
-        //     Children ??= new List<ulong>();
-        //     Children.Add(subobject.NetworkObjectId);
-        //     Send(s_AddSubObjectRpcHash, subobject.NetworkObjectId);
-        // }
-
-        // private void AddSubObjectRpc(FastBufferReader reader)
-        // {
-        //     Receive(reader, out ulong subObjectNetworkId);
-        //     Children ??= new List<ulong>();
-        //     Children.Add(subObjectNetworkId);
-        // }
-
-        // public void RemoveSubObject(VaporNetworkObject subobject)
-        // {
-        //     if (!IsServer)
-        //     {
-        //         Debug.LogError($"{TooltipMarkup.ClassMethod(nameof(VaporNetworkObject), nameof(AddSubObject))} can only be called on the server.");
-        //         return;
-        //     }
-        //
-        //     Children.Remove(subobject.NetworkObjectId);
-        //     Send(s_RemoveSubObjectRpcHash, subobject.NetworkObjectId);
-        // }
-
-        // private void RemoveSubObjectRpc(FastBufferReader reader)
-        // {
-        //     Receive(reader, out ulong subObjectNetworkId);
-        //     Children.Remove(subObjectNetworkId);
-        // }
 
         protected internal virtual void SubObjectSpawned(VaporNetworkObject networkSubObject)
         {
@@ -252,9 +165,20 @@ namespace Vapor.NetworkObjects
         internal void OnMessageReceived(FastBufferReader reader)
         {
             reader.ReadValueSafe(out uint methodHash);
-            if (_rpcs.TryGetValue(methodHash, out var rpcCallback))
+            if (!s_RpcHandlers.TryGetValue(methodHash, out var entry))
             {
-                rpcCallback.Invoke(reader);
+                Debug.LogWarning($"Received an unknown rpc [{methodHash:X8}] on {GetType().Name} [{NetworkObjectId}]. The peers are likely running different builds.");
+                return;
+            }
+
+            __rpc_exec = true;
+            try
+            {
+                entry.Handler.Invoke(this, reader);
+            }
+            finally
+            {
+                __rpc_exec = false;
             }
         }
 
@@ -298,272 +222,188 @@ namespace Vapor.NetworkObjects
             IsDirty = false;
         }
 
-        #region - Send / Receive Rpcs -
+        #region - Rpcs (Codegen Support) -
 
-        protected void Send(Action<FastBufferReader> rpcMethod)
+        // Everything in this region is the support surface for the VaporRpc IL post-processor
+        // (Vapor Core/Editor/CodeGen). User code never calls these members directly; the weaver emits
+        // calls to them inside [VaporRpc] method bodies and their generated receive handlers.
+        // They are public only because woven code in other assemblies must reach them.
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public delegate void __RpcReceiveHandler(VaporNetworkObject target, FastBufferReader reader);
+
+        private readonly struct RpcTableEntry
         {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash);
-        }
+            public readonly __RpcReceiveHandler Handler;
+            public readonly string Name;
 
-        protected void Send<T0>(Action<FastBufferReader> rpcMethod, T0 arg1)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash, arg1);
-        }
-
-        protected void Send<T0, T1>(Action<FastBufferReader> rpcMethod, T0 arg1, T1 arg2)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash, arg1, arg2);
-        }
-
-        protected void Send<T0, T1, T2>(Action<FastBufferReader> rpcMethod, T0 arg1, T1 arg2, T2 arg3)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash, arg1, arg2, arg3);
-        }
-
-        protected void Send<T0, T1, T2, T3>(Action<FastBufferReader> rpcMethod, T0 arg1, T1 arg2, T2 arg3, T3 arg4)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash, arg1, arg2, arg3, arg4);
-        }
-
-        protected void Send(Action<FastBufferReader> rpcMethod, INetworkPacket packet, bool fullPacket = false)
-        {
-            var methodHash = rpcMethod.Method.Name.Hash32();
-            Send(methodHash, packet, fullPacket);
-        }
-
-        protected void Send(uint methodHash)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        protected void Send<T0>(uint methodHash, T0 arg1)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-
-            WriteArgument(writer, arg1);
-            
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        protected void Send<T0, T1>(uint methodHash, T0 arg1, T1 arg2)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-            
-            WriteArgument(writer, arg1);
-            WriteArgument(writer, arg2);
-            
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        protected void Send<T0, T1, T2>(uint methodHash, T0 arg1, T1 arg2, T2 arg3)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-            
-            WriteArgument(writer, arg1);
-            WriteArgument(writer, arg2);
-            WriteArgument(writer, arg3);
-            
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        protected void Send<T0, T1, T2, T3>(uint methodHash, T0 arg1, T1 arg2, T2 arg3, T3 arg4)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-            
-            WriteArgument(writer, arg1);
-            WriteArgument(writer, arg2);
-            WriteArgument(writer, arg3);
-            WriteArgument(writer, arg4);
-            
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        protected void Send(uint methodHash, INetworkPacket packet, bool fullPacket = false)
-        {
-            var rpcAttributes = _rpcAttributes[methodHash];
-
-            using var writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
-            // Write opcode first (4 bytes header)
-            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
-            // Write our message source
-            writer.WriteValueSafe(NetworkObjectId);
-            // Write our rpc hash
-            writer.WriteValueSafe(methodHash);
-            var bytes = PacketHandler.CreatePacket(packet, fullPacket);
-            writer.WriteValueSafe(bytes);
-            NetworkMessages.Send(this, writer, SpawnedOnlyOnOwner ? SendTo.Owner : rpcAttributes.Item1, rpcAttributes.Item2);
-        }
-
-        private static void WriteArgument<T>(FastBufferWriter writer, T arg)
-        {
-            if (s_SerializeShortcutTypes.Contains(typeof(T)))
+            public RpcTableEntry(__RpcReceiveHandler handler, string name)
             {
-                NetworkVariableSerialization<T>.Write(writer, ref arg);
+                Handler = handler;
+                Name = name;
+            }
+        }
+
+        // Keyed by the weave-time hash of the declaring type + method signature, so the table is global
+        // rather than per-instance and inherited rpcs resolve without walking type hierarchies.
+        private static readonly Dictionary<uint, RpcTableEntry> s_RpcHandlers = new();
+
+        // Set by OnMessageReceived around handler invocation; a woven [VaporRpc] method that observes it
+        // true clears it and runs its body instead of serializing a send.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public bool __rpc_exec;
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __registerRpc(uint hash, __RpcReceiveHandler handler, string name)
+        {
+            if (s_RpcHandlers.TryGetValue(hash, out var existing) && existing.Name != name)
+            {
+                Debug.LogError($"VaporRpc hash collision: {name} and {existing.Name} both hash to [{hash:X8}]. The rpc {name} will not be callable.");
                 return;
             }
-            
-            // Write If Null
-            if (arg == null)
+
+            s_RpcHandlers[hash] = new RpcTableEntry(handler, name);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public bool __beginSendRpc(uint hash, out FastBufferWriter writer)
+        {
+            if (!IsSpawned || !NetworkMessages)
+            {
+                Debug.LogError($"Rpc [{hash:X8}] called on {GetType().Name} before it was spawned.");
+                writer = default;
+                return false;
+            }
+
+            writer = new FastBufferWriter(NetworkMessages.RPC_MESSAGE_DEFAULT_SIZE, Allocator.Temp, NetworkMessages.RPC_MESSAGE_MAXIMUM_SIZE);
+            writer.WriteValueSafe(NetworkMessages.RPC_MESSAGE);
+            writer.WriteValueSafe(NetworkObjectId);
+            writer.WriteValueSafe(hash);
+            return true;
+        }
+
+        /// <summary>
+        /// Sends the finished rpc buffer to every remote target and returns true when the local peer is
+        /// itself in the target set, in which case the woven method falls through and runs its body.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public bool __endSendRpc(FastBufferWriter writer, SendTo sendTo, NetworkDelivery networkDelivery)
+        {
+            using (writer)
+            {
+                return NetworkMessages.SendRpc(this, writer, sendTo, networkDelivery);
+            }
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __writeValue<T>(FastBufferWriter writer, T value)
+        {
+            NetworkVariableSerialization<T>.Write(writer, ref value);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static T __readValue<T>(FastBufferReader reader)
+        {
+            T value = default;
+            NetworkVariableSerialization<T>.Read(reader, ref value);
+            return value;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __writeNetworkObject(FastBufferWriter writer, VaporNetworkObject value)
+        {
+            if (value == null)
             {
                 writer.WriteValueSafe(true);
                 return;
             }
+
             writer.WriteValueSafe(false);
+            writer.WriteValueSafe(value.NetworkObjectId);
+        }
 
-            if (arg is VaporNetworkObject vaporNetworkObject)
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static VaporNetworkObject __readNetworkObject(FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out bool isNull);
+            if (isNull)
             {
-                writer.WriteValueSafe(vaporNetworkObject.NetworkObjectId);
+                return null;
+            }
+
+            reader.ReadValueSafe(out ulong networkObjectId);
+            NetworkMessages.Instance.NetworkObjects.TryGetValue(networkObjectId, out var value);
+            return value;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __writeNetworkBehaviour(FastBufferWriter writer, NetworkBehaviour value)
+        {
+            if (!value)
+            {
+                writer.WriteValueSafe(true);
                 return;
             }
-            
-            if (arg is NetworkBehaviour networkBehaviour)
+
+            writer.WriteValueSafe(false);
+            writer.WriteValueSafe((NetworkBehaviourReference)value);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static NetworkBehaviour __readNetworkBehaviour(FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out bool isNull);
+            if (isNull)
             {
-                writer.WriteValueSafe((NetworkBehaviourReference)networkBehaviour);
+                return null;
+            }
+
+            reader.ReadValueSafe(out NetworkBehaviourReference reference);
+            reference.TryGet(out NetworkBehaviour value);
+            return value;
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __writePacket(FastBufferWriter writer, INetworkPacket value)
+        {
+            if (value == null)
+            {
+                writer.WriteValueSafe(true);
                 return;
             }
 
-            if (arg is INetworkPacket networkPacket)
+            writer.WriteValueSafe(false);
+            PacketHandler.CreatePacket(writer, value);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static INetworkPacket __readPacket(FastBufferReader reader)
+        {
+            reader.ReadValueSafe(out bool isNull);
+            return isNull ? null : PacketHandler.FromPacket(reader);
+        }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static void __writeSerializable<T>(FastBufferWriter writer, T value) where T : INetworkSerializable, new()
+        {
+            bool isNull = (object)value == null;
+            writer.WriteValueSafe(isNull);
+            if (!isNull)
             {
-                PacketHandler.CreatePacket(writer, networkPacket);
-                return;
+                writer.WriteNetworkSerializable(value);
             }
-
-            if (arg is INetworkSerializable networkSerializable)
-            {
-                writer.WriteNetworkSerializable(networkSerializable);
-                return;
-            }
-            
-            NetworkVariableSerialization<T>.Write(writer, ref arg);
         }
 
-        protected void Receive<T0>(FastBufferReader reader, out T0 value)
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public static T __readSerializable<T>(FastBufferReader reader) where T : INetworkSerializable, new()
         {
-            value = ReadArgument<T0>(reader);
-        }
-
-        protected void Receive<T0, T1>(FastBufferReader reader, out T0 value1, out T1 value2)
-        {
-            value1 = ReadArgument<T0>(reader);
-            value2 = ReadArgument<T1>(reader);
-        }
-
-        protected void Receive<T0, T1, T2>(FastBufferReader reader, out T0 value1, out T1 value2, out T2 value3)
-        {
-            value1 = ReadArgument<T0>(reader);
-            value2 = ReadArgument<T1>(reader);
-            value3 = ReadArgument<T2>(reader);
-        }
-
-        protected void Receive<T0, T1, T2, T3>(FastBufferReader reader, out T0 value1, out T1 value2, out T2 value3, out T3 value4)
-        {
-            value1 = ReadArgument<T0>(reader);
-            value2 = ReadArgument<T1>(reader);
-            value3 = ReadArgument<T2>(reader);
-            value4 = ReadArgument<T3>(reader);
-        }
-
-        protected void ReceivePacket(FastBufferReader reader, ref INetworkPacket packet)
-        {
-            PacketHandler.FillPacket(ref packet, reader);
-        }
-
-        protected void ReceivePacket<T>(FastBufferReader reader, out T packet) where T : INetworkPacket, new()
-        {
-            reader.ReadValueSafe(out NativeArray<byte> bytes, Allocator.Temp);
-            packet = PacketHandler.FromPacket<T>(bytes);
-        }
-
-        private static T ReadArgument<T>(FastBufferReader reader)
-        {
-            // Shortcut for primitives
-            if (s_SerializeShortcutTypes.Contains(typeof(T)))
-            {
-                T primitive = default;
-                NetworkVariableSerialization<T>.Read(reader, ref primitive);
-                return primitive;
-            }
-            
             reader.ReadValueSafe(out bool isNull);
             if (isNull)
             {
                 return default;
             }
 
-            if (typeof(T).IsAssignableFrom(typeof(VaporNetworkObject)))
-            {
-                reader.ReadValueSafe(out ulong networkObjectId);
-                NetworkMessages.Instance.NetworkObjects.TryGetValue(networkObjectId, out var networkObject);
-                return (T)(object)networkObject;
-            }
-            
-            if (typeof(T).IsAssignableFrom(typeof(NetworkBehaviour)))
-            {
-                reader.ReadValueSafe(out NetworkBehaviourReference networkBehaviourId);
-                networkBehaviourId.TryGet(out NetworkBehaviour networkBehaviour);
-                return (T)(object)networkBehaviour;
-            }
-
-            if (typeof(T).IsAssignableFrom(typeof(INetworkPacket)))
-            {
-                return PacketHandler.FromPacket<T>(reader);
-            }
-
-            if (typeof(T).IsAssignableFrom(typeof(INetworkSerializable)))
-            {
-                var networkSerializable = (INetworkSerializable)Activator.CreateInstance<T>();
-                reader.ReadNetworkSerializableInPlace(ref networkSerializable);
-                return (T)networkSerializable;
-            }
-
-            T value = default;
-            NetworkVariableSerialization<T>.Read(reader, ref value);
+            reader.ReadNetworkSerializable(out T value);
             return value;
         }
 

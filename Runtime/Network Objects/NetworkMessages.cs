@@ -446,104 +446,124 @@ namespace Vapor.NetworkObjects
             _tickableNetworkObjects.Remove(networkObject);
         }
 
-        public void Send(VaporNetworkObject networkObject, FastBufferWriter writer, SendTo sendTo, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced)
+        /// <summary>
+        /// Sends an rpc buffer to every remote target resolved from <paramref name="sendTo"/> and returns
+        /// true when the local peer is itself a target and should invoke the rpc body directly. Remote
+        /// sends always exclude the local client, so a host never receives its own rpc back through
+        /// Netcode's unnamed-message loopback.
+        /// </summary>
+        internal bool SendRpc(VaporNetworkObject networkObject, FastBufferWriter writer, SendTo sendTo, NetworkDelivery networkDelivery)
         {
-            // Allocate a temporary writer with some capacity
             var customMessagingManager = _networkManager.CustomMessagingManager;
             if (customMessagingManager == null)
             {
-                return;
-            }
-            
-            if (networkObject.SpawnedOnlyOnOwner)
-            {
-                customMessagingManager.SendUnnamedMessage(networkObject.OwnerClientId, writer);
-                return;
+                return false;
             }
 
+            var localClientId = _networkManager.LocalClientId;
+            var ownerClientId = networkObject.OwnerClientId;
+
+            if (!_networkManager.IsServer)
+            {
+                // Pure clients can only reach the server over unnamed messages; anything wider is a
+                // server-authority send and a client asking for it is a programming error.
+                switch (sendTo)
+                {
+                    case SendTo.Server:
+                    case SendTo.Authority:
+                        customMessagingManager.SendUnnamedMessage(NetworkManager.ServerClientId, writer, networkDelivery);
+                        return false;
+                    case SendTo.Owner:
+                        if (ownerClientId == localClientId)
+                        {
+                            return true;
+                        }
+
+                        if (ownerClientId == NetworkManager.ServerClientId)
+                        {
+                            customMessagingManager.SendUnnamedMessage(NetworkManager.ServerClientId, writer, networkDelivery);
+                            return false;
+                        }
+
+                        Debug.LogError($"A client cannot send an rpc to another client. {networkObject.GetType().Name} [{networkObject.NetworkObjectId}] is owned by {ownerClientId}.");
+                        return false;
+                    case SendTo.Me:
+                        return true;
+                    default:
+                        Debug.LogError($"A client cannot send an rpc with {nameof(SendTo)}.{sendTo}. Only the server can target other clients.");
+                        return false;
+                }
+            }
+
+            // An owner-only object's server sends must never leak beyond the owner, whatever the
+            // attribute asked for. Client sends keep their SendTo — a client's Server-targeted rpc on an
+            // owner-only object must still reach the server.
+            if (networkObject.SpawnedOnlyOnOwner)
+            {
+                sendTo = SendTo.Owner;
+            }
+
+            bool invokeLocally;
             var targetIds = ListPool<ulong>.Get();
             switch (sendTo)
             {
                 case SendTo.Owner:
-                    customMessagingManager.SendUnnamedMessage(networkObject.OwnerClientId, writer);
+                    invokeLocally = ownerClientId == localClientId;
+                    if (!invokeLocally)
+                    {
+                        targetIds.Add(ownerClientId);
+                    }
+
                     break;
                 case SendTo.NotOwner:
-                    foreach (var clientId in _networkManager.ConnectedClientsIds)
-                    {
-                        if (clientId == networkObject.OwnerClientId)
-                        {
-                            continue;
-                        }
-
-                        targetIds.Add(clientId);
-                    }
-                    customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
+                    invokeLocally = ownerClientId != localClientId;
+                    AddConnectedClients(targetIds, localClientId, ownerClientId);
                     break;
                 case SendTo.Server:
-                    customMessagingManager.SendUnnamedMessage(NetworkManager.ServerClientId, writer);
+                case SendTo.Authority:
+                case SendTo.Me:
+                    invokeLocally = true;
                     break;
                 case SendTo.NotServer:
-                    foreach (var clientId in _networkManager.ConnectedClientsIds)
-                    {
-                        if (clientId == NetworkManager.ServerClientId)
-                        {
-                            continue;
-                        }
-
-                        targetIds.Add(clientId);
-                    }
-                    customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
-                    break;
-                case SendTo.Me:
-                    customMessagingManager.SendUnnamedMessage(_networkManager.LocalClientId, writer);
-                    break;
+                case SendTo.NotAuthority:
                 case SendTo.NotMe:
-                    foreach (var clientId in _networkManager.ConnectedClientsIds)
-                    {
-                        if (clientId == _networkManager.LocalClientId)
-                        {
-                            continue;
-                        }
-
-                        targetIds.Add(clientId);
-                    }
-                    customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
+                    invokeLocally = false;
+                    AddConnectedClients(targetIds, localClientId);
                     break;
                 case SendTo.Everyone:
-                    customMessagingManager.SendUnnamedMessage(_networkManager.ConnectedClientsIds, writer, networkDelivery);
+                    invokeLocally = true;
+                    AddConnectedClients(targetIds, localClientId);
                     break;
                 case SendTo.ClientsAndHost:
-                    foreach (var clientId in _networkManager.ConnectedClientsIds)
-                    {
-                        if (clientId == NetworkManager.ServerClientId && !_networkManager.IsHost)
-                        {
-                            continue;
-                        }
-
-                        targetIds.Add(clientId);
-                    }
-                    customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
-                    break;
-                case SendTo.Authority:
-                    customMessagingManager.SendUnnamedMessage(NetworkManager.ServerClientId, writer);
-                    break;
-                case SendTo.NotAuthority:
-                    foreach (var clientId in _networkManager.ConnectedClientsIds)
-                    {
-                        if (clientId == NetworkManager.ServerClientId)
-                        {
-                            continue;
-                        }
-
-                        targetIds.Add(clientId);
-                    }
-                    customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
+                    invokeLocally = _networkManager.IsHost;
+                    AddConnectedClients(targetIds, localClientId);
                     break;
                 case SendTo.SpecifiedInParams:
                 default:
+                    ListPool<ulong>.Release(targetIds);
                     throw new ArgumentOutOfRangeException(nameof(sendTo), sendTo, null);
             }
+
+            if (targetIds.Count > 0)
+            {
+                customMessagingManager.SendUnnamedMessage(targetIds, writer, networkDelivery);
+            }
+
             ListPool<ulong>.Release(targetIds);
+            return invokeLocally;
+        }
+
+        private void AddConnectedClients(List<ulong> targetIds, ulong excludedClientId, ulong secondExcludedClientId = ulong.MaxValue)
+        {
+            foreach (var clientId in _networkManager.ConnectedClientsIds)
+            {
+                if (clientId == excludedClientId || clientId == secondExcludedClientId)
+                {
+                    continue;
+                }
+
+                targetIds.Add(clientId);
+            }
         }
 
         public void SendToTarget(FastBufferWriter writer, ulong targetClientId, NetworkDelivery networkDelivery = NetworkDelivery.ReliableSequenced)

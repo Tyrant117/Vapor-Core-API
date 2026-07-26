@@ -35,21 +35,21 @@ namespace Vapor.GameplayFramework
             }
         }
 
-        public static void Subscribe(GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
-        {
-            if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
-            {
-                gameplayEvent.OnEventRaised += callback;
-            }
-            else
-            {
-                var evt = new GameplayEvent(channelId.EventId);
-                evt.OnEventRaised += callback;
-                s_ChannelEvents.Add(channelId, evt);
-            }
-        }
+        // public static void Subscribe(GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
+        // {
+        //     if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
+        //     {
+        //         gameplayEvent.OnEventRaised += callback;
+        //     }
+        //     else
+        //     {
+        //         var evt = new GameplayEvent(channelId.EventId);
+        //         evt.OnEventRaised += callback;
+        //         s_ChannelEvents.Add(channelId, evt);
+        //     }
+        // }
 
-        public static void Subscribe(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
+        public static void SubscribeOnTarget(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {
             if (s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
             {
@@ -105,15 +105,15 @@ namespace Vapor.GameplayFramework
             }
         }
         
-        public static void Unsubscribe(GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
-        {
-            if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
-            {
-                gameplayEvent.OnEventRaised -= callback;
-            }
-        }
+        // public static void Unsubscribe(GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
+        // {
+        //     if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
+        //     {
+        //         gameplayEvent.OnEventRaised -= callback;
+        //     }
+        // }
 
-        public static void Unsubscribe(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
+        public static void UnsubscribeFromTarget(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {
             if (!s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
             {
@@ -173,15 +173,15 @@ namespace Vapor.GameplayFramework
             }
         }
         
-        public static void TriggerEvent(GameplayChannelId channelId, IGameplayEventData gameplayEventData)
-        {
-            if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
-            {
-                gameplayEvent.TriggerEvent(gameplayEventData);
-            }
-        }
+        // public static void TriggerEvent(GameplayChannelId channelId, IGameplayEventData gameplayEventData)
+        // {
+        //     if (s_ChannelEvents.TryGetValue(channelId, out GameplayEvent gameplayEvent))
+        //     {
+        //         gameplayEvent.TriggerEvent(gameplayEventData);
+        //     }
+        // }
 
-        public static void TriggerEvent(Object entity, [DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
+        public static void TriggerEventOnTarget(Object entity, [DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
             if (!s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
             {
