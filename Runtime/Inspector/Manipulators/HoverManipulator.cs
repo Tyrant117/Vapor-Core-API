@@ -5,31 +5,19 @@ using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
-    public class HoverManipulator : PointerManipulator/*, IPseudoStateManipulator*/
+    public class HoverManipulator : PointerManipulator
     {
         public bool IsEnabled { get; protected set; } = true;
         public bool IsHovering { get; protected set; }
-
-        // public string PseudoStateHover { get; protected set; }
-        // public string PseudoStateActive { get; protected set; }
-        // public string PseudoStateFocus { get; protected set; }
-        // public string PseudoStateChecked { get; protected set; }
-        // public string PseudoStateDisabled { get; protected set; }
         public VisualElement PseudoStateTarget { get; set; }
-
-        // protected readonly IPseudoStateManipulator PsuedoStateManipulator;
         protected float HoveringTime;
 
         public event Action<EventBase> Entered;
         public event Action<EventBase> Exited;
 
-        public HoverManipulator(/*string pseudoStateBaseName,*/ VisualElement pseudoStateTarget = null)
+        public HoverManipulator(VisualElement pseudoStateTarget = null)
         {
             IsHovering = false;
-
-            // PseudoStateHover = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Hover;
-            // PseudoStateDisabled = pseudoStateBaseName + StyleSheetUtility.PseudoStates.Disabled;
-            // PsuedoStateManipulator = this;
             PseudoStateTarget = pseudoStateTarget;
         }
 
