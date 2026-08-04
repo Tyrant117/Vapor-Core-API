@@ -36,7 +36,7 @@ namespace Vapor.Keys
             public KeyValuePair(string name, uint key, string guid)
             {
                 DisplayName = name;
-                VariableName = Regex.Replace(name, " ", "").Replace(".", "_");
+                VariableName = Regex.Replace(name, " ", "").Replace(".", "_").Replace("-", "_");
                 Guid = guid;
                 Key = key;
             }
