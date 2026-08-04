@@ -181,155 +181,7 @@ namespace VaporEditor.Inspector
                 return title;
             }
         }
-
-        private static void OnNodeGroupBuilt(GeometryChangedEvent evt)
-        {
-            var element = (VisualElement)evt.target;
-            if (element.userData is not InspectorTreeGroupElement node)
-            {
-                return;
-            }
-
-            DrawDecorators(element, node);
-            DrawConditionals(element, node);
-        }
         #endregion
-
-        #region - Fields -
-        public static VisualElement DrawVaporField(InspectorTreeElement parentTreeElement, InspectorTreeProperty property, bool wrapVertically)
-        {
-            var field = new TreePropertyField(property, parentTreeElement)
-            {
-            };
-            if (!field.IsValid)
-            {
-                return null;
-            }
-            if (wrapVertically)
-            {
-                var vertical = new VisualElement();
-                vertical.Add(field);
-                return vertical;
-            }
-            else
-            {
-                return field;
-            }
-        }
-        #endregion
-
-        #region - Decorators -
-        private static void DrawDecorators(VisualElement visualElement, InspectorTreeGroupElement node)
-        {
-            if (node.TryGetAttribute<BackgroundColorAttribute>(out var backgroundColor))
-            {
-                visualElement.style.backgroundColor = backgroundColor.BackgroundColor;
-            }
-
-            if (node.TryGetAttribute<MarginsAttribute>(out var margins))
-            {
-                visualElement.style.marginBottom = margins.Bottom;
-
-                visualElement.style.marginTop = margins.Top;
-
-                visualElement.style.marginLeft = margins.Left;
-
-                visualElement.style.marginRight = margins.Right;
-            }
-
-            if (node.TryGetAttribute<PaddingAttribute>(out var padding))
-            {
-                visualElement.style.paddingBottom = padding.Bottom;
-
-                visualElement.style.paddingTop = padding.Top;
-
-                visualElement.style.paddingLeft = padding.Left;
-
-                visualElement.style.paddingRight = padding.Right;
-            }
-
-            if (node.TryGetAttribute<BordersAttribute>(out var borders))
-            {
-                visualElement.style.borderBottomWidth = borders.Bottom;
-                visualElement.style.borderBottomColor = borders.Color;
-
-                visualElement.style.borderTopWidth = borders.Top;
-                visualElement.style.borderTopColor = borders.Color;
-
-                visualElement.style.borderLeftWidth = borders.Left;
-                visualElement.style.borderLeftColor = borders.Color;
-
-                visualElement.style.borderRightWidth = borders.Right;
-                visualElement.style.borderRightColor = borders.Color;
-
-                visualElement.style.borderBottomLeftRadius = borders.Roundness;
-                visualElement.style.borderBottomRightRadius = borders.Roundness;
-                visualElement.style.borderTopLeftRadius = borders.Roundness;
-                visualElement.style.borderTopRightRadius = borders.Roundness;
-            }
-        }
-
-        private static void DrawConditionals(VisualElement visualElement, InspectorTreeGroupElement node)
-        {
-            //var type = node.Source.Type;
-            //if (node.TryGetAttribute<ShowIfAttribute>(out var showIf))
-            //{
-            //    var resolverContainerProp = new SerializedResolverContainerType<bool>(node.Source, ReflectionUtility.GetMember(type, showIf.Resolver), b => visualElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-            //    node.VisualNode.AddResolver(resolverContainerProp);
-            //}
-
-            //if (node.TryGetAttribute<HideIfAttribute>(out var hideIf))
-            //{
-            //    var resolverContainerProp = new SerializedResolverContainerType<bool>(node.Source, ReflectionUtility.GetMember(type, hideIf.Resolver), b => visualElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-            //    node.VisualNode.AddResolver(resolverContainerProp);
-            //}
-
-            //if (node.TryGetAttribute<DisableIfAttribute>(out var disableIf))
-            //{
-            //    var resolverContainerProp = new SerializedResolverContainerType<bool>(node.Source, ReflectionUtility.GetMember(type, disableIf.Resolver), b => visualElement.SetEnabled(!b));
-            //    node.VisualNode.AddResolver(resolverContainerProp);
-            //}
-
-            //if (node.TryGetAttribute<EnableIfAttribute>(out var enableIf))
-            //{
-            //    var resolverContainerProp = new SerializedResolverContainerType<bool>(node.Source, ReflectionUtility.GetMember(type, enableIf.Resolver), b => visualElement.SetEnabled(b));
-            //    node.VisualNode.AddResolver(resolverContainerProp);
-            //}
-
-            //if (node.HasAttribute<HideInEditorModeAttribute>())
-            //{
-            //    var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-            //        () => EditorApplication.isPlaying,
-            //        b => visualElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-            //    node.VisualNode.AddResolver(resolverContainerFunc);
-            //}
-
-            //if (node.HasAttribute<HideInPlayModeAttribute>())
-            //{
-            //    var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-            //        () => EditorApplication.isPlaying,
-            //        b => visualElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-            //    node.VisualNode.AddResolver(resolverContainerFunc);
-            //}
-
-            //if (node.HasAttribute<DisableInEditorModeAttribute>())
-            //{
-            //    var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-            //        () => EditorApplication.isPlaying,
-            //        b => visualElement.SetEnabled(b));
-            //    node.VisualNode.AddResolver(resolverContainerFunc);
-            //}
-
-            //if (node.HasAttribute<DisableInPlayModeAttribute>())
-            //{
-            //    var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-            //        () => EditorApplication.isPlaying,
-            //        b => visualElement.SetEnabled(!b));
-            //    node.VisualNode.AddResolver(resolverContainerFunc);
-            //}
-        }
-        #endregion
-
         #region Value Type Drawers
         public static VisualElement DrawAny(object @object)
         {
@@ -345,20 +197,16 @@ namespace VaporEditor.Inspector
             }
             
             wrapper.Set(@object);
-            var serializedObject = new SerializedObject(so);
-
-            InspectorTreeObject ito = new(serializedObject);
-            InspectorTreeRootElement root = new(ito);
 
             var ve = new VisualElement()
             {
                 userData = so
             };
             ve.RegisterCallbackOnce<DetachFromPanelEvent>(evt => Object.DestroyImmediate(((VisualElement)evt.target).userData as ScriptableObject));
-            root.DrawToScreen(ve);
+            new InspectorTreeRootElement(new SerializedObject(so)).AttachTo(ve);
             return ve;
         }
-        
+
         public static VisualElement DrawFieldFromObject(object @object, Type fieldType)
         {
             if (@object == null || fieldType == null)
@@ -366,11 +214,8 @@ namespace VaporEditor.Inspector
                 return new VisualElement();
             }
 
-            InspectorTreeObject ito = new(@object, fieldType);
-            InspectorTreeRootElement root = new(ito);
-
             var ve = new VisualElement();
-            root.DrawToScreen(ve);
+            new InspectorTreeRootElement(@object, fieldType).AttachTo(ve);
             return ve;
         }
         
@@ -384,6 +229,15 @@ namespace VaporEditor.Inspector
                 {
                     var pType = property.IsArrayElement ? property.ParentProperty.ParentType : property.ParentType;
                     var method = ReflectionUtility.GetMethod(pType, typeResolver.Resolver);
+                    if (method == null)
+                    {
+                        // Named rather than thrown. An unresolved name used to take the whole inspector
+                        // down with a stack trace that didn't say which field.
+                        Debug.LogError($"[TypeResolver] on {pType.Name}.{property.PropertyName} names '{typeResolver.Resolver}', " +
+                                       $"which is not a method on {pType.Name}. The resolver must be declared on the type that owns the field.");
+                        return new VisualElement();
+                    }
+
                     if (method.IsStatic)
                     {
                         type = (Type)method.Invoke(null, null);
@@ -402,23 +256,21 @@ namespace VaporEditor.Inspector
             {
                 type = target.GetType();
             }
-            var propertyType = TypeToSerializedPropertyType(type);
+            var propertyType = InspectorTreeProperty.TypeToSerializedPropertyType(type);
             if (propertyType == SerializedPropertyType.ManagedReference)
             {
-                InspectorTreeObject ito = new InspectorTreeObject(target, type).WithParent(property.InspectorObject);
-                InspectorTreeRootElement root = new(ito);
-
-                var ve = new VisualElement();
-                root.DrawToScreen(ve);
-                if (!wrapVertically)
+                if (target == null)
                 {
-                    return ve;
+                    // [TypeResolver] tells us which type to draw, but there is no instance to draw it
+                    // against. Building a tree over null makes every member below throw on the first
+                    // FieldInfo.GetValue, so draw nothing until the field is populated.
+                    return new VisualElement();
                 }
 
-                var vertical = new VisualElement();
-                vertical.Add(root);
-                return vertical;
-
+                // Both branches produced "root inside one wrapper", so wrapVertically makes no difference here.
+                var ve = new VisualElement();
+                new InspectorTreeRootElement(target, type, property.InspectorObject).AttachTo(ve);
+                return ve;
             }
             else
             {
@@ -442,24 +294,21 @@ namespace VaporEditor.Inspector
         public static VisualElement DrawFieldFromObjectAndField(object parent, object target, FieldInfo fieldInfo)
         {
             var type = target.GetType();
-            var propertyType = TypeToSerializedPropertyType(type);
+            var propertyType = InspectorTreeProperty.TypeToSerializedPropertyType(type);
             if (propertyType == SerializedPropertyType.ManagedReference)
             {
-                InspectorTreeObject ito = new(target, type);
-                InspectorTreeRootElement root = new(ito);
-
                 var ve = new VisualElement();
-                root.DrawToScreen(ve);
+                new InspectorTreeRootElement(target, type).AttachTo(ve);
                 return ve;
             }
-            
+
             return DrawFieldFromType(parent, type, fieldInfo, true);
         }
         
         public static VisualElement DrawFieldFromType(object source, Type type, FieldInfo fieldInfo, bool setToInitialValue = false)
         {
-            var propertyType = TypeToSerializedPropertyType(type);
-            var numericType = TypeToSerializedPropertyNumericType(type);
+            var propertyType = InspectorTreeProperty.TypeToSerializedPropertyType(type);
+            var numericType = InspectorTreeProperty.TypeToSerializedPropertyNumericType(type);
             var niceName = ObjectNames.NicifyVariableName(fieldInfo.Name);
             switch (propertyType)
             {
@@ -1027,166 +876,6 @@ namespace VaporEditor.Inspector
             }
         }
 
-        public static SerializedPropertyType TypeToSerializedPropertyType(Type type)
-        {
-            switch (Type.GetTypeCode(type))
-            {
-                case TypeCode.SByte:
-                case TypeCode.Byte:
-                case TypeCode.Int16:
-                case TypeCode.UInt16:
-                case TypeCode.Int32:
-                case TypeCode.UInt32:
-                case TypeCode.Int64:
-                case TypeCode.UInt64:
-                    if (type.IsEnum)
-                    {
-                        return SerializedPropertyType.Enum;
-                    }
-
-                    return SerializedPropertyType.Integer;
-                case TypeCode.Single:
-                case TypeCode.Double:
-                    return SerializedPropertyType.Float;
-                case TypeCode.Boolean:
-                    return SerializedPropertyType.Boolean;
-                case TypeCode.Char:
-                    return SerializedPropertyType.Character;
-                case TypeCode.String:
-                    return SerializedPropertyType.String;
-                case TypeCode.Object:
-                    if (IsArrayOrList(type))
-                    {
-                        return SerializedPropertyType.Generic;
-                    }
-
-                    if (type.IsEnum)
-                    {
-                        return SerializedPropertyType.Enum;
-                    }
-
-                    if (type == typeof(Color))
-                    {
-                        return SerializedPropertyType.Color;
-                    }
-
-                    if (type == typeof(Object) || type.IsSubclassOf(typeof(Object)))
-                    {
-                        return SerializedPropertyType.ObjectReference;
-                    }
-
-                    if (type == typeof(LayerMask))
-                    {
-                        return SerializedPropertyType.LayerMask;
-                    }
-
-                    if (type == typeof(RenderingLayerMask))
-                    {
-                        return SerializedPropertyType.RenderingLayerMask;
-                    }
-
-                    if (type == typeof(Vector2))
-                    {
-                        return SerializedPropertyType.Vector2;
-                    }
-
-                    if (type == typeof(Vector3))
-                    {
-                        return SerializedPropertyType.Vector3;
-                    }
-
-                    if (type == typeof(Vector4))
-                    {
-                        return SerializedPropertyType.Vector4;
-                    }
-
-                    if (type == typeof(Rect))
-                    {
-                        return SerializedPropertyType.Rect;
-                    }
-
-                    if (type == typeof(AnimationCurve) || type.IsSubclassOf(typeof(AnimationCurve)))
-                    {
-                        return SerializedPropertyType.AnimationCurve;
-                    }
-
-                    if (type == typeof(Bounds))
-                    {
-                        return SerializedPropertyType.Bounds;
-                    }
-
-                    if (type == typeof(Gradient) || type.IsSubclassOf(typeof(Gradient)))
-                    {
-                        return SerializedPropertyType.Gradient;
-                    }
-
-                    if (type == typeof(Quaternion))
-                    {
-                        return SerializedPropertyType.Quaternion;
-                    }
-
-                    if (type == typeof(Vector2Int))
-                    {
-                        return SerializedPropertyType.Vector2Int;
-                    }
-
-                    if (type == typeof(Vector3Int))
-                    {
-                        return SerializedPropertyType.Vector3Int;
-                    }
-
-                    if (type == typeof(RectInt))
-                    {
-                        return SerializedPropertyType.RectInt;
-                    }
-
-                    if (type == typeof(BoundsInt))
-                    {
-                        return SerializedPropertyType.BoundsInt;
-                    }
-
-                    if (type == typeof(Hash128))
-                    {
-                        return SerializedPropertyType.Hash128;
-                    }
-
-                {
-                    return SerializedPropertyType.ManagedReference;
-                }
-                default:
-                    return SerializedPropertyType.Generic;
-            }
-        }
-
-        public static SerializedPropertyNumericType TypeToSerializedPropertyNumericType(Type type)
-        {
-            return Type.GetTypeCode(type) switch
-            {
-                TypeCode.SByte => SerializedPropertyNumericType.Int8,
-                TypeCode.Byte => SerializedPropertyNumericType.UInt8,
-                TypeCode.Int16 => SerializedPropertyNumericType.Int16,
-                TypeCode.UInt16 => SerializedPropertyNumericType.UInt16,
-                TypeCode.Int32 => SerializedPropertyNumericType.Int32,
-                TypeCode.UInt32 => SerializedPropertyNumericType.UInt32,
-                TypeCode.Int64 => SerializedPropertyNumericType.Int64,
-                TypeCode.UInt64 => SerializedPropertyNumericType.UInt64,
-                TypeCode.Single => SerializedPropertyNumericType.Float,
-                TypeCode.Double => SerializedPropertyNumericType.Double,
-                _ => SerializedPropertyNumericType.Unknown,
-            };
-        }
-        
-        public static bool IsArrayOrList(Type type)
-        {
-            // Check if the type is an array
-            if (type.IsArray)
-            {
-                return true;
-            }
-
-            // Check if the type is a List<> or a derived type
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>);
-        } 
         #endregion
     }
 }

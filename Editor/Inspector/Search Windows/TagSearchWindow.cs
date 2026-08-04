@@ -437,7 +437,7 @@ namespace VaporEditor.Inspector
                 foreach (var modelDescriptor in gameplayTagSearchModels
                              .OrderBy(x => x.Name.ToHumanReadable()))
                 {
-                    Debug.Log(modelDescriptor.Name);
+                    InspectorDebug.Log(modelDescriptor.Name);
                     var path = modelDescriptor.Name.Split('.', StringSplitOptions.RemoveEmptyEntries);
                     var currentFolders = treeViewData;
 
@@ -447,7 +447,7 @@ namespace VaporEditor.Inspector
                         var containerName = containerCategory + p;
                         if (currentFolders.All(x => x.data.Name != containerName))
                         {
-                            Debug.Log(containerName);
+                            InspectorDebug.Log(containerName);
                             var newFolder = new TreeViewItemData<Descriptor>(id++, new Descriptor(containerName), new List<TreeViewItemData<Descriptor>>());
                             currentFolders.Add(newFolder);
                             currentFolders = (List<TreeViewItemData<Descriptor>>)newFolder.children;
@@ -463,11 +463,11 @@ namespace VaporEditor.Inspector
 
                 foreach (var modelDescriptor in gameplayTagSearchModels)
                 {
-                    Debug.Log($"Finding Descriptor: {modelDescriptor.Name}");
+                    InspectorDebug.Log($"Finding Descriptor: {modelDescriptor.Name}");
                     var ovrFolder = FindUniqueIdentifier(treeViewData, modelDescriptor.Name);
                     if (ovrFolder.data != null)
                     {
-                        Debug.Log($"Setting Folder Model: {ovrFolder.data.GetUniqueIdentifier()}");
+                        InspectorDebug.Log($"Setting Folder Model: {ovrFolder.data.GetUniqueIdentifier()}");
                         ovrFolder.data.SetSearchModel(modelDescriptor);
                     }
                 }

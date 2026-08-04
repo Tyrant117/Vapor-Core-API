@@ -258,40 +258,25 @@ namespace VaporEditor.Inspector
 
         public static MemberInfo GetMember(Type type, string memberName)
         {
-            //Debug.Log($"{type} | {memberName}");
-
-            if (s_TypeNameMap.TryGetValue(type, out var map) && map.TryGetValue(memberName, out var member))
+            if (!s_TypeNameMap.TryGetValue(type, out var map))
             {
-                return member;
-            }
-            else
-            {
-                map = new Dictionary<string, MemberInfo>(256);
+                map = new Dictionary<string, MemberInfo>();
                 s_TypeNameMap[type] = map;
             }
 
-            var hasProperty = GetProperty(type, memberName);
-            if (hasProperty != null)
+            if (map.TryGetValue(memberName, out var member))
             {
-                map.Add(memberName, hasProperty);
-                return hasProperty;
+                return member;
             }
 
-            var hasMethod = GetMethod(type, memberName);
-            if (hasMethod != null)
-            {
-                map.Add(memberName, hasMethod);
-                return hasMethod;
-            }
+            member = GetProperty(type, memberName);
+            member ??= GetMethod(type, memberName);
+            member ??= GetField(type, memberName);
 
-            var hasField = GetField(type, memberName);
-            if (hasField != null)
-            {
-                map.Add(memberName, hasField);
-                return hasField;
-            }
-
-            return null;
+            // Misses are cached too. Resolvers are polled continuously, so a name that doesn't
+            // resolve would otherwise re-scan the whole type hierarchy on every tick.
+            map[memberName] = member;
+            return member;
         }
 
         public static bool TryGetMemberValue<T>(object target, MemberInfo member, out T value)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -78,39 +79,110 @@ namespace VaporEditor.Inspector
 	        return searchFilter;
         }
 
-        private static MethodInfo _InternalFetchMethod__ObjectSelector_Show(Type typeToShowInSelector)
+        private static MethodInfo s_CachedShowMethod;
+        private static bool s_ShowMethodLookupFailed;
+
+        /// <summary>
+        /// Finds ObjectSelector.Show by shape rather than by an exact signature. Unity has changed this
+        /// parameter list more than once - the allowed-id list went from List&lt;int&gt; to
+        /// List&lt;EntityId&gt; in 6.x - and matching the exact types meant every change broke the picker.
+        /// Only the leading parameters, which have been stable, are matched.
+        /// </summary>
+        private static MethodInfo _InternalFetchMethod__ObjectSelector_Show()
         {
-	        var objectSelectorType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ObjectSelector");
+            if (s_CachedShowMethod != null || s_ShowMethodLookupFailed)
+            {
+                return s_CachedShowMethod;
+            }
 
+            var objectSelectorType = typeof(Editor).Assembly.GetType("UnityEditor.ObjectSelector");
+            foreach (var candidate in objectSelectorType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (candidate.Name != "Show")
+                {
+                    continue;
+                }
 
-	        // var getter = objectSelectorType.GetProperty("get", BindingFlags.Static | BindingFlags.Public);
-	        /*** Type 3: Unity - 2022 onwards */
-	        var miShow = objectSelectorType.GetMethod("Show", BindingFlags.NonPublic | BindingFlags.Instance, null, new[]
-	        {
-		        typeToShowInSelector,
-		        typeof(Type),
-		        typeof(Object),
-		        typeof(bool),
-		        typeof(List<int>),
-		        typeof(Action<Object>),
-		        typeof(Action<Object>),
-		        typeof(bool) // new optional param added in Unity 2022
-	        }, new ParameterModifier[0]);
+                // (obj, requiredType, objectBeingEdited, allowSceneObjects, allowedIds, onClosed, onUpdated, [showNoneItem])
+                var parameters = candidate.GetParameters();
+                if (parameters.Length < 7
+                    || parameters[0].ParameterType != typeof(Object)
+                    || parameters[1].ParameterType != typeof(Type)
+                    || parameters[2].ParameterType != typeof(Object)
+                    || parameters[3].ParameterType != typeof(bool)
+                    || parameters[5].ParameterType != typeof(Action<Object>)
+                    || parameters[6].ParameterType != typeof(Action<Object>))
+                {
+                    continue;
+                }
 
-	        if (miShow != null) return miShow;
-	        
-	        const string methodName = "Show";
-	        Debug.LogError("UNITY CHANGED THE API. NEW API: Found \"" + methodName + "\"methods: \n" + string.Join(",\n", objectSelectorType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
-		        .Where(info => info.Name == methodName).Select(info =>
-			        "  " + info.Name + " {" + string.Join(",\n      ", info.GetParameters().Select(parameterInfo => parameterInfo.Name + ":" + parameterInfo.ParameterType)) + "\n}\n")));
-	        return null;
+                s_CachedShowMethod = candidate;
+                return candidate;
+            }
+
+            s_ShowMethodLookupFailed = true;
+            Debug.LogError("UNITY CHANGED THE API. No matching \"Show\" overload on UnityEditor.ObjectSelector. Found: \n"
+                           + string.Join(",\n", objectSelectorType.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance)
+                               .Where(info => info.Name == "Show").Select(info =>
+                                   "  " + info.Name + " {" + string.Join(",\n      ", info.GetParameters().Select(p => p.Name + ":" + p.ParameterType)) + "\n}\n")));
+            return null;
+        }
+
+        /// <summary>
+        /// Builds the argument array to match whatever overload was found, so an added trailing parameter
+        /// doesn't break the call.
+        /// </summary>
+        private static object[] BuildShowArguments(MethodInfo show, Object initialValueOrNull, Type requiredType, bool allowSceneObjects,
+            Action<Object> selectorClosed, Action<Object> selectedUpdated)
+        {
+            var arguments = new object[show.GetParameters().Length];
+            arguments[0] = initialValueOrNull;
+            arguments[1] = requiredType;
+            arguments[2] = null; // objectBeingEdited
+            arguments[3] = allowSceneObjects;
+            arguments[4] = null; // allowed instance/entity ids - unfiltered
+            arguments[5] = selectorClosed;
+            arguments[6] = selectedUpdated;
+            if (arguments.Length > 7)
+            {
+                arguments[7] = true; // showNoneItem
+            }
+
+            return arguments;
+        }
+
+        private static void InvokeShow(MethodInfo show, Object initialValueOrNull, Type requiredType, bool allowSceneObjects,
+            Action<Object> selectorClosed, Action<Object> selectedUpdated, string searchFilter)
+        {
+            var objectSelectorType = typeof(Editor).Assembly.GetType("UnityEditor.ObjectSelector");
+            var piGet = objectSelectorType.GetProperty("get", BindingFlags.Public | BindingFlags.Static);
+            var os = piGet?.GetValue(null);
+            if (os == null)
+            {
+                Debug.LogError("Could not reach UnityEditor.ObjectSelector.get - the object picker cannot be shown.");
+                return;
+            }
+
+            show.Invoke(os, BuildShowArguments(show, initialValueOrNull, requiredType, allowSceneObjects, selectorClosed, selectedUpdated));
+
+            if (string.IsNullOrEmpty(searchFilter))
+            {
+                return;
+            }
+
+            var piSearchFilter = objectSelectorType.GetProperty("searchFilter", BindingFlags.NonPublic | BindingFlags.Instance);
+            piSearchFilter?.SetValue(os, searchFilter);
         }
 
         public static void ShowObjectPicker<T>(Action<T> onSelectorClosed, Action<T> onSelectionChanged, T initialValueOrNull = null, ObjectPickerSources sources = ObjectPickerSources.Assets,
 	        string searchFilter = null)
 	        where T : Object
         {
-	        var miShow = _InternalFetchMethod__ObjectSelector_Show(typeof(T));
+	        var miShow = _InternalFetchMethod__ObjectSelector_Show();
+	        if (miShow == null)
+	        {
+		        return;
+	        }
 
 	        Action<Object> selectorClosed;
 	        Action<Object> selectedUpdated;
@@ -118,60 +190,30 @@ namespace VaporEditor.Inspector
 	        {
 		        case ObjectPickerSources.Assets:
 		        case ObjectPickerSources.AssetsAndScene:
-			        selectedUpdated = o => { onSelectionChanged(o as T); };
-			        selectorClosed = o => onSelectorClosed.Invoke(o as T);
+			        selectedUpdated = o => onSelectionChanged?.Invoke(o as T);
+			        selectorClosed = o => onSelectorClosed?.Invoke(o as T);
 			        break;
 		        case ObjectPickerSources.OnlyMonobehaviours:
-			        selectedUpdated = o =>
-			        {
-				        if (o is GameObject go)
-				        {
-					        onSelectionChanged(go.GetComponent<T>());
-				        }
-
-				        onSelectionChanged(null);
-			        };
-			        selectorClosed = o =>
-			        {
-				        if (o is GameObject go)
-				        {
-					        onSelectorClosed?.Invoke(go.GetComponent<T>());
-				        }
-
-				        onSelectorClosed?.Invoke(null);
-			        };
+			        selectedUpdated = o => onSelectionChanged?.Invoke(o is GameObject go ? go.GetComponent<T>() : null);
+			        selectorClosed = o => onSelectorClosed?.Invoke(o is GameObject go ? go.GetComponent<T>() : null);
 			        break;
 		        default:
 			        throw new Exception("Impossible value of sources parameter");
 	        }
 
-	        var objectSelectorType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ObjectSelector");
-	        var piGet = objectSelectorType.GetProperty("get", BindingFlags.Public | BindingFlags.Static);
-	        // ReSharper disable once PossibleNullReferenceException
-	        var os = piGet.GetValue(null);
-	        miShow.Invoke(os, new object[]
-		        {
-			        initialValueOrNull,
-			        typeof(T),
-			        null,
-			        sources is ObjectPickerSources.AssetsAndScene or ObjectPickerSources.OnlyMonobehaviours,
-			        null,
-			        selectorClosed,
-			        selectedUpdated,
-			        true
-		        }
-	        );
-	        if (!string.IsNullOrEmpty(searchFilter))
-	        {
-		        var piSearchFilter = objectSelectorType.GetProperty("searchFilter", BindingFlags.NonPublic | BindingFlags.Instance);
-		        piSearchFilter?.SetValue(os, searchFilter);
-	        }
+	        InvokeShow(miShow, initialValueOrNull, typeof(T),
+		        sources is ObjectPickerSources.AssetsAndScene or ObjectPickerSources.OnlyMonobehaviours,
+		        selectorClosed, selectedUpdated, searchFilter);
         }
 
         public static void ShowObjectPicker(Type type, Action<Object> onSelectorClosed, Action<Object> onSelectionChanged, Object initialValueOrNull = null,
 	        ObjectPickerSources sources = ObjectPickerSources.Assets, string searchFilter = null)
         {
-	        var miShow = _InternalFetchMethod__ObjectSelector_Show(typeof(Object));
+	        var miShow = _InternalFetchMethod__ObjectSelector_Show();
+	        if (miShow == null)
+	        {
+		        return;
+	        }
 
 	        Action<Object> selectorClosed;
 	        Action<Object> selectedUpdated;
@@ -179,54 +221,20 @@ namespace VaporEditor.Inspector
 	        {
 		        case ObjectPickerSources.Assets:
 		        case ObjectPickerSources.AssetsAndScene:
-			        selectedUpdated = onSelectionChanged;
+			        selectedUpdated = o => onSelectionChanged?.Invoke(o);
 			        selectorClosed = o => onSelectorClosed?.Invoke(o);
 			        break;
 		        case ObjectPickerSources.OnlyMonobehaviours:
-			        selectedUpdated = o =>
-			        {
-				        if (o is GameObject go)
-				        {
-					        onSelectionChanged(go.GetComponent(type));
-				        }
-
-				        onSelectionChanged(null);
-			        };
-			        selectorClosed = o =>
-			        {
-				        if (o is GameObject go)
-				        {
-					        onSelectorClosed?.Invoke(go.GetComponent(type));
-				        }
-
-				        onSelectorClosed?.Invoke(null);
-			        };
+			        selectedUpdated = o => onSelectionChanged?.Invoke(o is GameObject go ? go.GetComponent(type) : null);
+			        selectorClosed = o => onSelectorClosed?.Invoke(o is GameObject go ? go.GetComponent(type) : null);
 			        break;
 		        default:
 			        throw new Exception("Impossible value of sources parameter");
 	        }
 
-	        var objectSelectorType = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.ObjectSelector");
-	        var piGet = objectSelectorType.GetProperty("get", BindingFlags.Public | BindingFlags.Static);
-	        // ReSharper disable once PossibleNullReferenceException
-	        var os = piGet.GetValue(null);
-	        miShow.Invoke(os, new object[]
-		        {
-			        initialValueOrNull,
-			        type,
-			        null,
-			        sources is ObjectPickerSources.AssetsAndScene or ObjectPickerSources.OnlyMonobehaviours,
-			        null,
-			        selectorClosed,
-			        selectedUpdated,
-			        true
-		        }
-	        );
-	        if (!string.IsNullOrEmpty(searchFilter))
-	        {
-		        var piSearchFilter = objectSelectorType.GetProperty("searchFilter", BindingFlags.NonPublic | BindingFlags.Instance);
-		        piSearchFilter?.SetValue(os, searchFilter);
-	        }
+	        InvokeShow(miShow, initialValueOrNull, type,
+		        sources is ObjectPickerSources.AssetsAndScene or ObjectPickerSources.OnlyMonobehaviours,
+		        selectorClosed, selectedUpdated, searchFilter);
         }
     }
 }

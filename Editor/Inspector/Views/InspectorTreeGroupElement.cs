@@ -7,8 +7,6 @@ namespace VaporEditor.Inspector
 {
     public class InspectorTreeGroupElement : InspectorTreeElement
     {
-        public override VisualElement contentContainer { get; }
-
         public VisualElement GroupContent { get; private set; }
         public bool HasTabs { get; private set; }
 
@@ -26,56 +24,27 @@ namespace VaporEditor.Inspector
             HasTabs = Group.Type == UIGroupType.Tab;
             DrawOrder = groupAttribute.Order;
 
-            contentContainer = InitializeVisualElement();
-            RegisterCallback<DetachFromPanelEvent>(OnDetachedFromPanel);
+            InitializeView();
         }
 
-        private VisualElement InitializeVisualElement()
+        protected override TreeView BuildView()
         {
-            name = $"Branch_Group";
+            name = "Branch_Group";
 
             GroupContent = SerializedDrawerUtility.DrawGroupElement(Group);
+
+            // Visibility is applied to the group element itself rather than to the content it draws.
+            // The content is its only child, so this looks identical and keeps the resolver off the view.
             if (!Group.ShowIfResolver.EmptyOrNull())
             {
-                if (HasProperty)
-                {
-                    var property = Property;
-                    var type = property.PropertyType;
-
-                    var resolverContainerProp = new SerializedResolverContainerType<bool>(property, 
-                        ReflectionUtility.GetMember(type, Group.ShowIfResolver),
-                        b => GroupContent.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                    AddResolver(resolverContainerProp);
-                }
-                else
-                {
-                    var resolverContainerProp = new SerializedResolverContainerObject<bool>(InspectorObject.Object, 
-                        ReflectionUtility.GetMember(InspectorObject.Type, Group.ShowIfResolver),
-                        b => GroupContent.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                    AddResolver(resolverContainerProp);
-                }                
+                AddResolver(BoolResolver(Group.ShowIfResolver, b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
             }
 
             if (!Group.HideIfResolver.EmptyOrNull())
             {
-                if (HasProperty)
-                {
-                    var property = Property;
-                    var type = property.PropertyType;
-
-                    var resolverContainerProp = new SerializedResolverContainerType<bool>(property, 
-                        ReflectionUtility.GetMember(type, Group.HideIfResolver),
-                        b => GroupContent.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                    AddResolver(resolverContainerProp);
-                }
-                else
-                {
-                    var resolverContainerProp = new SerializedResolverContainerObject<bool>(InspectorObject.Object, 
-                        ReflectionUtility.GetMember(InspectorObject.Type, Group.HideIfResolver),
-                        b => GroupContent.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                    AddResolver(resolverContainerProp);
-                }       
+                AddResolver(BoolResolver(Group.HideIfResolver, b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
             }
+
             if(Group is HorizontalGroupAttribute horizontalGroupAttribute && GroupContent is StyledHorizontalGroup horizontalGroup)
             {
                 if (horizontalGroupAttribute.UseSingleLabel)
@@ -102,8 +71,18 @@ namespace VaporEditor.Inspector
                     }
                 }
             }
-            hierarchy.Add(GroupContent);
-            return GroupContent.contentContainer;
+            return new TreeView(GroupContent);
+        }
+
+        /// <summary>
+        /// Group resolvers read off the owning property when there is one, and off the inspected object
+        /// itself at the root.
+        /// </summary>
+        private SerializedResolverContainer BoolResolver(string resolverName, Action<bool> onChanged)
+        {
+            return HasProperty
+                ? new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(Property.PropertyType, resolverName), onChanged)
+                : new SerializedResolverContainerObject<bool>(InspectorObject.Object, ReflectionUtility.GetMember(InspectorObject.Type, resolverName), onChanged);
         }
 
         public override void AttachChildElements()

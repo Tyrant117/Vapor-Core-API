@@ -1,16 +1,9 @@
-using UnityEditor;
-using UnityEngine;
-using UnityEngine.UIElements;
 using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeFieldElement : InspectorTreeElement
     {
-        public override VisualElement contentContainer { get; }
-
-        private TreePropertyField _propertyField;
-
         public InspectorTreeFieldElement(InspectorTreeElement parentElement, InspectorTreeProperty property)
         {
             Root = parentElement.Root;
@@ -25,14 +18,43 @@ namespace VaporEditor.Inspector
             BuildChildren();
             BuildGroupNodes();
 
-            contentContainer = InitializeContentContainer();
+            // Row framing first so the separator lands above the field, then the field, then the rules
+            // that decide whether the row is shown at all.
+            ApplyRowDecorators();
+            InitializeView();
+            ApplyRowConditionals();
+            WireArrayEntryName();
+
             RegisterCallback<TreePropertyChangedEvent>(OnTreePropertyChanged);
-            RegisterCallback<DetachFromPanelEvent>(OnDetachedFromPanel);
+        }
+
+        /// <summary>
+        /// Keeps an [ArrayEntryName] header in step with the values it is derived from.
+        /// <para>
+        /// Editing an element used to rebuild the whole list, which refreshed the label as a side effect.
+        /// That rebuild destroyed the widget being typed into, so it is gone - the label subscribes to its
+        /// own contents instead, which costs nothing until something actually changes.
+        /// </para>
+        /// </summary>
+        private void WireArrayEntryName()
+        {
+            if (!Property.IsArrayElement || !Property.HasArrayEntryName || View is not ILabeledGroup labeledGroup)
+            {
+                return;
+            }
+
+            ForEachDescendantField(field =>
+                field.ValueChanged += (_, _, _) => labeledGroup.Label.text = Property.ResolveDisplayName());
+        }
+
+        protected override TreeView BuildView()
+        {
+            return InspectorFieldViewFactory.Create(this);
         }
 
         private void OnTreePropertyChanged(TreePropertyChangedEvent evt)
         {
-            //Debug.Log($"TreePropertyChanged: {evt.target} - {Property.PropertyName}");
+            //InspectorDebug.Log($"TreePropertyChanged: {evt.target} - {Property.PropertyName}");
             if (TryGetAttribute<OnValueChangedAttribute>(out var ovc))
             {
                 var methodInfo = ReflectionUtility.GetMethod(Property.GetParentsParentType(), ovc.MethodName);
@@ -67,107 +89,18 @@ namespace VaporEditor.Inspector
                             break;
                         }
                         default:
-                            Debug.Log(target);
-                            Debug.Log(methodInfo.Name);
+                            InspectorDebug.Log(target);
+                            InspectorDebug.Log(methodInfo.Name);
                             methodInfo.Invoke(target, new object[] { });
                             break;
                     }
                     
                     if (ovc.RebuildTree)
                     {
-                        GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
+                        Root.RebuildAndRedraw();
                     }
                 }
             }
-        }
-
-        private VisualElement InitializeContentContainer()
-        {
-            if (!Property.IsArrayElement && HasAttribute<SectionAttribute>())
-            {
-                hierarchy.Add(new SectionElement());
-            }
-
-            var shouldFlexGrow = Group is { Type: UIGroupType.Horizontal };
-            if (TypeHasAttribute<DrawWithVaporAttribute>() && !IsUnityObject && !Property.HasCustomDrawer && !Property.IsWrappedSystemObject && !HasAttribute<SerializeReference>())
-            {
-                var vaporPropertyGroup = SurroundWithVaporGroup(SurroundWithGroup, Property.PropertyPath, Property.DisplayName);
-                if (TryGetAttribute<RichTextTooltipAttribute>(out var richTextTooltip))
-                {
-                    if (vaporPropertyGroup is StyledFoldout foldout)
-                    {
-                        foldout.Label.tooltip = richTextTooltip.Tooltip;
-                    }
-                    else
-                    {
-                        vaporPropertyGroup.tooltip = richTextTooltip.Tooltip;
-                    }
-                }
-
-                TreePropertyField.DrawConditionals(this, vaporPropertyGroup);
-                hierarchy.Add(vaporPropertyGroup);
-                return vaporPropertyGroup.contentContainer;
-            }
-
-            if (Property.SerializedPropertyType == SerializedPropertyType.ManagedReference && !Property.HasCustomDrawer && !Property.NoChildProperties && !Property.IsWrappedSystemObject && !HasAttribute<SerializeReference>())
-            {
-                var vaporPropertyGroup = SurroundWithVaporGroup(UIGroupType.Foldout, Property.PropertyPath, Property.DisplayName);
-                if (TryGetAttribute<RichTextTooltipAttribute>(out var richTextTooltip))
-                {
-                    ((StyledFoldout)vaporPropertyGroup).Label.tooltip = richTextTooltip.Tooltip;
-                }
-                TreePropertyField.DrawConditionals(this, vaporPropertyGroup);
-                hierarchy.Add(vaporPropertyGroup);
-                return vaporPropertyGroup.contentContainer;
-            }
-
-            if (shouldFlexGrow)
-            {
-                style.flexGrow = 1f;
-                if (Property.IsWrappedSystemObject)
-                {
-                    var layoutElement = SerializedDrawerUtility.DrawManagedReferenceAsField(this, Property, true);
-                    if (layoutElement != null)
-                    {
-                        hierarchy.Add(layoutElement);
-                        return layoutElement.contentContainer;
-                    }
-                }
-                else
-                {
-                    var layoutElement = SerializedDrawerUtility.DrawVaporField(this, Property, true);
-                    if (layoutElement != null)
-                    {
-                        _propertyField = (TreePropertyField)layoutElement[0];
-                        hierarchy.Add(layoutElement);
-                        return _propertyField.contentContainer;
-                    }
-                }
-            }
-            else
-            {
-                if (Property.IsWrappedSystemObject)
-                {
-                    var layoutElement = SerializedDrawerUtility.DrawManagedReferenceAsField(this, Property, false);
-                    if (layoutElement != null)
-                    {
-                        hierarchy.Add(layoutElement);
-                        return layoutElement.contentContainer;
-                    }
-                }
-                else
-                {
-                    _propertyField = (TreePropertyField)SerializedDrawerUtility.DrawVaporField(this, Property, false);
-                    if (_propertyField != null)
-                    {
-                        hierarchy.Add(_propertyField);
-                        return _propertyField.contentContainer;
-                    }
-                }
-
-            }
-
-            return null;
         }
     }
 }

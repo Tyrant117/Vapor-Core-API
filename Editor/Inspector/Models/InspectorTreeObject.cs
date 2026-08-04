@@ -1,17 +1,43 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeObject
     {
-        private static readonly List<FieldInfo> s_FieldInfo = new();
-        private static readonly List<MethodInfo> s_MethodInfo = new();
-        private static readonly List<PropertyInfo> s_PropertyInfo = new();
+        private static readonly HashSet<InspectorTreeObject> s_PendingApply = new();
+        private static readonly List<InspectorTreeObject> s_FlushBuffer = new();
+        private static bool s_FlushScheduled;
+
+        [InitializeOnLoadMethod]
+        private static void HookFlushPoints()
+        {
+            // Anything that is about to read the serialized state gets the pending writes first, so a
+            // deferred flush can never be the reason an edit did not make it to disk.
+            AssemblyReloadEvents.beforeAssemblyReload -= FlushPendingApplies;
+            AssemblyReloadEvents.beforeAssemblyReload += FlushPendingApplies;
+
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
+            EditorSceneManager.sceneSaving -= OnSceneSaving;
+            EditorSceneManager.sceneSaving += OnSceneSaving;
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange change)
+        {
+            FlushPendingApplies();
+        }
+
+        private static void OnSceneSaving(Scene scene, string path)
+        {
+            FlushPendingApplies();
+        }
 
         // Implicit conversion from SerializedInspectorObject to UnityEngine.Object
         public static implicit operator Object(InspectorTreeObject serializedInspectorObject)
@@ -61,71 +87,69 @@ namespace VaporEditor.Inspector
             return this;
         }
 
+        /// <summary>
+        /// Builds only this object's own members. Their children are materialized on demand as the visual
+        /// tree descends into them, so nothing below the top level is reflected over until it is drawn.
+        /// </summary>
         private void BuildSerializedInspectorProperties()
         {
-            s_FieldInfo.Clear();
-            s_MethodInfo.Clear();
-            s_PropertyInfo.Clear();
-
-            var targetType = Type;
-            Stack<Type> typeStack = new();
-            while (targetType != null)
+            var typeStack = new Stack<Type>();
+            for (var targetType = Type; targetType != null; targetType = targetType.BaseType)
             {
                 typeStack.Push(targetType);
-                targetType = targetType.BaseType;
             }
 
+            // Gathered base-first and kept in member kind order, because equal draw orders are sorted
+            // stably later on and this is what decides the default layout.
+            var fieldInfos = new List<FieldInfo>();
+            var propertyInfos = new List<PropertyInfo>();
+            var methodInfos = new List<MethodInfo>();
             while (typeStack.TryPop(out var type))
             {
-                s_FieldInfo.AddRange(type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-                s_PropertyInfo.AddRange(type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-                s_MethodInfo.AddRange(type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+                fieldInfos.AddRange(type.GetFields(InspectorTreeProperty.MemberSearchFlags));
+                propertyInfos.AddRange(type.GetProperties(InspectorTreeProperty.MemberSearchFlags));
+                methodInfos.AddRange(type.GetMethods(InspectorTreeProperty.MemberSearchFlags));
             }
 
-            _map = new Dictionary<string, InspectorTreeProperty>(s_FieldInfo.Count + s_MethodInfo.Count + s_PropertyInfo.Count);
-            _fields = new(s_FieldInfo.Count);
-            foreach (var field in s_FieldInfo.Where(ReflectionUtility.FieldSearchPredicate))
+            _map = new Dictionary<string, InspectorTreeProperty>(fieldInfos.Count + methodInfos.Count + propertyInfos.Count);
+
+            _fields = new List<InspectorTreeProperty>(fieldInfos.Count);
+            foreach (var field in fieldInfos)
             {
-                string path = $"{field.Name}";
-                //Debug.Log($"Building FieldInfo at: {path}");
-                //SerializedProperty unityProp = null;
-                //if (IsUnityObject)
-                //{
-                //    unityProp = _serializedObject.FindProperty(path);
-                //}
-                var prop = new InspectorTreeProperty(this, null, field, path/*, unityProp*/);
+                if (!ReflectionUtility.FieldSearchPredicate(field))
+                {
+                    continue;
+                }
+
+                var prop = new InspectorTreeProperty(this, null, field, field.Name);
                 _fields.Add(prop);
-                AddToMap(path, prop);
+                AddToMap(field.Name, prop);
             }
 
-            _methods = new(s_MethodInfo.Count);
-            foreach (var method in s_MethodInfo.Where(ReflectionUtility.MethodSearchPredicate))
+            _methods = new List<InspectorTreeProperty>();
+            foreach (var method in methodInfos)
             {
-                string path = $"{method.Name}";
-                //Debug.Log($"Building MethodInfo at: {path}");
-                var prop = new InspectorTreeProperty(this, null, method, path);
+                if (!ReflectionUtility.MethodSearchPredicate(method))
+                {
+                    continue;
+                }
+
+                var prop = new InspectorTreeProperty(this, null, method, method.Name);
                 _methods.Add(prop);
-                AddToMap(path, prop);
+                AddToMap(method.Name, prop);
             }
 
-            _properties = new(s_PropertyInfo.Count);
-            foreach (var property in s_PropertyInfo.Where(ReflectionUtility.PropertySearchPredicate))
+            _properties = new List<InspectorTreeProperty>();
+            foreach (var property in propertyInfos)
             {
-                string path = $"{property.Name}";
-                //Debug.Log($"Building PropertyInfo at: {path}");
-                var prop = new InspectorTreeProperty(this, null, property, path);
+                if (!ReflectionUtility.PropertySearchPredicate(property))
+                {
+                    continue;
+                }
+
+                var prop = new InspectorTreeProperty(this, null, property, property.Name);
                 _properties.Add(prop);
-                AddToMap(path, prop);
-            }
-
-            foreach (var field in _fields)
-            {
-                field.BuildChildProperties();
-            }
-
-            foreach (var prop in _properties)
-            {
-                prop.BuildChildProperties();
+                AddToMap(property.Name, prop);
             }
         }
 
@@ -140,16 +164,61 @@ namespace VaporEditor.Inspector
             return IsUnityObject ? _serializedObject.FindProperty(propertyPath) : null;
         }
 
+        /// <summary>
+        /// Queues this object - and the chain it belongs to - to be pushed back through its SerializedObject.
+        /// <para>
+        /// Coalesced to one flush per editor tick rather than running inline. Every keystroke calls this, and
+        /// a full Update + ApplyModifiedProperties round trip per character is the single most expensive
+        /// thing in the edit path. Values are written to the C# object immediately either way; this only
+        /// defers the serialization sync and the dirty flag.
+        /// </para>
+        /// </summary>
         public void ApplyModifiedProperties()
         {
-            if (IsUnityObject && (Object)Object)
+            for (var target = this; target != null; target = target.ParentObject)
             {
-                _serializedObject.Update();
-                _serializedObject.ApplyModifiedPropertiesWithoutUndo();
-                EditorUtility.SetDirty((Object)Object);
+                s_PendingApply.Add(target);
             }
 
-            ParentObject?.ApplyModifiedProperties();
+            if (s_FlushScheduled)
+            {
+                return;
+            }
+
+            s_FlushScheduled = true;
+            EditorApplication.delayCall += FlushPendingApplies;
+        }
+
+        /// <summary>
+        /// Applies immediately instead of waiting for the tick. For the points where the editor is about to
+        /// read the serialized state itself - entering play mode, saving, reloading scripts.
+        /// </summary>
+        public static void FlushPendingApplies()
+        {
+            s_FlushScheduled = false;
+            if (s_PendingApply.Count == 0)
+            {
+                return;
+            }
+
+            // Copied out first: applying can destroy an object, and a destroyed one re-queues nothing.
+            s_FlushBuffer.Clear();
+            s_FlushBuffer.AddRange(s_PendingApply);
+            s_PendingApply.Clear();
+
+            foreach (var target in s_FlushBuffer)
+            {
+                if (!target.IsUnityObject || !(Object)target.Object)
+                {
+                    continue;
+                }
+
+                target._serializedObject.Update();
+                target._serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty((Object)target.Object);
+            }
+
+            s_FlushBuffer.Clear();
         }
 
         #region - Attributes -

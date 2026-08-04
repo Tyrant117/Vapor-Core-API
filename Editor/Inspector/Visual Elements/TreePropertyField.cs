@@ -1,6 +1,3 @@
-#if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
-#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,7 +10,6 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
-using Vapor.Keys;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
 
@@ -23,22 +19,30 @@ namespace VaporEditor.Inspector
     
     public class TreePropertyField : VisualElement
     {
-        private static readonly Dictionary<Type, TypeCache.TypeCollection> s_CachedCollectionsByType = new ();
-        private static readonly Dictionary<MethodInfo, IReadOnlyList<Type>> s_CachedCollectionsByMethod = new ();
-        
-        private static readonly Dictionary<Type, (List<string>, List<object>)> s_CachedComboBoxByType = new ();
-        private static readonly Dictionary<int, (List<string>, List<object>)> s_CachedComboBoxByHashCode = new ();
-
-        [InitializeOnLoadMethod]
-        private static void ReloadCaches()
+        /// <summary>
+        /// How the drawn widget keeps up with the value behind it.
+        /// </summary>
+        public enum ValueSource
         {
-            s_CachedComboBoxByType.Clear();
-            s_CachedComboBoxByHashCode.Clear();
+            /// <summary>Bound to the source and refreshed when it reports a change. The default for fields.</summary>
+            Bound,
+
+            /// <summary>Read once when the row is built. Suitable for a value that cannot be edited here.</summary>
+            ReadOnce,
+
+            /// <summary>Re-read from the source on every update.</summary>
+            Polled,
         }
-        
+
         public bool IsValid { get; set; }
         public InspectorTreeProperty Property { get; }
-        public InspectorTreeElement ParentTreeElement { get; }
+
+        /// <summary>
+        /// The controller that owns this field, for navigating the tree - finding the root to rebuild, or
+        /// parenting nested trees. This element never styles or lays out its owner.
+        /// </summary>
+        public InspectorTreeElement Owner { get; }
+
         public Type PropertyType { get; }
 
         private Func<object, bool> _internalValidate = delegate { return true; };
@@ -49,32 +53,37 @@ namespace VaporEditor.Inspector
         private Label _internalLabel;
         private VisualElement _internalField;
         private DataBinding _fieldBinding;
-        private readonly List<SerializedResolverContainer> _resolvers = new();
-#if UNITY_EDITOR_COROUTINES
-        private EditorCoroutine _resolverRoutine;
-#endif
+        private readonly ValueSource _valueSource = ValueSource.Bound;
 
-        public TreePropertyField(InspectorTreeProperty property, InspectorTreeElement parentTreeElement = null)
+        public TreePropertyField(InspectorTreeProperty property, InspectorTreeElement owner = null)
         {
             Property = property;
             PropertyType = property.PropertyType;
-            ParentTreeElement = parentTreeElement;
-            name = $"PropertyField:{Property.PropertyName}";
-            DrawContent(parentTreeElement);
+            Owner = owner;
+            DrawContent();
         }
 
-        public TreePropertyField(InspectorTreeProperty property, Type overrideType, InspectorTreeElement parentTreeElement = null)
+        public TreePropertyField(InspectorTreeProperty property, InspectorTreeElement owner, ValueSource valueSource)
+        {
+            Property = property;
+            PropertyType = property.PropertyType;
+            Owner = owner;
+            _valueSource = valueSource;
+            DrawContent();
+        }
+
+        public TreePropertyField(InspectorTreeProperty property, Type overrideType, InspectorTreeElement owner = null)
         {
             Property = property;
             PropertyType = overrideType;
-            ParentTreeElement = parentTreeElement;
-            DrawContent(parentTreeElement, true);
+            Owner = owner;
+            DrawContent(true);
         }
 
-        private void DrawContent(InspectorTreeElement parentTreeElement, bool overrideType = false)
+        private void DrawContent(bool overrideType = false)
         {
             name = $"PropertyField:{Property.PropertyName}";
-            var field = DrawField(parentTreeElement, overrideType);
+            var field = DrawField(overrideType);
             if (field != null)
             {
                 field.name = $"InputField:{Property.PropertyName}";
@@ -84,13 +93,13 @@ namespace VaporEditor.Inspector
                 IsValid = true;
 
 
+                // Widget-level decorators only. Anything about the row - visibility, spacing, framing -
+                // belongs to the controller and is applied there.
                 DrawLabel();
                 DrawLabelWidth();
                 DrawHideLabel();
                 DrawRichTooltip();
                 DrawHelpUrl();
-                DrawDecorators();
-                DrawConditionals();
                 DrawReadOnly();
                 DrawPathSelection();
                 DrawTitle();
@@ -100,13 +109,10 @@ namespace VaporEditor.Inspector
                 DrawValidation();
                 DrawRequireInterface();
                 DrawChildGameObjectsOnly();
-                DrawFlexBasis();
-
-                RegisterCallbackOnce<DetachFromPanelEvent>(OnDetachedFromPanel);
             }
         }
 
-        protected VisualElement DrawField(InspectorTreeElement parentTreeElement, bool overrideType = false)
+        protected VisualElement DrawField(bool overrideType = false)
         {
             //var source = Property.ParentObject;// Member.SourceObject.Object;
             var propertyType = Property.SerializedPropertyType;
@@ -120,7 +126,7 @@ namespace VaporEditor.Inspector
 
             if (Property.HasCustomDrawer)
             {
-                SerializedDrawerUtility.TryGetCustomPropertyDrawer(PropertyType, Property.SerializedPropertyType == SerializedPropertyType.ManagedReference, out var propertyDrawer);
+                SerializedDrawerUtility.TryGetCustomPropertyDrawer(PropertyType, propertyType == SerializedPropertyType.ManagedReference, out var propertyDrawer);
                 if (propertyDrawer is VaporPropertyDrawer vaporPropertyDrawer)
                 {
                     var customElement = vaporPropertyDrawer.CreateVaporPropertyGUI(this);
@@ -139,14 +145,10 @@ namespace VaporEditor.Inspector
                 }
                 else
                 {
-                    // return propertyDrawer.CreatePropertyGUI(Property.InspectorObject.FindSerializedProperty(Property.PropertyPath));
-                    var vaporProp = new PropertyField(Property.InspectorObject.FindSerializedProperty(Property.PropertyPath))
+                    return new PropertyField(Property.InspectorObject.FindSerializedProperty(Property.PropertyPath))
                     {
                         bindingPath = Property.PropertyPath
                     };
-                    return vaporProp;
-                    Debug.LogError($"Trying to draw {PropertyType} with a custom drawer at {Property.PropertyPath}, but drawer does not implement type:{nameof(VaporPropertyDrawer)}");
-                    return null;
                 }
             }
 
@@ -155,7 +157,7 @@ namespace VaporEditor.Inspector
                 VisualElement referenceGroup;
                 if (Property.TryGetTypeAttribute<DrawWithVaporAttribute>(out var vaporGroupAttribute))
                 {
-                    referenceGroup = parentTreeElement.SurroundWithVaporGroup(vaporGroupAttribute.InlinedGroupType, niceName, niceName);
+                    referenceGroup = InspectorTreeElement.SurroundWithVaporGroup(vaporGroupAttribute.InlinedGroupType, niceName, niceName);
                 }
                 else
                 {
@@ -203,9 +205,7 @@ namespace VaporEditor.Inspector
                     
                     if (current != null)
                     {
-                        InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
-                        InspectorTreeRootElement subRoot = new(ito);
-                        subRoot.DrawToScreen(referenceGroup);
+                        new InspectorTreeRootElement(current, current.GetType(), Property.InspectorObject).AttachTo(referenceGroup);
                     }
                 }
                 else
@@ -216,17 +216,13 @@ namespace VaporEditor.Inspector
                         referenceGroup.Q<InspectorTreeRootElement>().RemoveFromHierarchy();
                         if (@new != null)
                         {
-                            InspectorTreeObject ito = new InspectorTreeObject(@new, @new.GetType()).WithParent(Property.InspectorObject);
-                            InspectorTreeRootElement subRoot = new(ito);
-                            subRoot.DrawToScreen(referenceGroup);
+                            new InspectorTreeRootElement(@new, @new.GetType(), Property.InspectorObject).AttachTo(referenceGroup);
                         }
                     };
 
                     if (current != null)
                     {
-                        InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(Property.InspectorObject);
-                        InspectorTreeRootElement subRoot = new(ito);
-                        subRoot.DrawToScreen(referenceGroup);
+                        new InspectorTreeRootElement(current, current.GetType(), Property.InspectorObject).AttachTo(referenceGroup);
                     }
                 }
 
@@ -278,7 +274,7 @@ namespace VaporEditor.Inspector
                         break;
                 }
 
-                //Debug.Log($"Building Property: {Property.PropertyName} | IsArray: {Property.IsArray} | Options: {keys.Count}");
+                //InspectorDebug.Log($"Building Property: {Property.PropertyName} | IsArray: {Property.IsArray} | Options: {keys.Count}");
                 if (Property.IsArray)
                 {
                     if (dropdownAttribute.MultiSelectArray)
@@ -326,11 +322,11 @@ namespace VaporEditor.Inspector
             switch (propertyType)
             {
                 case SerializedPropertyType.Generic:
-                    if (parentTreeElement == null)
+                    if (Owner == null)
                     {
                         return null;
                     }
-                    return Property.IsArray ? new PaginatedList(parentTreeElement, Property, niceName) : (VisualElement)null;
+                    return Property.IsArray ? new PaginatedList(Owner, Property, niceName) : (VisualElement)null;
                 case SerializedPropertyType.Integer:
                     switch (numericType)
                     {
@@ -347,7 +343,7 @@ namespace VaporEditor.Inspector
 
                                     SetupDefaultBinding(field);
                                     field.SetValueWithoutNotify(Property.GetValue<int>());
-                                    field.RegisterValueChangedCallback(OnIntChanged);
+                                    field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                     return field;
                                 }
                                 else
@@ -362,7 +358,7 @@ namespace VaporEditor.Inspector
                                     SetupDefaultBinding(field);
 
                                     field.SetValueWithoutNotify(Property.GetValue<int>());
-                                    field.RegisterValueChangedCallback(OnIntChanged);
+                                    field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                     return field;
                                 }
                             }
@@ -377,7 +373,7 @@ namespace VaporEditor.Inspector
 
                                 SetupDefaultBinding(field);
                                 field.SetValueWithoutNotify(Property.GetValue<uint>());
-                                field.RegisterValueChangedCallback(OnUIntChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         case SerializedPropertyNumericType.Int64:
@@ -391,7 +387,7 @@ namespace VaporEditor.Inspector
 
                                 SetupDefaultBinding(field);
                                 field.SetValueWithoutNotify(Property.GetValue<long>());
-                                field.RegisterValueChangedCallback(OnLongChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         case SerializedPropertyNumericType.UInt64:
@@ -405,7 +401,7 @@ namespace VaporEditor.Inspector
 
                                 SetupDefaultBinding(field);
                                 field.SetValueWithoutNotify(Property.GetValue<ulong>());
-                                field.RegisterValueChangedCallback(OnULongChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
 
@@ -421,7 +417,7 @@ namespace VaporEditor.Inspector
                                 SetupDefaultBinding(field);
                                 _fieldBinding.sourceToUiConverters.AddConverter<sbyte,int>((ref sbyte value) => value);
                                 field.SetValueWithoutNotify(Property.GetValue<sbyte>());
-                                field.RegisterValueChangedCallback(OnTinyNumericChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         case SerializedPropertyNumericType.UInt8:
@@ -436,7 +432,7 @@ namespace VaporEditor.Inspector
                                 SetupDefaultBinding(field);
                                 _fieldBinding.sourceToUiConverters.AddConverter<byte,int>((ref byte value) => value);
                                 field.SetValueWithoutNotify(Property.GetValue<byte>());
-                                field.RegisterValueChangedCallback(OnTinyNumericChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         case SerializedPropertyNumericType.Int16:
@@ -451,7 +447,7 @@ namespace VaporEditor.Inspector
                                 SetupDefaultBinding(field);
 
                                 field.SetValueWithoutNotify(Property.GetValue<short>());
-                                field.RegisterValueChangedCallback(OnTinyNumericChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         case SerializedPropertyNumericType.UInt16:
@@ -466,7 +462,7 @@ namespace VaporEditor.Inspector
                                 SetupDefaultBinding(field);
 
                                 field.SetValueWithoutNotify(Property.GetValue<ushort>());
-                                field.RegisterValueChangedCallback(OnTinyNumericChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
                         default:
@@ -505,7 +501,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<bool>());
-                        field.RegisterValueChangedCallback(OnBoolChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Float:
@@ -522,7 +518,7 @@ namespace VaporEditor.Inspector
 
                                 SetupDefaultBinding(field);
                                 field.SetValueWithoutNotify(Property.GetValue<double>());
-                                field.RegisterValueChangedCallback(OnDoubleChanged);
+                                field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                 return field;
                             }
 
@@ -539,7 +535,7 @@ namespace VaporEditor.Inspector
 
                                     SetupDefaultBinding(field);
                                     field.SetValueWithoutNotify(Property.GetValue<float>());
-                                    field.RegisterValueChangedCallback(OnFloatChanged);
+                                    field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                     return field;
                                 }
                                 else
@@ -553,7 +549,7 @@ namespace VaporEditor.Inspector
 
                                     SetupDefaultBinding(field);
                                     field.SetValueWithoutNotify(Property.GetValue<float>());
-                                    field.RegisterValueChangedCallback(OnFloatChanged);
+                                    field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                                     return field;
                                 }
                             }
@@ -585,6 +581,15 @@ namespace VaporEditor.Inspector
                                     case TypeSelectorAttribute.T.Resolver:
                                         var pType = Property.IsArrayElement ? Property.ParentProperty.ParentType : Property.ParentType;
                                         var method = ReflectionUtility.GetMethod(pType, atr.Resolver);
+                                        if (method == null)
+                                        {
+                                            // Named rather than thrown. An unresolved name used to take the
+                                            // whole inspector down with a stack trace that didn't say which field.
+                                            Debug.LogError($"[TypeSelector] on {pType.Name}.{Property.PropertyName} names '{atr.Resolver}', " +
+                                                           $"which is not a method on {pType.Name}. The resolver must be declared on the type that owns the field.");
+                                            break;
+                                        }
+
                                         if (method.IsStatic)
                                         {
                                             types.AddRange((IEnumerable<Type>)method.Invoke(null, null));
@@ -600,118 +605,6 @@ namespace VaporEditor.Inspector
                             var typeSelector = new TypeSelectorField(niceName, cType, flattenCategories: flattenCategories).WithValidTypes(tsAtrs[0].IncludeAbstract, types.ToArray());
                             typeSelector.AssemblyQualifiedNameChanged += OnNameSelectionChanged;
                             return typeSelector;
-
-                            // List<string> keys = new();
-                            // List<object> values = new();
-                            // foreach (var atr in tsAtrs)
-                            // {
-                            //     switch (atr.Selection)
-                            //     {
-                            //         case TypeSelectorAttribute.T.Subclass:
-                            //         {
-                            //             if (s_CachedComboBoxByType.TryGetValue(atr.Type, out var cachedComboBox))
-                            //             {
-                            //                 keys = cachedComboBox.Item1;
-                            //                 values = cachedComboBox.Item2;
-                            //             }
-                            //             else
-                            //             {
-                            //                 var ts = TypeCache.GetTypesDerivedFrom(atr.Type);
-                            //                 List<string> ks = new(ts.Count);
-                            //                 List<object> vs = new(ts.Count);
-                            //                 foreach (var t in ts)
-                            //                 {
-                            //                     ks.Add(t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name);
-                            //                     vs.Add(t.AssemblyQualifiedName);
-                            //                 }
-                            //
-                            //                 s_CachedComboBoxByType.TryAdd(atr.Type, (ks, vs));
-                            //                 keys = ks;
-                            //                 values = vs;
-                            //             }
-                            //
-                            //             break;
-                            //         }
-                            //         case TypeSelectorAttribute.T.Attribute:
-                            //         {
-                            //             if (s_CachedComboBoxByType.TryGetValue(atr.Type, out var cachedComboBox))
-                            //             {
-                            //                 keys = cachedComboBox.Item1;
-                            //                 values = cachedComboBox.Item2;
-                            //             }
-                            //             else
-                            //             {
-                            //                 var ts = TypeCache.GetTypesDerivedFrom(atr.Type);
-                            //                 List<string> ks = new(ts.Count);
-                            //                 List<object> vs = new(ts.Count);
-                            //                 foreach (var t in ts)
-                            //                 {
-                            //                     ks.Add(t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name);
-                            //                     vs.Add(t.AssemblyQualifiedName);
-                            //                 }
-                            //
-                            //                 s_CachedComboBoxByType.TryAdd(atr.Type, (ks, vs));
-                            //                 keys = ks;
-                            //                 values = vs;
-                            //             }
-                            //
-                            //             break;
-                            //         }
-                            //         case TypeSelectorAttribute.T.Resolver:
-                            //         {
-                            //             var pType = Property.IsArrayElement ? Property.ParentProperty.ParentType : Property.ParentType;
-                            //             var method = ReflectionUtility.GetMethod(pType, atr.Resolver);
-                            //             var methodPropHash = HashCode.Combine(pType, method);
-                            //             if (s_CachedComboBoxByHashCode.TryGetValue(methodPropHash, out var cachedComboBox))
-                            //             {
-                            //                 keys = cachedComboBox.Item1;
-                            //                 values = cachedComboBox.Item2;
-                            //             }
-                            //             else
-                            //             {
-                            //                 if (method.IsStatic)
-                            //                 {
-                            //                     var ts = ((IEnumerable<Type>)method.Invoke(null, null)).ToArray();
-                            //                     List<string> ks = new(ts.Length);
-                            //                     List<object> vs = new(ts.Length);
-                            //                     foreach (var t in ts)
-                            //                     {
-                            //                         ks.Add(t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name);
-                            //                         vs.Add(t.AssemblyQualifiedName);
-                            //                     }
-                            //
-                            //                     s_CachedComboBoxByHashCode.TryAdd(methodPropHash, (ks, vs));
-                            //                     keys = ks;
-                            //                     values = vs;
-                            //                 }
-                            //                 else
-                            //                 {
-                            //                     var ts = ((IEnumerable<Type>)method.Invoke(Property.IsArrayElement ? Property.ParentProperty.GetParentObject() : Property.GetParentObject(), null)).ToArray();
-                            //                     List<string> ks = new(ts.Length);
-                            //                     List<object> vs = new(ts.Length);
-                            //                     foreach (var t in ts)
-                            //                     {
-                            //                         ks.Add(t.IsGenericType ? $"{t.Name.Split('`')[0]}<{string.Join(",", t.GetGenericArguments().Select(a => a.Name))}>" : t.Name);
-                            //                         vs.Add(t.AssemblyQualifiedName);
-                            //                     }
-                            //
-                            //                     s_CachedComboBoxByHashCode.TryAdd(methodPropHash, (ks, vs));
-                            //                     keys = ks;
-                            //                     values = vs;
-                            //                 }
-                            //             }
-                            //
-                            //             break;
-                            //         }
-                            //     }
-                            // }
-                            //
-                            // var current = Property.GetValue();
-                            // var cIdx = Mathf.Max(0, values.IndexOf(current));
-                            // var comboBox = new ComboBox(niceName, cIdx, keys, values, false, true);
-                            //
-                            // comboBox.SelectionChanged += OnComboBoxSelectionChanged;
-                            // return comboBox;
                         }
 
                         bool delayed = Property.IsArrayElement;
@@ -739,7 +632,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<string>());
-                        field.RegisterValueChangedCallback(OnStringChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Color:
@@ -752,7 +645,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Color>());
-                        field.RegisterValueChangedCallback(OnColorChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.ObjectReference:
@@ -781,12 +674,12 @@ namespace VaporEditor.Inspector
                         SetupDefaultBinding(field);
                         _fieldBinding.sourceToUiConverters.AddConverter((ref LayerMask mask) => mask.value);
                         field.SetValueWithoutNotify(Property.GetValue<LayerMask>());
-                        field.RegisterValueChangedCallback(OnLayerMaskChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt, ToLayerMask));
                         return field;
                     }
                 case SerializedPropertyType.Enum:
                     {
-                        //Debug.Log($"Is Enum: {Property.PropertyName}");
+                        //InspectorDebug.Log($"Is Enum: {Property.PropertyName}");
                         if (Property.TypeHasAttribute<FlagsAttribute>())
                         {
                             var field = new EnumFlagsField(Property.GetValue<Enum>())
@@ -796,7 +689,7 @@ namespace VaporEditor.Inspector
                             StyleLabel(field);
 
                             SetupDefaultBinding(field);
-                            field.RegisterValueChangedCallback(OnEnumChanged);
+                            field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                             return field;
                         }
                         else
@@ -808,7 +701,7 @@ namespace VaporEditor.Inspector
                             StyleLabel(field);
 
                             SetupDefaultBinding(field);
-                            field.RegisterValueChangedCallback(OnEnumChanged);
+                            field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                             return field;
                         }
                     }
@@ -822,7 +715,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Vector2>());
-                        field.RegisterValueChangedCallback(OnVector2Changed);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Vector3:
@@ -834,9 +727,9 @@ namespace VaporEditor.Inspector
                         StyleLabel(field);
 
                         SetupDefaultBinding(field);
-                        // Debug.Log(Property.GetValue<Vector3>());
+                        // InspectorDebug.Log(Property.GetValue<Vector3>());
                         field.SetValueWithoutNotify(Property.GetValue<Vector3>());
-                        field.RegisterValueChangedCallback(OnVector3Changed);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Vector4:
@@ -849,7 +742,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Vector4>());
-                        field.RegisterValueChangedCallback(OnVector4Changed);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Rect:
@@ -862,7 +755,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Rect>());
-                        field.RegisterValueChangedCallback(OnRectChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.ArraySize:
@@ -876,7 +769,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<int>());
-                        field.RegisterValueChangedCallback(OnIntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Character:
@@ -890,7 +783,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<char>().ToString());
-                        field.RegisterValueChangedCallback(OnCharChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt, ToChar));
                         return field;
                     }
                 case SerializedPropertyType.AnimationCurve:
@@ -903,7 +796,7 @@ namespace VaporEditor.Inspector
 
                         //SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<AnimationCurve>());
-                        field.RegisterValueChangedCallback(OnAnimationCurveChanged);
+                        field.RegisterValueChangedCallback(evt => OnMutableWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Bounds:
@@ -916,7 +809,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Bounds>());
-                        field.RegisterValueChangedCallback(OnBoundsChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Gradient:
@@ -928,7 +821,7 @@ namespace VaporEditor.Inspector
                         StyleLabel(field);
 
                         field.SetValueWithoutNotify(Property.GetValue<Gradient>());
-                        field.RegisterValueChangedCallback(OnGradientChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Quaternion:
@@ -945,7 +838,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<int>());
-                        field.RegisterValueChangedCallback(OnIntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Vector2Int:
@@ -958,7 +851,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Vector2Int>());
-                        field.RegisterValueChangedCallback(OnVector2IntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.Vector3Int:
@@ -971,7 +864,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Vector3Int>());
-                        field.RegisterValueChangedCallback(OnVector3IntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.RectInt:
@@ -984,7 +877,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<RectInt>());
-                        field.RegisterValueChangedCallback(OnRectIntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.BoundsInt:
@@ -997,7 +890,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<BoundsInt>());
-                        field.RegisterValueChangedCallback(OnBoundsIntChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
                 case SerializedPropertyType.ManagedReference:
@@ -1012,7 +905,7 @@ namespace VaporEditor.Inspector
 
                         SetupDefaultBinding(field);
                         field.SetValueWithoutNotify(Property.GetValue<Hash128>());
-                        field.RegisterValueChangedCallback(OnHash128Changed);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt));
                         return field;
                     }
 
@@ -1027,7 +920,7 @@ namespace VaporEditor.Inspector
                         SetupDefaultBinding(field);
                         _fieldBinding.sourceToUiConverters.AddConverter((ref RenderingLayerMask mask) => mask.value);
                         field.SetValueWithoutNotify(Property.GetValue<RenderingLayerMask>());
-                        field.RegisterValueChangedCallback(OnRenderingLayerMaskChanged);
+                        field.RegisterValueChangedCallback(evt => OnWidgetValueChanged(evt, ToRenderingLayerMask));
                         return field;
                     }
                 default:
@@ -1035,28 +928,71 @@ namespace VaporEditor.Inspector
             }
         }
 
+        /// <summary>
+        /// Re-reads the value from the model and pushes it into the widget. Anything that mutates the value
+        /// behind the UI's back - an inline button invoking a method, for instance - has to ask for this.
+        /// <para>
+        /// Marking the binding dirty is not enough on its own: the field binds ToTarget with
+        /// <see cref="BindingUpdateTrigger.OnSourceChanged"/>, and a plain C# object never reports a change,
+        /// so the value is set directly as well.
+        /// </para>
+        /// </summary>
+        public void RefreshFromSource()
+        {
+            _fieldBinding?.MarkDirty();
+
+            if (_internalField == null)
+            {
+                return;
+            }
+
+            // The widget's value type isn't known here - it varies per SerializedPropertyType - so it is
+            // recovered from whichever INotifyValueChanged<T> the field implements.
+            var notifyInterface = _internalField.GetType().GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(INotifyValueChanged<>));
+            if (notifyInterface == null)
+            {
+                return;
+            }
+
+            object converted;
+            try
+            {
+                converted = CastToType(Property.GetValue(), notifyInterface.GetGenericArguments()[0]);
+            }
+            catch (Exception)
+            {
+                // Types the widget represents indirectly - masks drawn as ints, for instance - have no
+                // general conversion. Those keep whatever they are showing rather than throwing.
+                return;
+            }
+
+            notifyInterface.GetMethod(nameof(INotifyValueChanged<int>.SetValueWithoutNotify))
+                ?.Invoke(_internalField, new[] { converted });
+        }
+
         private void SetupDefaultBinding(VisualElement field)
         {
-            //Debug.Log($"Binding: {Property.GetParentObject()} - {Property.PropertyName}");
+            //InspectorDebug.Log($"Binding: {Property.GetParentObject()} - {Property.PropertyName}");
             _fieldBinding = new DataBinding
             {
                 dataSource = Property.GetParentObject(),
                 dataSourcePath = new PropertyPath(Property.PropertyName),
                 bindingMode = BindingMode.ToTarget,
-                updateTrigger = BindingUpdateTrigger.OnSourceChanged
+                updateTrigger = _valueSource == ValueSource.Polled
+                    ? BindingUpdateTrigger.EveryUpdate
+                    : BindingUpdateTrigger.OnSourceChanged
             };
-            field.SetBinding("value", _fieldBinding);
-        }
 
-        private void OnDetachedFromPanel(DetachFromPanelEvent evt)
-        {
-            _resolvers.Clear();
-#if UNITY_EDITOR_COROUTINES
-            if (_resolverRoutine != null)
+            if (_valueSource == ValueSource.ReadOnce)
             {
-                EditorCoroutineUtility.StopCoroutine(_resolverRoutine);
+                // Built but never attached. The numeric and mask cases add converters to _fieldBinding right
+                // after calling this, so it still has to exist; the widget just keeps the value it was
+                // seeded with instead of tracking the source.
+                return;
             }
-#endif
+
+            field.SetBinding("value", _fieldBinding);
         }
 
         #region - Change Callbacks -
@@ -1072,15 +1008,17 @@ namespace VaporEditor.Inspector
             Property.SetValue(newValue);
             if (Property.ParentIsStruct())
             {
-                Debug.Log("Propagating Struct Data Up");
+                InspectorDebug.Log("Propagating Struct Data Up");
+                // Propagated without a rebuild all the way up. Each step refreshes the element snapshot it
+                // writes to, so a rebuild adds nothing and its redraw would destroy the widget being edited.
                 if (_fieldBinding != null)
                 {
-                    Property.ParentProperty.SetValue(_fieldBinding.dataSource);
+                    Property.ParentProperty.SetValueWithoutArrayRebuild(_fieldBinding.dataSource);
                     _fieldBinding.dataSource = Property.GetParentObject();
                 }
                 else
                 {
-                    Property.ParentProperty.SetValue(Property.GetParentObject());
+                    Property.ParentProperty.SetValueWithoutArrayRebuild(Property.GetParentObject());
                 }
 
                 var property = Property;
@@ -1088,15 +1026,13 @@ namespace VaporEditor.Inspector
                 {
                     if (property.ParentProperty?.ParentIsStruct() == true)
                     {
-                        property.ParentProperty.ParentProperty.SetValue(property.ParentProperty.GetParentObject());
+                        property.ParentProperty.ParentProperty.SetValueWithoutArrayRebuild(property.ParentProperty.GetParentObject());
                         property = property.ParentProperty;
                         continue;
                     }
 
                     break;
                 }
-                
-                // _UpdateParentProperty(Property);
             }
 
             using var evt = TreePropertyChangedEvent.GetPooled();
@@ -1105,21 +1041,6 @@ namespace VaporEditor.Inspector
             evt.Current = newValue;
             SendEvent(evt);
             Property.InspectorObject.ApplyModifiedProperties();
-
-            // void _UpdateParentProperty(InspectorTreeProperty property)
-            // {
-            //     while (true)
-            //     {
-            //         if (property.ParentProperty?.ParentIsStruct() == true)
-            //         {
-            //             property.ParentProperty.ParentProperty.SetValue(property.ParentProperty.GetParentObject());
-            //             property = property.ParentProperty;
-            //             continue;
-            //         }
-            //
-            //         break;
-            //     }
-            // }
         }
 
         private object ProcessValidation(object newValue)
@@ -1127,647 +1048,78 @@ namespace VaporEditor.Inspector
             return !_internalValidate.Invoke(newValue) ? _internalProcessValidation.Invoke(newValue) : newValue;
         }
 
-        private void OnTinyNumericChanged(ChangeEvent<int> evt)
+        /// <summary>
+        /// The single path every widget's value change takes: skip no-ops, validate, convert to the
+        /// property's type, write, notify.
+        /// </summary>
+        /// <param name="toPropertyValue">
+        /// Converts the widget's value to the property's for the cases where the two types differ - a char
+        /// edits as a string, a mask as an int. Defaults to <see cref="CastToType"/>.
+        /// </param>
+        private void OnWidgetValueChanged<TValue>(ChangeEvent<TValue> evt, Func<object, object> toPropertyValue = null)
         {
-            if (evt.previousValue == evt.newValue)
+            if (EqualityComparer<TValue>.Default.Equals(evt.previousValue, evt.newValue))
             {
                 return;
             }
 
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                validatedValue = CastToType(validatedValue, PropertyType);
-                Debug.Log($"On Tiny Numeric Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            CommitWidgetValue(evt.previousValue, evt.newValue, toPropertyValue);
         }
 
-        private void OnIntChanged(ChangeEvent<int> evt)
+        /// <summary>
+        /// As <see cref="OnWidgetValueChanged{TValue}"/>, minus the no-op check. For widgets that edit their
+        /// value in place and so report the same instance as both old and new - skipping equal values there
+        /// would discard every edit.
+        /// </summary>
+        private void OnMutableWidgetValueChanged<TValue>(ChangeEvent<TValue> evt)
         {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"On Int Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnUIntChanged(ChangeEvent<uint> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnUIntChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnLongChanged(ChangeEvent<long> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnLongChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnULongChanged(ChangeEvent<ulong> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnULongChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnBoolChanged(ChangeEvent<bool> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnBoolChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnDoubleChanged(ChangeEvent<double> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnDoubleChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnFloatChanged(ChangeEvent<float> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnFloatChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnColorChanged(ChangeEvent<Color> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnColorChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            CommitWidgetValue(evt.previousValue, evt.newValue, null);
         }
 
         private void OnObjectChanged(ChangeEvent<Object> evt)
         {
+            // Compared by reference on purpose. Unity's Object.Equals reports a destroyed object as equal to
+            // null, which would swallow the edit that clears a field still pointing at one.
             if (ReferenceEquals(evt.previousValue, evt.newValue))
             {
                 return;
             }
 
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                try
-                {
-                    Debug.Log($"OnObjectChanged {evt.previousValue} -> {validatedValue}");
-                }
-                catch (Exception e)
-                {
-                    // ignored
-                }
-
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            CommitWidgetValue(evt.previousValue, evt.newValue, null);
         }
 
-        private void OnEnumChanged(ChangeEvent<Enum> evt)
+        private void CommitWidgetValue(object previous, object widgetValue, Func<object, object> toPropertyValue)
         {
-            if (evt.previousValue == evt.newValue)
+            var validated = ProcessValidation(widgetValue);
+            if (Validate != null)
             {
-                return;
+                validated = Validate.Invoke(validated);
             }
 
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"On EnumChanged Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            var propertyValue = toPropertyValue != null ? toPropertyValue(validated) : CastToType(validated, PropertyType);
+
+            InspectorDebug.Log($"{Property.PropertyPath}: {previous} -> {propertyValue}");
+            MarkDirtyWithValue(previous, propertyValue);
+
+            // Notified with the widget's value rather than the property's - listeners are registered against
+            // the field, so they expect what the field edits.
+            ValueChanged.Invoke(this, previous, validated);
         }
 
-        private void OnVector2Changed(ChangeEvent<Vector2> evt)
+        private static object ToChar(object value)
         {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnVector2Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            // Empty is valid here; the text field can be cleared.
+            return value is string text ? text.FirstOrDefault() : default(char);
         }
 
-        private void OnVector3Changed(ChangeEvent<Vector3> evt)
+        private static object ToLayerMask(object value)
         {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnVector3Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            return new LayerMask { value = (int)value };
         }
 
-        private void OnVector4Changed(ChangeEvent<Vector4> evt)
+        private static object ToRenderingLayerMask(object value)
         {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnVector4Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnRectChanged(ChangeEvent<Rect> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnRectChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnCharChanged(ChangeEvent<string> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnCharChanged {evt.previousValue} -> {validatedValue}");
-                var c = ((string)validatedValue).FirstOrDefault();
-                MarkDirtyWithValue(evt.previousValue, c);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                var c = ((string)validatedValue).FirstOrDefault();
-                MarkDirtyWithValue(evt.previousValue, c);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnStringChanged(ChangeEvent<string> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnStringChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnAnimationCurveChanged(ChangeEvent<AnimationCurve> evt)
-        {
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnAnimationCurveChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnBoundsChanged(ChangeEvent<Bounds> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnBoundsChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnGradientChanged(ChangeEvent<Gradient> evt)
-        {
-            //if (evt.previousValue.Equals(evt.newValue))
-            //{
-            //return;
-            //}
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnGradientChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnVector2IntChanged(ChangeEvent<Vector2Int> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnVector2IntChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnVector3IntChanged(ChangeEvent<Vector3Int> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnVector3IntChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnRectIntChanged(ChangeEvent<RectInt> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnRectIntChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnBoundsIntChanged(ChangeEvent<BoundsInt> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnBoundsIntChanged {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnHash128Changed(ChangeEvent<Hash128> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnHash128Changed {evt.previousValue} -> {validatedValue}");
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(evt.previousValue, validatedValue);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnLayerMaskChanged(ChangeEvent<int> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnLayerMaskChanged {evt.previousValue} -> {validatedValue}");
-                LayerMask mask = new()
-                {
-                    value = (int)validatedValue
-                };
-                MarkDirtyWithValue(evt.previousValue, mask);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                LayerMask mask = new()
-                {
-                    value = (int)validatedValue
-                };
-                MarkDirtyWithValue(evt.previousValue, mask);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-        }
-
-        private void OnRenderingLayerMaskChanged(ChangeEvent<uint> evt)
-        {
-            if (evt.previousValue == evt.newValue)
-            {
-                return;
-            }
-
-            var validatedValue = ProcessValidation(evt.newValue);
-            if (Validate == null)
-            {
-                Debug.Log($"OnRenderingLayerMaskChanged {evt.previousValue} -> {validatedValue}");
-                RenderingLayerMask mask = new()
-                {
-                    value = (uint)validatedValue
-                };
-                MarkDirtyWithValue(evt.previousValue, mask);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                RenderingLayerMask mask = new()
-                {
-                    value = (uint)validatedValue
-                };
-                MarkDirtyWithValue(evt.previousValue, mask);
-                ValueChanged.Invoke(this, evt.previousValue, validatedValue);
-            }
+            return new RenderingLayerMask { value = (uint)value };
         }
 
         public void OnComboBoxSelectionChanged(ComboBox<object> comboBox, List<int> selectedIndices)
@@ -1775,16 +1127,23 @@ namespace VaporEditor.Inspector
             IList selection = (IList)Property.CreateGenericListOfType();
             foreach (var idx in selectedIndices)
             {
+                // ComboBox resolves indices by display name and yields -1 when a name no longer matches a
+                // choice, which used to index straight off the end of Values.
+                if (idx < 0 || idx >= comboBox.Values.Count)
+                {
+                    continue;
+                }
+
                 selection.Add(comboBox.Values[idx]);
             }
-            //Debug.Log($"OnComboBoxSelectionChanged - New Selections: {selection.Count}");
+            //InspectorDebug.Log($"OnComboBoxSelectionChanged - New Selections: {selection.Count}");
 
             bool allMatching = true;
             if (Property.IsArray)
             {
                 if (selection.Count != Property.ArraySize)
                 {
-                    //Debug.Log($"OnComboBoxSelectionChanged {selection.Count} != {Property.ArraySize}");
+                    //InspectorDebug.Log($"OnComboBoxSelectionChanged {selection.Count} != {Property.ArraySize}");
                     allMatching = false;
                 }
                 else
@@ -1802,7 +1161,7 @@ namespace VaporEditor.Inspector
                             }
                         }
                     }
-                    //Debug.Log($"Matcing {matching}");
+                    //InspectorDebug.Log($"Matcing {matching}");
                     if (matching != selection.Count)
                     {
                         allMatching = false;
@@ -1827,38 +1186,15 @@ namespace VaporEditor.Inspector
                 return;
             }
 
-            var validatedValue = ProcessValidation(Property.IsArray ? selection : selection[0]);
-            if (Validate == null)
-            {
-                Debug.Log($"OnComboBoxSelectionChanged {Property.GetValue()} -> {validatedValue}");
-                MarkDirtyWithValue(Property.GetValue(), validatedValue);
-                ValueChanged.Invoke(this, Property.GetValue(), validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(Property.GetValue(), validatedValue);
-                ValueChanged.Invoke(this, Property.GetValue(), validatedValue);
-            }
+            // Read before the write. This used to call Property.GetValue() again afterwards, so listeners
+            // were handed the new value as the old one.
+            var previous = Property.GetValue();
+            CommitWidgetValue(previous, Property.IsArray ? selection : selection[0], null);
         }
 
         public void OnNameSelectionChanged(VisualElement sender, string oldAqn, string newAqn)
         {
-            var validatedValue = ProcessValidation(Property.IsArray ? newAqn : newAqn);
-            if (Validate == null)
-            {
-                Debug.Log($"OnTypeSelectionChanged {Property.GetValue()} -> {validatedValue}");
-                MarkDirtyWithValue(Property.GetValue(), validatedValue);
-                ValueChanged.Invoke(this, oldAqn, validatedValue);
-            }
-            else
-            {
-                validatedValue = Validate.Invoke(validatedValue);
-                validatedValue = CastToType(validatedValue, PropertyType);
-                MarkDirtyWithValue(Property.GetValue(), validatedValue);
-                ValueChanged.Invoke(this, oldAqn, validatedValue);
-            }
+            CommitWidgetValue(oldAqn, newAqn, null);
         }
         
         public void OnSerializeReferenceSelectionChanged(ComboBox<object> comboBox, List<int> selectedIndices)
@@ -1868,14 +1204,14 @@ namespace VaporEditor.Inspector
             {
                 selection.Add((Type)comboBox.Values[idx]);
             }
-            //Debug.Log($"OnComboBoxSelectionChanged - New Selections: {selection.Count}");
+            //InspectorDebug.Log($"OnComboBoxSelectionChanged - New Selections: {selection.Count}");
 
             bool allMatching = true;
             if (Property.IsArray)
             {
                 if (selection.Count != Property.ArraySize)
                 {
-                    //Debug.Log($"OnComboBoxSelectionChanged {selection.Count} != {Property.ArraySize}");
+                    //InspectorDebug.Log($"OnComboBoxSelectionChanged {selection.Count} != {Property.ArraySize}");
                     allMatching = false;
                 }
                 else
@@ -1893,7 +1229,7 @@ namespace VaporEditor.Inspector
                             }
                         }
                     }
-                    //Debug.Log($"Matcing {matching}");
+                    //InspectorDebug.Log($"Matcing {matching}");
                     if (matching != selection.Count)
                     {
                         allMatching = false;
@@ -1960,12 +1296,10 @@ namespace VaporEditor.Inspector
             // }
             if (newObj != null)
             {
-                InspectorTreeObject ito = new InspectorTreeObject(newObj, newObj.GetType()).WithParent(Property.InspectorObject);
-                InspectorTreeRootElement subRoot = new(ito);
-                subRoot.DrawToScreen(comboParent);
+                new InspectorTreeRootElement(newObj, newObj.GetType(), Property.InspectorObject).AttachTo(comboParent);
             }
 
-            Debug.Log($"OnSerializeReferenceSelectionChanged {prevObj} -> {newObj}");
+            InspectorDebug.Log($"OnSerializeReferenceSelectionChanged {prevObj} -> {newObj}");
             MarkDirtyWithValue(prevObj, newObj);
             ValueChanged.Invoke(this, prevObj, newObj);
         }
@@ -2140,218 +1474,6 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private void DrawDecorators()
-        {
-            if (Property.TryGetAttribute<BackgroundColorAttribute>(out var backgroundColor))
-            {
-                var type = Property.ParentType;
-                if (backgroundColor.HasBackgroundColorResolver)
-                {
-                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, backgroundColor.BackgroundColorResolver), c => style.backgroundColor = c);
-                    AddResolver(resolverContainerProp);
-                }
-                else
-                {
-                    style.backgroundColor = backgroundColor.BackgroundColor;
-                }
-            }
-
-            if (Property.TryGetAttribute<MarginsAttribute>(out var margins))
-            {
-                if (margins.Bottom != null)
-                {
-                    style.marginBottom = margins.Bottom;
-                }
-
-                if (margins.Top != null)
-                {
-                    style.marginTop = margins.Top;
-                }
-
-                if (margins.Left != null)
-                {
-                    style.marginLeft = margins.Left;
-                }
-
-                if (margins.Right != null)
-                {
-                    style.marginRight = margins.Right;
-                }
-            }
-
-            if (Property.TryGetAttribute<PaddingAttribute>(out var padding))
-            {
-                if (padding.Bottom != null)
-                {
-                    style.paddingBottom = padding.Bottom;
-                }
-
-                if (padding.Top != null)
-                {
-                    style.paddingTop = padding.Top;
-                }
-
-                if (padding.Left != null)
-                {
-                    style.paddingLeft = padding.Left;
-                }
-
-                if (padding.Right != null)
-                {
-                    style.paddingRight = padding.Right;
-                }
-            }
-
-            if (Property.TryGetAttribute<BordersAttribute>(out var borders))
-            {
-                style.borderBottomWidth = borders.Bottom;
-                style.borderBottomColor = borders.Color;
-
-                style.borderTopWidth = borders.Top;
-                style.borderTopColor = borders.Color;
-
-                style.borderLeftWidth = borders.Left;
-                style.borderLeftColor = borders.Color;
-
-                style.borderRightWidth = borders.Right;
-                style.borderRightColor = borders.Color;
-
-                style.borderBottomLeftRadius = borders.Roundness;
-                style.borderBottomRightRadius = borders.Roundness;
-                style.borderTopLeftRadius = borders.Roundness;
-                style.borderTopRightRadius = borders.Roundness;
-            }
-        }
-
-        private void DrawConditionals()
-        {
-            var type = Property.ParentType;
-            if (Property.TryGetAttribute<ShowIfAttribute>(out var showIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, showIf.Resolver),
-                    b => ParentTreeElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                AddResolver(resolverContainerProp);
-            }
-
-            if (Property.TryGetAttribute<HideIfAttribute>(out var hideIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, hideIf.Resolver),
-                    b => ParentTreeElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                AddResolver(resolverContainerProp);
-            }
-
-            if (Property.TryGetAttribute<DisableIfAttribute>(out var disableIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, disableIf.Resolver),
-                    b => { _internalLabel?.SetEnabled(!b); _internalField.SetEnabled(!b); });
-                AddResolver(resolverContainerProp);
-            }
-
-            if (Property.TryGetAttribute<EnableIfAttribute>(out var enableIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, enableIf.Resolver),
-                    b => { _internalLabel?.SetEnabled(b); _internalField.SetEnabled(b); });
-                AddResolver(resolverContainerProp);
-            }
-
-            if (Property.HasAttribute<HideInEditorModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => ParentTreeElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                AddResolver(resolverContainerFunc);
-            }
-
-            if (Property.HasAttribute<HideInPlayModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => ParentTreeElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                AddResolver(resolverContainerFunc);
-            }
-
-            if (Property.HasAttribute<DisableInEditorModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => { _internalLabel?.SetEnabled(b); _internalField.SetEnabled(b); });
-                AddResolver(resolverContainerFunc);
-            }
-
-            if (Property.HasAttribute<DisableInPlayModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => { _internalLabel?.SetEnabled(!b); _internalField.SetEnabled(!b); });
-                AddResolver(resolverContainerFunc);
-            }
-        }
-
-        public static void DrawConditionals(InspectorTreeElement treeElement, VisualElement visualElement)
-        {
-            var property = treeElement.Property;
-            var type = property.ParentType;
-            if (property.TryGetAttribute<ShowIfAttribute>(out var showIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(property, ReflectionUtility.GetMember(type, showIf.Resolver),
-                    b => visualElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                treeElement.AddResolver(resolverContainerProp);
-            }
-
-            if (property.TryGetAttribute<HideIfAttribute>(out var hideIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(property, ReflectionUtility.GetMember(type, hideIf.Resolver),
-                    b => visualElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                treeElement.AddResolver(resolverContainerProp);
-            }
-
-            if (property.TryGetAttribute<DisableIfAttribute>(out var disableIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(property, ReflectionUtility.GetMember(type, disableIf.Resolver),
-                    b => visualElement.SetEnabled(!b));
-                treeElement.AddResolver(resolverContainerProp);
-            }
-
-            if (property.TryGetAttribute<EnableIfAttribute>(out var enableIf))
-            {
-                var resolverContainerProp = new SerializedResolverContainerType<bool>(property, ReflectionUtility.GetMember(type, enableIf.Resolver),
-                    b => visualElement.SetEnabled(b));
-                treeElement.AddResolver(resolverContainerProp);
-            }
-
-            if (property.HasAttribute<HideInEditorModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => visualElement.style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
-                treeElement.AddResolver(resolverContainerFunc);
-            }
-
-            if (property.HasAttribute<HideInPlayModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => visualElement.style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
-                treeElement.AddResolver(resolverContainerFunc);
-            }
-
-            if (property.HasAttribute<DisableInEditorModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => visualElement.SetEnabled(b));
-                treeElement.AddResolver(resolverContainerFunc);
-            }
-
-            if (property.HasAttribute<DisableInPlayModeAttribute>())
-            {
-                var resolverContainerFunc = new SerializedResolverContainerAction<bool>(
-                    () => EditorApplication.isPlaying,
-                    b => visualElement.SetEnabled(!b));
-                treeElement.AddResolver(resolverContainerFunc);
-            }
-        }
-
         private void DrawReadOnly()
         {
             if (Property.HasAttribute<ReadOnlyAttribute>())
@@ -2491,9 +1613,10 @@ namespace VaporEditor.Inspector
                         }.WithOnClick(ClickTypes.ClickOnDown, _ =>
                         {
                             methodInfo.Invoke(Property.GetParentObject(), null);
+                            RefreshFromSource();
                             if (atr.RebuildTree)
                             {
-                                GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
+                                Owner.Root.RebuildAndRedraw();
                             }
                         }).WithActivator(EventModifiers.None, MouseButton.LeftMouse));
 
@@ -2568,6 +1691,7 @@ namespace VaporEditor.Inspector
                         inlineButton.clickable = new Clickable(() =>
                         {
                             methodInfo.Invoke(Property.GetParentObject(), null);
+                            RefreshFromSource();
                             ReflectionUtility.TryResolveMemberValue<bool>(Property.GetParentObject(), memberInfo, null, out var state);
                             if (state)
                             {
@@ -2581,7 +1705,7 @@ namespace VaporEditor.Inspector
                             }
                             if (atr.RebuildTree)
                             {
-                                GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
+                                Owner.Root.RebuildAndRedraw();
                             }
                         });                        
 
@@ -2685,7 +1809,7 @@ namespace VaporEditor.Inspector
 
                         if (ovc.RebuildTree)
                         {
-                            GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
+                            Owner.Root.RebuildAndRedraw();
                         }
                     };
                 }
@@ -2793,17 +1917,9 @@ namespace VaporEditor.Inspector
                     return;
                 }
                 
-                var comps = monoBehaviour.GetComponentsInChildren(PropertyType, true);
-
-                var inlineButton = new Button(() => 
+                var inlineButton = new Button(() => ShowChildObjectPicker(monoBehaviour, atr))
                 {
-                    foreach (var c in comps)
-                    {
-                        Debug.Log(c.name);
-                    }
-                })
-                {
-
+                    tooltip = "Pick from this object's children",
                 };
                 inlineButton.style.paddingLeft = 3;
                 inlineButton.style.paddingRight = 3;
@@ -2821,12 +1937,71 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private void DrawFlexBasis()
+        /// <summary>
+        /// Lists the components of this field's type found beneath <paramref name="root"/>, keyed by their
+        /// path relative to it so two children of the same name stay distinguishable.
+        /// </summary>
+        private void ShowChildObjectPicker(Component root, ChildGameObjectsOnlyAttribute atr)
         {
-            if (Property.TryGetAttribute<HorizontalGroupAttribute>(out var atr))
+            var candidates = root.GetComponentsInChildren(PropertyType, true);
+            var models = new List<GenericSearchModel>(candidates.Length + 1);
+            var byName = new Dictionary<string, Object>(candidates.Length + 1);
+
+            const string noneName = "None";
+            models.Add(new GenericSearchModel(noneName, string.Empty, noneName, false));
+            byName[noneName] = null;
+
+            foreach (var candidate in candidates)
             {
-                ParentTreeElement.style.flexBasis = atr.FlexBasis;
+                if (!atr.IncludeSelf && candidate.transform == root.transform)
+                {
+                    continue;
+                }
+
+                var path = GetRelativePath(root.transform, candidate.transform);
+                // Two components of the same type on one object would collide on path alone.
+                var name = path;
+                for (var suffix = 2; byName.ContainsKey(name); suffix++)
+                {
+                    name = $"{path} ({suffix})";
+                }
+
+                models.Add(new GenericSearchModel(name, string.Empty, name));
+                byName[name] = candidate;
             }
+
+            var provider = new GenericSearchProvider(selected =>
+            {
+                if (selected == null || selected.Length == 0 || !byName.TryGetValue(selected[0].Name, out var picked))
+                {
+                    return;
+                }
+
+                var previous = Property.GetValue();
+                MarkDirtyWithValue(previous, picked);
+                ValueChanged.Invoke(this, previous, picked);
+                RefreshFromSource();
+            }, models, false);
+
+            var worldRect = GUIUtility.GUIToScreenRect(worldBound);
+            var position = new Vector2(worldRect.position.x + 24, worldRect.position.y + worldBound.height + 16);
+            GenericSearchWindow.Show(position, position, provider, true, PropertyType.Name);
+        }
+
+        private static string GetRelativePath(Transform root, Transform target)
+        {
+            if (target == root)
+            {
+                return target.name;
+            }
+
+            var path = target.name;
+            for (var current = target.parent; current != null && current != root; current = current.parent)
+            {
+                path = $"{current.name}/{path}";
+            }
+
+            return path;
         }
 
         #endregion
@@ -2834,22 +2009,7 @@ namespace VaporEditor.Inspector
         #region - Resolvers -
         private void AddResolver(SerializedResolverContainer resolver)
         {
-            _resolvers.Add(resolver);
-#if UNITY_EDITOR_COROUTINES
-            _resolverRoutine ??= EditorCoroutineUtility.StartCoroutine(ResolveContainers(), this);
-#endif
-        }
-
-        private IEnumerator ResolveContainers()
-        {
-            while (true)
-            {
-                foreach (var resolver in _resolvers)
-                {
-                    resolver.Resolve();
-                }
-                yield return null;
-            }
+            InspectorResolverTicker.Register(this, resolver);
         }
         #endregion
 
@@ -2885,32 +2045,13 @@ namespace VaporEditor.Inspector
             }
         }
 
+        /// <summary>
+        /// Kept as the entry point drawers already call. The conversion itself lives on
+        /// <see cref="InspectorTreeProperty"/>, alongside the reads it has to agree with.
+        /// </summary>
         public static object CastToType(object obj, Type targetType)
         {
-            if (obj == null)
-            {
-                if (targetType.IsClass || Nullable.GetUnderlyingType(targetType) != null)
-                {
-                    return null; // Null is a valid value for reference types and nullable types
-                }
-                throw new ArgumentNullException(nameof(obj), "Cannot cast null to a non-nullable value type.");
-            }
-
-            // Check if the object is already of the target type
-            if (targetType.IsAssignableFrom(obj.GetType()))
-            {
-                return obj; // No casting needed
-            }
-
-            // Handle conversion using Convert.ChangeType if the target type is convertible
-            try
-            {
-                return Convert.ChangeType(obj, targetType);
-            }
-            catch (InvalidCastException)
-            {
-                throw new InvalidCastException($"Cannot cast object of type {obj.GetType()} to type {targetType}.");
-            }
+            return InspectorTreeProperty.CastToType(obj, targetType);
         }
 
         public static void StyleLabel(VisualElement element)
@@ -2953,9 +2094,7 @@ namespace VaporEditor.Inspector
             outerElement.Add(comboBox);
             if (cIdx > 0)
             {
-                InspectorTreeObject ito = new InspectorTreeObject(current, current.GetType()).WithParent(parent);
-                InspectorTreeRootElement subRoot = new(ito);
-                subRoot.DrawToScreen(outerElement);
+                new InspectorTreeRootElement(current, current.GetType(), parent).AttachTo(outerElement);
             }
 
             return outerElement;

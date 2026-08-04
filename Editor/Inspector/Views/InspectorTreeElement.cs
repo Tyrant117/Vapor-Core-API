@@ -1,28 +1,59 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
-#if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
-#endif
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeElement : VisualElement
     {
-        protected static Func<VaporGroupAttribute, int> ShortestToLongestName => group => group.GroupName.Length;
-        
+        private static readonly Func<VaporGroupAttribute, int> s_ShortestToLongestName = group => group.GroupName.Length;
+
+        /// <summary>
+        /// What a controller draws: the element to attach, and the container its children belong in.
+        /// The two differ when the drawn element is wrapped, so the controller never has to reach into
+        /// the view to find the real content container.
+        /// </summary>
+        public readonly struct TreeView
+        {
+            public readonly VisualElement Element;
+            public readonly VisualElement Content;
+
+            public TreeView(VisualElement element) : this(element, element?.contentContainer)
+            {
+            }
+
+            public TreeView(VisualElement element, VisualElement content)
+            {
+                Element = element;
+                Content = content;
+            }
+
+            public static TreeView None => default;
+        }
+
+        private VisualElement _contentContainer;
+
+        /// <summary>
+        /// Falls back to this element when there is no view, so a type we can't draw yields an empty row
+        /// rather than throwing the moment something is added to it.
+        /// </summary>
+        public override VisualElement contentContainer => _contentContainer ?? this;
+
+        /// <summary>
+        /// The drawn element this controller owns, or null when it draws nothing itself.
+        /// </summary>
+        public VisualElement View { get; private set; }
 
         // Visual
         public InspectorTreeRootElement Root { get; protected set; }
         public InspectorTreeElement Parent { get; protected set; }
         public bool IsRoot { get; protected set; }
         public int DrawOrder { get; protected set; }
-        public UIGroupType SurroundWithGroup { get; protected set; }
         public VaporGroupAttribute Group { get; protected set; }
         public List<InspectorTreeElement> ChildTreeElements { get; set; } = new();
 
@@ -35,11 +66,6 @@ namespace VaporEditor.Inspector
 
         protected List<VaporGroupAttribute> Groups;
         protected List<InspectorTreeElement> TempChildren = new();
-
-        private readonly List<SerializedResolverContainer> _resolvers = new();
-#if UNITY_EDITOR_COROUTINES
-        private EditorCoroutine _resolverRoutine;
-#endif
 
         #region - Building -
         protected void FindGroupsAndDrawOrder()
@@ -58,7 +84,7 @@ namespace VaporEditor.Inspector
             var vaporGroupAttributes = attributes as VaporGroupAttribute[] ?? attributes.ToArray();
             if (vaporGroupAttributes.Length > 1)
             {
-                Groups = vaporGroupAttributes.OrderBy(ShortestToLongestName).ToList();
+                Groups = vaporGroupAttributes.OrderBy(s_ShortestToLongestName).ToList();
             }
             else
             {
@@ -96,7 +122,6 @@ namespace VaporEditor.Inspector
             }
 
             TempChildren.Clear();
-            SurroundWithGroup = TryGetTypeAttribute<DrawWithVaporAttribute>(out var atr) ? atr.InlinedGroupType : UIGroupType.Vertical;
 
             //Debug.Log($"Building Children For: {Property.PropertyPath}");
             foreach (var field in Property.Fields)
@@ -218,6 +243,25 @@ namespace VaporEditor.Inspector
             child.Parent = this;
             ChildTreeElements.Add(child);
         }
+
+        /// <summary>
+        /// Walks the controller tree rather than the visual tree, so it works before anything is attached.
+        /// </summary>
+        protected void ForEachDescendantField(Action<TreePropertyField> action)
+        {
+            foreach (var child in ChildTreeElements)
+            {
+                // A row in a horizontal group has its field wrapped in a layout element, so the view is the
+                // wrapper. Either way the content container is the field itself.
+                var field = child.View as TreePropertyField ?? child.contentContainer as TreePropertyField;
+                if (field != null)
+                {
+                    action(field);
+                }
+
+                child.ForEachDescendantField(action);
+            }
+        }
         #endregion
 
         #region - Drawing -
@@ -230,7 +274,33 @@ namespace VaporEditor.Inspector
             }
         }
 
-        public VisualElement SurroundWithVaporGroup(UIGroupType drawnWithGroup, string groupName, string header)
+        /// <summary>
+        /// Produces the element this controller draws. Subclasses build it and hand it back; they do not
+        /// attach it or decide where children go.
+        /// </summary>
+        protected virtual TreeView BuildView()
+        {
+            return TreeView.None;
+        }
+
+        /// <summary>
+        /// Attaches the drawn element. This is the only place a controller touches its view's hierarchy -
+        /// everything the controller wants to say about the row it says on itself.
+        /// </summary>
+        protected void InitializeView()
+        {
+            var view = BuildView();
+            View = view.Element;
+            if (view.Element == null)
+            {
+                return;
+            }
+
+            hierarchy.Add(view.Element);
+            _contentContainer = view.Content ?? view.Element;
+        }
+
+        public static VisualElement SurroundWithVaporGroup(UIGroupType drawnWithGroup, string groupName, string header)
         {
             VaporGroupAttribute vaporGroup = drawnWithGroup switch
             {
@@ -243,21 +313,178 @@ namespace VaporEditor.Inspector
                 _ => throw new ArgumentOutOfRangeException()
             };
 
-            var vaporPropertyGroup = SerializedDrawerUtility.DrawGroupElement(vaporGroup);
-            return vaporPropertyGroup;
+            return SerializedDrawerUtility.DrawGroupElement(vaporGroup);
         }
         #endregion
 
-        #region - Events -
-        protected virtual void OnDetachedFromPanel(DetachFromPanelEvent evt)
+        #region - Row Decorators -
+        /// <summary>
+        /// Everything that positions or frames the row rather than the input widget. Applied before the
+        /// view exists, so the separator lands above it and the view is free to ignore all of this.
+        /// </summary>
+        protected void ApplyRowDecorators()
         {
-            _resolvers.Clear();
-#if UNITY_EDITOR_COROUTINES
-            if (_resolverRoutine != null)
+            if (!HasProperty)
             {
-                EditorCoroutineUtility.StopCoroutine(_resolverRoutine);
+                return;
             }
-#endif
+
+            if (!Property.IsArrayElement && HasAttribute<SectionAttribute>())
+            {
+                hierarchy.Add(new SectionElement());
+            }
+
+            if (Group is { Type: UIGroupType.Horizontal })
+            {
+                style.flexGrow = 1f;
+            }
+
+            if (TryGetAttribute<HorizontalGroupAttribute>(out var horizontal))
+            {
+                style.flexBasis = horizontal.FlexBasis;
+            }
+
+            if (TryGetAttribute<BackgroundColorAttribute>(out var backgroundColor))
+            {
+                if (backgroundColor.HasBackgroundColorResolver)
+                {
+                    AddResolver(new SerializedResolverContainerType<Color>(Property,
+                        ReflectionUtility.GetMember(Property.ParentType, backgroundColor.BackgroundColorResolver),
+                        c => style.backgroundColor = c));
+                }
+                else
+                {
+                    style.backgroundColor = backgroundColor.BackgroundColor;
+                }
+            }
+
+            if (TryGetAttribute<MarginsAttribute>(out var margins))
+            {
+                if (margins.Bottom != null)
+                {
+                    style.marginBottom = margins.Bottom;
+                }
+
+                if (margins.Top != null)
+                {
+                    style.marginTop = margins.Top;
+                }
+
+                if (margins.Left != null)
+                {
+                    style.marginLeft = margins.Left;
+                }
+
+                if (margins.Right != null)
+                {
+                    style.marginRight = margins.Right;
+                }
+            }
+
+            if (TryGetAttribute<PaddingAttribute>(out var padding))
+            {
+                if (padding.Bottom != null)
+                {
+                    style.paddingBottom = padding.Bottom;
+                }
+
+                if (padding.Top != null)
+                {
+                    style.paddingTop = padding.Top;
+                }
+
+                if (padding.Left != null)
+                {
+                    style.paddingLeft = padding.Left;
+                }
+
+                if (padding.Right != null)
+                {
+                    style.paddingRight = padding.Right;
+                }
+            }
+
+            if (!TryGetAttribute<BordersAttribute>(out var borders))
+            {
+                return;
+            }
+
+            style.borderBottomWidth = borders.Bottom;
+            style.borderBottomColor = borders.Color;
+
+            style.borderTopWidth = borders.Top;
+            style.borderTopColor = borders.Color;
+
+            style.borderLeftWidth = borders.Left;
+            style.borderLeftColor = borders.Color;
+
+            style.borderRightWidth = borders.Right;
+            style.borderRightColor = borders.Color;
+
+            style.borderBottomLeftRadius = borders.Roundness;
+            style.borderBottomRightRadius = borders.Roundness;
+            style.borderTopLeftRadius = borders.Roundness;
+            style.borderTopRightRadius = borders.Roundness;
+        }
+
+        /// <summary>
+        /// Show/hide and enable/disable for the whole row. These belong to the controller because they are
+        /// about whether the row is there at all, not about how the value is drawn.
+        /// </summary>
+        protected void ApplyRowConditionals()
+        {
+            if (!HasProperty)
+            {
+                return;
+            }
+
+            var type = Property.ParentType;
+
+            if (TryGetAttribute<ShowIfAttribute>(out var showIf))
+            {
+                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, showIf.Resolver),
+                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
+            }
+
+            if (TryGetAttribute<HideIfAttribute>(out var hideIf))
+            {
+                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, hideIf.Resolver),
+                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
+            }
+
+            if (TryGetAttribute<DisableIfAttribute>(out var disableIf))
+            {
+                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, disableIf.Resolver),
+                    b => SetEnabled(!b)));
+            }
+
+            if (TryGetAttribute<EnableIfAttribute>(out var enableIf))
+            {
+                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, enableIf.Resolver),
+                    SetEnabled));
+            }
+
+            if (HasAttribute<HideInEditorModeAttribute>())
+            {
+                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying,
+                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
+            }
+
+            if (HasAttribute<HideInPlayModeAttribute>())
+            {
+                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying,
+                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
+            }
+
+            if (HasAttribute<DisableInEditorModeAttribute>())
+            {
+                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying, SetEnabled));
+            }
+
+            if (HasAttribute<DisableInPlayModeAttribute>())
+            {
+                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying, b => SetEnabled(!b)));
+            }
         }
         #endregion
 
@@ -294,23 +521,8 @@ namespace VaporEditor.Inspector
         #region - Resolvers -
         public void AddResolver(SerializedResolverContainer resolver)
         {
-            _resolvers.Add(resolver);
-#if UNITY_EDITOR_COROUTINES
-            _resolverRoutine ??= EditorCoroutineUtility.StartCoroutine(ResolveContainers(), this);
-#endif
+            InspectorResolverTicker.Register(this, resolver);
         }
-
-        private IEnumerator ResolveContainers()
-        {
-            while (true)
-            {
-                foreach (var resolver in _resolvers)
-                {
-                    resolver.Resolve();
-                }
-                yield return null;
-            }
-        }        
         #endregion
     }
 }

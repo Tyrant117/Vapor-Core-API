@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Unity.Properties;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -14,7 +13,12 @@ namespace VaporEditor.Inspector
 {
     public class PaginatedList : VisualElement
     {
-        public InspectorTreeElement ParentTreeElement { get; }
+        /// <summary>
+        /// The controller that owns this list, used to parent the per-element trees and to reach the root
+        /// when a size change asks for a rebuild.
+        /// </summary>
+        public InspectorTreeElement Owner { get; }
+
         public InspectorTreeProperty Property { get; }
 
         // Elements
@@ -26,17 +30,28 @@ namespace VaporEditor.Inspector
         public VisualElement Container { get; private set; }
         public VisualElement Content { get; private set; }
 
+        /// <summary>
+        /// From [ListDrawer(editable:)]. False means the element count is fixed: no count field, no +/-,
+        /// no per-row delete and no duplicate. Element values and ordering are still editable.
+        /// </summary>
+        private readonly bool _editable = true;
+
         private int _visibleMaxCount = 14;
         private int _currentPage = 1;
-        private List<InspectorTreeElement> _visibleContent = new();
         private event Action<PaginatedList, int, int> SizeChanged;
         private event Action<int, string, object, object> ValueChanged;
 
-        public PaginatedList(InspectorTreeElement parentTreeElement, InspectorTreeProperty property, string header)
+        public PaginatedList(InspectorTreeElement owner, InspectorTreeProperty property, string header)
         {
             AddToClassList("unity-box"); // Style like a box
-            ParentTreeElement = parentTreeElement;
+            Owner = owner;
             Property = property;
+
+            // Resolved before anything draws - the header, the rows and the context menu all gate on it.
+            if (Property.TryGetAttribute<ListDrawerAttribute>(out var editableAtr))
+            {
+                _editable = editableAtr.Editable;
+            }
 
             StyleBackground();
             DrawFoldout(header);
@@ -54,7 +69,14 @@ namespace VaporEditor.Inspector
                         SizeChanged += (sender, old, @new) =>
                         {
                             methodInfo.Invoke(Property.GetParentObject(), new object[] { old, @new });
-                            GetFirstAncestorOfType<InspectorTreeElement>().Root.RebuildAndRedraw();
+
+                            // Only a list that is still on screen drives the rebuild. A detached one has
+                            // already been replaced, and letting it rebuild re-runs the rebuild that
+                            // detached it.
+                            if (sender.panel != null)
+                            {
+                                Owner.Root.RebuildAndRedraw();
+                            }
                         };
                     }
                     else
@@ -140,12 +162,6 @@ namespace VaporEditor.Inspector
 
         private void DrawHeader(string header)
         {
-            bool editable = true;
-            if (Property.TryGetAttribute<ListDrawerAttribute>(out var listAtr))
-            {
-                editable = listAtr.Editable;
-            }
-            
             Header = new VisualElement()
             {
                 style =
@@ -182,7 +198,7 @@ namespace VaporEditor.Inspector
             };
             CountField = new IntegerField()
             {
-                isReadOnly = !editable,
+                isReadOnly = !_editable,
                 isDelayed = true,
                 style =
                 {
@@ -280,7 +296,7 @@ namespace VaporEditor.Inspector
             Header.Add(pgLeft);
             Header.Add(PageNumber);
             Header.Add(pgRight);
-            if (editable)
+            if (_editable)
             {
                 Header.Add(subtract);
                 Header.Add(add);
@@ -293,14 +309,7 @@ namespace VaporEditor.Inspector
         {
             Assert.IsTrue(Property.IsArray, $"Trying to draw a list for something that isn't an array {Property.PropertyPath}");
 
-            Content = new VisualElement()
-            {
-                style =
-                {
-
-                }
-            };
-            _visibleContent.Clear();
+            Content = new VisualElement();
 
             if (_currentPage > MaxPageCount())
             {
@@ -312,7 +321,7 @@ namespace VaporEditor.Inspector
             for (int i = indexStart; i < indexEnd; i++)
             {
                 var prop = Property.ArrayData[i];
-                var element = new InspectorTreeRootElement(ParentTreeElement, prop);
+                var element = new InspectorTreeRootElement(Owner, prop);
                 var treeField = element.Q<InspectorTreeFieldElement>();
                 //Get Children
                 treeField.Query<TreePropertyField>().ForEach(field => field.ValueChanged += OnElementChanged);
@@ -329,17 +338,25 @@ namespace VaporEditor.Inspector
                         }
                 };
                 DrawContextMenu(contextBox, prop);
-                treeField.hierarchy[0].style.flexGrow = 1f;
-                treeField.hierarchy.Insert(0, contextBox);
-                treeField.hierarchy.Add(new Button(() => Property.RemoveAt(prop.ElementIndex))
+                if (treeField.View != null)
                 {
-                    text = "x",
-                    style =
+                    // Asked for by name rather than by hierarchy index, so inserting the context box below
+                    // can't start stretching the wrong child.
+                    treeField.View.style.flexGrow = 1f;
+                }
+                treeField.hierarchy.Insert(0, contextBox);
+                if (_editable)
+                {
+                    treeField.hierarchy.Add(new Button(() => Property.RemoveAt(prop.ElementIndex))
                     {
-                        maxHeight = 31,
-                        alignSelf = Align.Center,
-                    }
-                });
+                        text = "x",
+                        style =
+                        {
+                            maxHeight = 31,
+                            alignSelf = Align.Center,
+                        }
+                    });
+                }
                 
                 {
                     // Need to rebind property here for bugs with some IMGUIContainer objects.
@@ -348,10 +365,13 @@ namespace VaporEditor.Inspector
                     property?.BindProperty(prop.InspectorObject.FindSerializedProperty(prop.PropertyPath));
                 }
 
-                _visibleContent.Add(element);
                 Content.Add(element);
             }
             Container.Add(Content);
+
+            // Refreshed on every redraw rather than only from the count field, so adding, removing or
+            // deleting an entry updates the "n/m" too - those paths never touched it.
+            UpdatePageCount();
         }
 
         private void OnElementChanged(TreePropertyField sender, object previous, object current)
@@ -367,7 +387,7 @@ namespace VaporEditor.Inspector
             {
                 evt.menu.AppendAction("Reset", _ =>
                 {
-                    Debug.Log($"Resetting: {property} of type {property.PropertyType}");
+                    InspectorDebug.Log($"Resetting: {property} of type {property.PropertyType}");
                     if (property.PropertyType.IsSubclassOf(typeof(Object)))
                     {
                         property.SetValue<Object>(null);
@@ -396,7 +416,7 @@ namespace VaporEditor.Inspector
                 evt.menu.AppendAction("Duplicate Array Element", _ =>
                 {
                     Property.DuplicateArrayProperty(property);
-                });
+                }, _editable ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
                 evt.menu.AppendSeparator();
                 evt.menu.AppendAction("Copy Property Path", _ => { EditorGUIUtility.systemCopyBuffer = property.PropertyPath; });
                 evt.menu.AppendSeparator();
@@ -437,7 +457,7 @@ namespace VaporEditor.Inspector
 
         public void Redraw()
         {
-            Debug.Log("Redraw Called!");
+            InspectorDebug.Log("Redraw Called!");
             Content.RemoveFromHierarchy();
             DrawContent();
         }
@@ -489,7 +509,16 @@ namespace VaporEditor.Inspector
                 return;
             }
 
-            //Debug.Log($"Array Count Changed {evt.previousValue} -> {evt.newValue}");
+            // The count field is also bound to ArraySize, so it fires again whenever the binding pushes the
+            // current size into it - which happens on every rebuild, since the new field starts at zero.
+            // Resizing to the size we already are is never a user edit, and treating it as one meant every
+            // rebuild scheduled another one.
+            if (evt.newValue == Property.ArraySize)
+            {
+                return;
+            }
+
+            //InspectorDebug.Log($"Array Count Changed {evt.previousValue} -> {evt.newValue}");
             if (_currentPage > MaxPageCount())
             {
                 _currentPage = MaxPageCount();

@@ -14,9 +14,8 @@ namespace VaporEditor.Inspector
             inspector.Add(DrawScript());
             InsertBeforeGraph(inspector);
 
-            var so = new InspectorTreeObject(serializedObject);
-            var tree = new InspectorTreeRootElement(so);
-            tree.DrawToScreen(inspector);
+            var tree = new InspectorTreeRootElement(serializedObject);
+            tree.AttachTo(inspector);
 
             InsertAfterGraph(inspector);
             return inspector;

@@ -1,16 +1,10 @@
-using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
-#if UNITY_EDITOR_COROUTINES
-using Unity.EditorCoroutines.Editor;
-#endif
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeMethodElement : InspectorTreeElement
     {
-        public override VisualElement contentContainer { get; }
-
         private StyledButton _button;
         private ButtonAttribute _attribute;
 
@@ -26,16 +20,15 @@ namespace VaporEditor.Inspector
 
             FindGroupsAndDrawOrder();
 
-            contentContainer = InitializeVisualElemet();
+            InitializeView();
         }
 
-        private VisualElement InitializeVisualElemet()
+        protected override TreeView BuildView()
         {
             name = "Branch_Method";
 
             _button = DrawButton();
-            hierarchy.Add(_button);
-            return _button.contentContainer;
+            return new TreeView(_button);
         }
 
         private StyledButton DrawButton()

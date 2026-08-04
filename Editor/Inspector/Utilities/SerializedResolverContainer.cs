@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -48,7 +49,7 @@ namespace VaporEditor.Inspector
         public override void Resolve()
         {
             var val = _checkForChanged.Invoke();
-            if (_currentValue.Equals(val))
+            if (EqualityComparer<T>.Default.Equals(_currentValue, val))
             {
                 return;
             }
@@ -87,12 +88,7 @@ namespace VaporEditor.Inspector
         {
             if (ReflectionUtility.TryResolveMemberValue<T>(_property.GetParentObject(), _memberInfo, null, out var val))
             {
-                if (_currentValue != null && _currentValue.Equals(val))
-                {
-                    return;
-                }
-
-                if(_currentValue == null && val == null)
+                if (EqualityComparer<T>.Default.Equals(_currentValue, val))
                 {
                     return;
                 }
@@ -132,7 +128,7 @@ namespace VaporEditor.Inspector
         {
             if (ReflectionUtility.TryResolveMemberValue<T>(_target, _memberInfo, null, out var val))
             {
-                if (_currentValue.Equals(val))
+                if (EqualityComparer<T>.Default.Equals(_currentValue, val))
                 {
                     return;
                 }

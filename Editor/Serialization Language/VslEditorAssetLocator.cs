@@ -1,0 +1,204 @@
+using System;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
+using UnityEngine;
+using Vapor.Serialization;
+using Object = UnityEngine.Object;
+
+namespace VaporEditor.Serialization
+{
+    /// <summary>
+    /// Supplies VSL with the durable locator for an asset, and loads one back, using the asset
+    /// database.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the half of reference resolution that cannot exist at runtime: only the editor knows
+    /// an object's asset path, and only the editor can read the Addressables settings to find the
+    /// address an asset is published under. It installs itself into
+    /// <see cref="VslAssetLocator.Provider"/> on domain load, and a player simply has no provider
+    /// and uses <c>Resources.Load</c> / Addressables directly.
+    /// </para>
+    /// <para>
+    /// Loading goes through the asset database rather than the Addressables runtime because that
+    /// works in edit mode, where the Addressables content may not have been built.
+    /// </para>
+    /// </remarks>
+    [InitializeOnLoad]
+    public sealed class VslEditorAssetLocator : IVslAssetLocator
+    {
+        // Addressable lookups walk every group, so the answer is cached per asset GUID. Invalidated
+        // whenever the Addressables settings change.
+        private static readonly Dictionary<string, string> s_AddressByGuid = new Dictionary<string, string>();
+        private static bool s_SubscribedToSettings;
+
+        static VslEditorAssetLocator()
+        {
+            VslAssetLocator.Provider = new VslEditorAssetLocator();
+        }
+
+        public bool TryGetKey(Object obj, out VslAssetSource source, out string key)
+        {
+            source = VslAssetSource.None;
+            key = null;
+
+            if (obj == null)
+            {
+                return false;
+            }
+
+            // A component lives on a prefab; the asset that can be loaded is the prefab itself.
+            var asset = obj is Component component ? component.gameObject : obj;
+
+            var path = AssetDatabase.GetAssetPath(asset.GetEntityId());
+            if (string.IsNullOrEmpty(path))
+            {
+                // Not an asset: a scene object or a runtime instance. Nothing durable to record.
+                return false;
+            }
+
+            // Resources first: it needs no build step and no package, so it is the more dependable
+            // of the two when an asset qualifies for both.
+            var resourcePath = VslAssetLocator.ToResourcePath(path);
+            if (!string.IsNullOrEmpty(resourcePath))
+            {
+                source = VslAssetSource.Resource;
+                key = resourcePath;
+                return true;
+            }
+
+            var address = FindAddressableAddress(path);
+            if (!string.IsNullOrEmpty(address))
+            {
+                source = VslAssetSource.Addressable;
+                key = address;
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryLoad(VslAssetSource source, string key, Type expectedType, out Object obj)
+        {
+            obj = null;
+            if (string.IsNullOrEmpty(key))
+            {
+                return false;
+            }
+
+            var assetType = ToAssetType(expectedType);
+
+            switch (source)
+            {
+                case VslAssetSource.Resource:
+                    obj = Resources.Load(key, assetType);
+                    break;
+
+                case VslAssetSource.Addressable:
+                {
+                    var path = FindAssetPathByAddress(key);
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        obj = AssetDatabase.LoadAssetAtPath(path, assetType);
+                    }
+
+                    break;
+                }
+            }
+
+            return obj != null;
+        }
+
+        /// <summary>
+        /// A component is not itself loadable; the prefab carrying it is. Narrowing back to the
+        /// component happens in <see cref="VslAssetLocator.Narrow"/>.
+        /// </summary>
+        private static Type ToAssetType(Type expectedType)
+        {
+            if (expectedType == null || !typeof(Object).IsAssignableFrom(expectedType))
+            {
+                return typeof(Object);
+            }
+
+            return typeof(Component).IsAssignableFrom(expectedType) ? typeof(GameObject) : expectedType;
+        }
+
+        private static string FindAddressableAddress(string assetPath)
+        {
+            var settings = Settings();
+            if (settings == null)
+            {
+                return null;
+            }
+
+            var guid = AssetDatabase.AssetPathToGUID(assetPath);
+            if (string.IsNullOrEmpty(guid))
+            {
+                return null;
+            }
+
+            if (s_AddressByGuid.TryGetValue(guid, out var cached))
+            {
+                return cached;
+            }
+
+            var entry = settings.FindAssetEntry(guid);
+            var address = entry?.address;
+            s_AddressByGuid[guid] = address;
+            return address;
+        }
+
+        private static string FindAssetPathByAddress(string address)
+        {
+            var settings = Settings();
+            if (settings == null)
+            {
+                return null;
+            }
+
+            foreach (var group in settings.groups)
+            {
+                if (group == null)
+                {
+                    continue;
+                }
+
+                foreach (var entry in group.entries)
+                {
+                    if (entry != null && string.Equals(entry.address, address, StringComparison.Ordinal))
+                    {
+                        return entry.AssetPath;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static AddressableAssetSettings Settings()
+        {
+            // Checked rather than created: a project that does not use Addressables must not sprout
+            // a settings asset just because something got serialized.
+            if (!AddressableAssetSettingsDefaultObject.SettingsExists)
+            {
+                return null;
+            }
+
+            var settings = AddressableAssetSettingsDefaultObject.GetSettings(false);
+            if (settings == null)
+            {
+                return null;
+            }
+
+            if (!s_SubscribedToSettings)
+            {
+                AddressableAssetSettings.OnModificationGlobal += (_, _, _) => s_AddressByGuid.Clear();
+                s_SubscribedToSettings = true;
+            }
+
+            return settings;
+        }
+    }
+}

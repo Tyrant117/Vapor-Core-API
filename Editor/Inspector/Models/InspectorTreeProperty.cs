@@ -12,123 +12,13 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Vapor.Inspector;
+using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeProperty
     {
-        internal class Builder
-        {
-            // Core
-            private InspectorTreeObject _inspectorObject;
-            private InspectorTreeProperty _parentProperty;
-            private string _path;
-            private Type _parentType;
-            private bool _hasParent;
-            
-            // Defaults
-            private string _propertyName;
-            private string _displayName;
-            private Type _memberType;
-            private MemberInfoType _memberInfoType;
-            
-            
-            // Member Info
-            private FieldInfo _fieldInfo;
-            private MethodInfo _methodInfo;
-            private PropertyInfo _propertyInfo;
-            
-            // Array
-            private bool _isArrayElement;
-            private int _elementIndex;
-            
-            
-            public Builder()
-            {
-                
-            }
-
-            public Builder Init(InspectorTreeObject root, InspectorTreeProperty parentProperty, string path)
-            {
-                _inspectorObject = root;
-                _parentProperty = parentProperty;
-                _path = path;
-                
-                if (_parentProperty == null)
-                {
-                    _parentType = _inspectorObject.Type;
-                }
-                else
-                {
-                    _parentType = _parentProperty.PropertyType;
-                    _hasParent = true;
-                }
-                return this;
-            }
-
-            public Builder AsField(FieldInfo fieldInfo)
-            {
-                _fieldInfo = fieldInfo;
-                _propertyName = _fieldInfo.Name;
-                _displayName = ObjectNames.NicifyVariableName(_propertyName);
-                _memberType = _fieldInfo.FieldType;
-                _memberInfoType = MemberInfoType.Field;
-                
-                return this;
-            }
-            
-            public Builder AsMethod(MethodInfo methodInfo)
-            {
-                _methodInfo = methodInfo;
-                _propertyName = _methodInfo.Name;
-                _displayName = ObjectNames.NicifyVariableName(_propertyName);
-                _memberType = _methodInfo.ReturnType;
-                _memberInfoType = MemberInfoType.Method;
-                
-                return this;
-            }
-            
-            public Builder AsProperty(PropertyInfo propertyInfo)
-            {
-                _propertyInfo = propertyInfo;
-                _propertyName = _propertyInfo.Name;
-                _displayName = ObjectNames.NicifyVariableName(_propertyName);
-                _memberType = _propertyInfo.PropertyType;
-                _memberInfoType = MemberInfoType.Property;
-                
-                return this;
-            }
-            
-            public Builder AsArrayElement(object obj, Type elementType, int elementIndex)
-            {
-                _elementIndex = elementIndex;
-                _isArrayElement = true;
-                _propertyName = $"[{elementIndex}]";
-                _memberType = elementType;
-                _displayName = _propertyName;
-            
-                var atr = _memberType.GetCustomAttribute<ArrayEntryNameAttribute>();
-                if (atr != null)
-                {
-                    var mi = ReflectionUtility.GetMember(_memberType, atr.Resolver);
-                    if (ReflectionUtility.TryResolveMemberValue<string>(obj, mi, null, out var atrDisplayName))
-                    {
-                        _displayName = atrDisplayName;
-                    }
-                }
-                
-                return this;
-            }
-
-            public InspectorTreeProperty Build()
-            {
-                return null;
-            }
-        }
-
-        internal static readonly Builder s_Builder = new Builder();
-        
         public enum MemberInfoType
         {
             Field,
@@ -187,10 +77,12 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private static readonly List<FieldInfo> s_FieldInfo = new();
-        private static readonly List<MethodInfo> s_MethodInfo = new();
-        private static readonly List<PropertyInfo> s_PropertyInfo = new();
-        private static readonly Stack<Type> s_TypeStack = new();
+        internal const BindingFlags MemberSearchFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+        /// <summary>
+        /// Returned instead of null by the child accessors so callers can always foreach. Never mutated.
+        /// </summary>
+        private static readonly List<InspectorTreeProperty> s_NoProperties = new();
 
         public InspectorTreeObject InspectorObject { get; }
         public InspectorTreeProperty ParentProperty { get; }
@@ -231,25 +123,98 @@ namespace VaporEditor.Inspector
         public object ArrayElementObject { get; private set; }
         public int ElementIndex { get; private set;}
 
+        private MemberInfo _arrayEntryNameMember;
+
+        /// <summary>
+        /// True when the element type carries [ArrayEntryName], so its label is derived from its contents
+        /// and goes stale as soon as those are edited.
+        /// </summary>
+        public bool HasArrayEntryName => _arrayEntryNameMember != null;
+
+        /// <summary>
+        /// Re-resolves [ArrayEntryName] against the element's current value and returns the result,
+        /// updating <see cref="DisplayName"/> to match.
+        /// </summary>
+        public string ResolveDisplayName()
+        {
+            if (_arrayEntryNameMember != null
+                && ReflectionUtility.TryResolveMemberValue<string>(ArrayElementObject, _arrayEntryNameMember, null, out var resolved))
+            {
+                DisplayName = resolved;
+            }
+
+            return DisplayName;
+        }
+
 
         // Array
+        /// <summary>
+        /// Taken from the materialized elements rather than off the live collection. The count field binds
+        /// to this and is polled continuously, so reading it must not cost a reflection walk; the elements
+        /// are rebuilt on every mutation, which is exactly when this needs to change.
+        /// </summary>
         [CreateProperty]
-        public int ArraySize { get; set; }
+        public int ArraySize
+        {
+            get
+            {
+                if (!IsArray)
+                {
+                    return 0;
+                }
+
+                EnsureChildProperties();
+                return _arrayData?.Count ?? 0;
+            }
+        }
+
         private List<InspectorTreeProperty> _arrayData;
-        public List<InspectorTreeProperty> ArrayData => _arrayData;
+        public List<InspectorTreeProperty> ArrayData
+        {
+            get
+            {
+                EnsureChildProperties();
+                return _arrayData ?? s_NoProperties;
+            }
+        }
 
         private ArrayReflectionHelper _arrayHelper;
 
 
         // Members
+        // Children are materialized on first access rather than up front, so building the visual tree
+        // is what drives property construction - one level at a time, and only for what is drawn.
+        private bool _childrenBuilt;
+
         private List<InspectorTreeProperty> _fields;
-        public List<InspectorTreeProperty> Fields => _fields;
+        public List<InspectorTreeProperty> Fields
+        {
+            get
+            {
+                EnsureChildProperties();
+                return _fields ?? s_NoProperties;
+            }
+        }
 
         private List<InspectorTreeProperty> _methods;
-        public List<InspectorTreeProperty> Methods => _methods;
+        public List<InspectorTreeProperty> Methods
+        {
+            get
+            {
+                EnsureChildProperties();
+                return _methods ?? s_NoProperties;
+            }
+        }
 
-        private List<InspectorTreeProperty> _properties;        
-        public List<InspectorTreeProperty> Properties => _properties;
+        private List<InspectorTreeProperty> _properties;
+        public List<InspectorTreeProperty> Properties
+        {
+            get
+            {
+                EnsureChildProperties();
+                return _properties ?? s_NoProperties;
+            }
+        }
 
 
         // Events
@@ -284,6 +249,12 @@ namespace VaporEditor.Inspector
             SerializedPropertyType = TypeToSerializedPropertyType(PropertyType);
             SerializedPropertyNumericType = TypeToSerializedPropertyNumericType(PropertyType);
             IsArray = IsArrayOrList(PropertyType);
+            if (IsArray)
+            {
+                // Type-level only, so it is safe to build before any value exists. Array mutation and
+                // ArraySize both need it before the elements themselves are materialized.
+                _arrayHelper = CreateArrayHelper(PropertyType);
+            }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
             if (!IsUnitySerializedProperty)
             {
@@ -313,8 +284,9 @@ namespace VaporEditor.Inspector
 
             IsWrappedSystemObject = SerializedPropertyType == SerializedPropertyType.ManagedReference && PropertyType == typeof(object);
             HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference);
+            NoChildProperties = HasIgnoreChildNodes();
         }
-        
+
         /// <summary>
         /// A Method Property
         /// </summary>
@@ -368,6 +340,12 @@ namespace VaporEditor.Inspector
             SerializedPropertyType = TypeToSerializedPropertyType(PropertyType);
             SerializedPropertyNumericType = TypeToSerializedPropertyNumericType(PropertyType);
             IsArray = IsArrayOrList(PropertyType);
+            if (IsArray)
+            {
+                // Type-level only, so it is safe to build before any value exists. Array mutation and
+                // ArraySize both need it before the elements themselves are materialized.
+                _arrayHelper = CreateArrayHelper(PropertyType);
+            }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
             if (IsStruct)
             {
@@ -375,6 +353,7 @@ namespace VaporEditor.Inspector
             }
 
             HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference);
+            NoChildProperties = HasIgnoreChildNodes();
         }
 
         /// <summary>
@@ -394,11 +373,8 @@ namespace VaporEditor.Inspector
             var atr = fieldType.GetCustomAttribute<ArrayEntryNameAttribute>();
             if (atr != null)
             {
-                var mi = ReflectionUtility.GetMember(fieldType, atr.Resolver);
-                if (ReflectionUtility.TryResolveMemberValue<string>(fieldObject, mi, null, out var atrDisplayName))
-                {
-                    DisplayName = atrDisplayName;
-                }
+                _arrayEntryNameMember = ReflectionUtility.GetMember(fieldType, atr.Resolver);
+                ResolveDisplayName();
             }
 
             PropertyInfoType = MemberInfoType.Field;
@@ -409,6 +385,12 @@ namespace VaporEditor.Inspector
             SerializedPropertyType = TypeToSerializedPropertyType(PropertyType);
             SerializedPropertyNumericType = TypeToSerializedPropertyNumericType(PropertyType);
             IsArray = IsArrayOrList(PropertyType);
+            if (IsArray)
+            {
+                // Type-level only, so it is safe to build before any value exists. Array mutation and
+                // ArraySize both need it before the elements themselves are materialized.
+                _arrayHelper = CreateArrayHelper(PropertyType);
+            }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
             if (!IsUnitySerializedProperty)
             {
@@ -439,182 +421,146 @@ namespace VaporEditor.Inspector
             HasCustomDrawer = ParentProperty.HasCustomDrawer ||
                               (!TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() &&
                                SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference));
+            NoChildProperties = HasIgnoreChildNodes();
+        }
+
+        private bool HasIgnoreChildNodes()
+        {
+            return TypeHasAttribute<IgnoreChildNodesAttribute>() || HasAttribute<IgnoreChildNodesAttribute>();
+        }
+
+        private static ArrayReflectionHelper CreateArrayHelper(Type propertyType)
+        {
+            return propertyType.IsArray
+                ? new ArrayReflectionHelper(propertyType, propertyType.GetElementType(), false)
+                : new ArrayReflectionHelper(propertyType, propertyType.GetGenericArguments()[0], true);
+        }
+
+        /// <summary>
+        /// Builds this property's immediate children the first time they are asked for. Recursion happens
+        /// naturally as the visual tree descends, so nothing is reflected over until it is about to be drawn.
+        /// </summary>
+        private void EnsureChildProperties()
+        {
+            if (_childrenBuilt)
+            {
+                return;
+            }
+
+            _childrenBuilt = true;
+            BuildChildProperties();
         }
 
         public void BuildChildProperties()
-        {          
-            // Need to handle getting the array properties manually.
+        {
+            // Arrays hold their children as elements rather than members.
             if (IsArray)
             {
                 BuildListProperties();
                 return;
             }
 
-            // Dont need to recurse the fields for things that we shouldnt draw or things Unity.Objects that will be drawn with an ObjectField.
-            if (IsUnityObjectOrSubclass() || !TypeHasAttribute<SerializableAttribute>())
+            // Nothing to recurse into for Unity.Objects (drawn as an ObjectField), non-serializable types,
+            // or anything explicitly opted out with [IgnoreChildNodes].
+            if (IsUnityObjectOrSubclass() || !TypeHasAttribute<SerializableAttribute>() || NoChildProperties)
             {
                 return;
             }
 
-            if(TypeHasAttribute<IgnoreChildNodesAttribute>() || HasAttribute<IgnoreChildNodesAttribute>())
+            var typeStack = new Stack<Type>();
+            for (var targetType = PropertyType; targetType != null; targetType = targetType.BaseType)
             {
-                NoChildProperties = true;
-                return;
+                typeStack.Push(targetType);
             }
 
-            s_FieldInfo.Clear();
-            s_MethodInfo.Clear();
-            s_PropertyInfo.Clear();
-            s_TypeStack.Clear();
-
-            var targetType = PropertyType;
-            while (targetType != null)
+            // Gathered base-first and kept in member kind order, because equal draw orders are sorted
+            // stably later on and this is what decides the default layout.
+            var fieldInfos = new List<FieldInfo>();
+            var propertyInfos = new List<PropertyInfo>();
+            var methodInfos = new List<MethodInfo>();
+            while (typeStack.TryPop(out var type))
             {
-                s_TypeStack.Push(targetType);
-                targetType = targetType.BaseType;
+                fieldInfos.AddRange(type.GetFields(MemberSearchFlags));
+                propertyInfos.AddRange(type.GetProperties(MemberSearchFlags));
+                methodInfos.AddRange(type.GetMethods(MemberSearchFlags));
             }
 
-            while (s_TypeStack.TryPop(out var type))
+            _fields = new List<InspectorTreeProperty>(fieldInfos.Count);
+            foreach (var field in fieldInfos)
             {
-                s_FieldInfo.AddRange(type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-                s_PropertyInfo.AddRange(type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-                s_MethodInfo.AddRange(type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-            }
+                if (!ReflectionUtility.FieldSearchPredicate(field))
+                {
+                    continue;
+                }
 
-            _fields = new(s_FieldInfo.Count);
-            foreach (var field in s_FieldInfo.Where(ReflectionUtility.FieldSearchPredicate))
-            {
-                string path = PropertyPath.Length > 0 ? $"{PropertyPath}.{field.Name}" : $"{field.Name}";
-                //Debug.Log($"Building FieldInfo at: {path}");
+                var path = ChildPath(field.Name);
                 var prop = new InspectorTreeProperty(InspectorObject, this, field, path);
                 _fields.Add(prop);
                 InspectorObject.AddToMap(path, prop);
             }
 
-            _methods = new(s_MethodInfo.Count);
-            foreach (var method in s_MethodInfo.Where(ReflectionUtility.MethodSearchPredicate))
+            _methods = new List<InspectorTreeProperty>();
+            foreach (var method in methodInfos)
             {
-                string path = PropertyPath.Length > 0 ? $"{PropertyPath}.{method.Name}" : $"{method.Name}";
-                //Debug.Log($"Building MethodInfo at: {path}");
+                if (!ReflectionUtility.MethodSearchPredicate(method))
+                {
+                    continue;
+                }
+
+                var path = ChildPath(method.Name);
                 var prop = new InspectorTreeProperty(InspectorObject, this, method, path);
                 _methods.Add(prop);
                 InspectorObject.AddToMap(path, prop);
             }
 
-            _properties = new(s_PropertyInfo.Count);
-            foreach (var property in s_PropertyInfo.Where(ReflectionUtility.PropertySearchPredicate))
+            _properties = new List<InspectorTreeProperty>();
+            foreach (var property in propertyInfos)
             {
-                string path = PropertyPath.Length > 0 ? $"{PropertyPath}.{property.Name}" : $"{property.Name}";
-                //Debug.Log($"Building PropertyInfo at: {path}");
+                if (!ReflectionUtility.PropertySearchPredicate(property))
+                {
+                    continue;
+                }
+
+                var path = ChildPath(property.Name);
                 var prop = new InspectorTreeProperty(InspectorObject, this, property, path);
                 _properties.Add(prop);
                 InspectorObject.AddToMap(path, prop);
-            }
-
-            foreach (var field in _fields)
-            {
-                field.BuildChildProperties();
-            }
-
-            foreach (var prop in _properties)
-            {
-                prop.BuildChildProperties();
             }
         }
 
         private void BuildListProperties()
         {
-            if (PropertyType.IsArray)
+            var arrayObject = GetValueSafe();
+            if (arrayObject == null)
             {
-                var listObj = GetValue();
-                if (listObj == null)
-                {
-                    Debug.LogWarning($"{PropertyPath} has a non-initialized list, but it is serialized. This shouldn't happen.");
-                    return;
-                    // Array arr = Array.CreateInstance(PropertyType.GetElementType(), 0);
-                    // SetValue(arr);
-                }
-
-                _arrayHelper = new ArrayReflectionHelper(PropertyType, PropertyType.GetElementType(), false);
-
-                var lengthPropInfo = PropertyType.GetProperty("Length");
-                int length = (int)lengthPropInfo.GetValue(GetValue());
-                ArraySize = length;
-                Type elementType = PropertyType.GetElementType();
-                MethodInfo elementGetter = PropertyType.GetMethod("GetValue", new[] { typeof(int) });
-                _arrayData = new List<InspectorTreeProperty>(length);
-                for (int i = 0; i < length; i++)
-                {
-                    // Access each element
-                    int idx = i;
-                    object element = elementGetter.Invoke(GetValue(), new object[] { idx });
-                    string path = PropertyPath.Length > 0 ? $"{PropertyPath}.Array.data[{idx}]" : $"{PropertyName}.Array.data[{idx}]";
-                    var prop = new InspectorTreeProperty(InspectorObject, this, elementType, element, idx, path);
-                    _arrayData.Add(prop);
-                    InspectorObject.AddToMap(path, prop);
-                }
-            }
-            else
-            {
-                var listObj = GetValue();
-                if(listObj == null)
-                {
-                    Debug.LogWarning($"{PropertyPath} has a non-initialized list, but it is serialized. This shouldn't happen.");
-                    return;
-                    // var tempList = (IList)CreateGenericList(PropertyType.GetGenericArguments()[0]);
-                    // SetValue(tempList);
-                }
-
-                _arrayHelper = new ArrayReflectionHelper(PropertyType, PropertyType.GetGenericArguments()[0], true);
-
-                int count = _arrayHelper.GetSize(GetValue()); //countPropInfo.GetValue(TargetObject);
-                ArraySize = count;
-                _arrayData = new List<InspectorTreeProperty>(count);
-                for (int i = 0; i < count; i++)
-                {
-                    // Access each element
-                    int idx = i;
-                    object element = _arrayHelper.GetElementObject(GetValue(), idx);// itemProperty.GetValue(TargetObject, new object[] { idx });
-                    string path = PropertyPath.Length > 0 ? $"{PropertyPath}.Array.data[{idx}]" : $"{PropertyName}.Array.data[{idx}]";
-                    var prop = new InspectorTreeProperty(InspectorObject, this, _arrayHelper.ElementType, element, idx, path);
-                    _arrayData.Add(prop);
-                    InspectorObject.AddToMap(path, prop);
-                }
+                Debug.LogWarning($"{PropertyPath} has a non-initialized list, but it is serialized. This shouldn't happen.");
+                _arrayData = new List<InspectorTreeProperty>();
+                return;
             }
 
-            foreach (var prop in _arrayData)
+            var count = _arrayHelper.GetSize(arrayObject);
+            _arrayData = new List<InspectorTreeProperty>(count);
+            for (int i = 0; i < count; i++)
             {
-                prop.BuildChildProperties();
+                var element = _arrayHelper.GetElementObject(arrayObject, i);
+                var path = $"{PropertyPath}.Array.data[{i}]";
+                var prop = new InspectorTreeProperty(InspectorObject, this, _arrayHelper.ElementType, element, i, path);
+                _arrayData.Add(prop);
+                InspectorObject.AddToMap(path, prop);
             }
+        }
+
+        private string ChildPath(string memberName)
+        {
+            return PropertyPath.Length > 0 ? $"{PropertyPath}.{memberName}" : memberName;
         }
 
         public InspectorTreeProperty FindPropertyRelative(string relativePath)
         {
-            //Debug.Log($"Trying To Field Property At {PropertyPath}.{relativePath}");
+            //InspectorDebug.Log($"Trying To Field Property At {PropertyPath}.{relativePath}");
             return InspectorObject.FindProperty($"{PropertyPath}.{relativePath}");
         }
 
-        // public object GetObject()
-        // {
-        //     if (PropertyInfoType == MemberInfoType.Field)
-        //     {
-        //         if (IsStruct)
-        //         {
-        //             return _cachedStructObject;
-        //         }
-        //
-        //         var parentObject = GetParentObject();
-        //         return parentObject == null ? null : FieldInfo.GetValue(parentObject);
-        //     }
-        //
-        //     if (PropertyInfoType == MemberInfoType.Method)
-        //         return MethodInfo.Invoke(GetParentObject(), null);
-        //     if (PropertyInfoType == MemberInfoType.Property)
-        //         return IsStruct ? _cachedStructObject : PropertyInfo.GetValue(GetParentObject());
-        //     if (PropertyInfoType == MemberInfoType.ArrayElement)
-        //         return GetValueAtIndex(ElementIndex); //ArrayElementObject
-        //     return null;
-        // }
 
         public object GetParentObject()
         {
@@ -644,48 +590,61 @@ namespace VaporEditor.Inspector
                     
                     if (IsArrayElement)
                     {
-                        return _CastToType(ArrayElementObject, PropertyType);;
+                        return CastToType(ArrayElementObject, PropertyType);
                     }
 
                     var parentObject = GetParentObject();
-                    return _CastToType(FieldInfo.GetValue(parentObject), PropertyType);
+                    return CastToType(FieldInfo.GetValue(parentObject), PropertyType);
                 case MemberInfoType.Method:
-                    return _CastToType(MethodInfo.Invoke(GetParentObject(), null), PropertyType);
+                    return CastToType(MethodInfo.Invoke(GetParentObject(), null), PropertyType);
                 case MemberInfoType.Property:
-                    return IsStruct && !ignoreCaching ? _cachedStructObject : _CastToType(PropertyInfo.GetValue(GetParentObject()), PropertyType);
+                    return IsStruct && !ignoreCaching ? _cachedStructObject : CastToType(PropertyInfo.GetValue(GetParentObject()), PropertyType);
                 default:
                     return null;
             }
+        }
 
-            static object _CastToType(object obj, Type targetType)
+        /// <summary>
+        /// Converts a value to the type a property expects. The single implementation for the whole
+        /// inspector - reading a value, committing an edit and validating one all go through here.
+        /// </summary>
+        public static object CastToType(object obj, Type targetType)
+        {
+            if (obj == null)
             {
-                if (obj == null)
+                if (targetType.IsClass || targetType.IsInterface || Nullable.GetUnderlyingType(targetType) != null)
                 {
-                    if (targetType.IsClass || targetType.IsInterface || Nullable.GetUnderlyingType(targetType) != null)
-                    {
-                        return null; // Null is a valid value for reference types and nullable types
-                    }
-                    throw new ArgumentNullException(nameof(obj), "Cannot cast null to a non-nullable value type.");
+                    return null;
                 }
 
-                // Check if the object is already of the target type
-                if (targetType.IsAssignableFrom(obj.GetType()))
-                {
-                    return obj; // No casting needed
-                }
-                
-                if (targetType == typeof(Type) && obj is string s)
-                {
-                    // Assume that a proper assembly qualified type is being sent.
-                    return Type.GetType(s);
-                }
-            
-                if (targetType.IsEnum && obj.GetType().IsPrimitive)
-                {
-                    return Enum.ToObject(targetType, (long)obj);
-                }
+                throw new ArgumentNullException(nameof(obj), $"Cannot cast null to the non-nullable value type {targetType}.");
+            }
 
+            if (targetType.IsAssignableFrom(obj.GetType()))
+            {
+                return obj;
+            }
+
+            // A Type-valued property is edited as its assembly qualified name.
+            if (targetType == typeof(Type) && obj is string assemblyQualifiedName)
+            {
+                return Type.GetType(assemblyQualifiedName);
+            }
+
+            if (targetType.IsEnum && obj.GetType().IsPrimitive)
+            {
+                // Converted rather than unboxed: the boxed type is whatever the widget produced, which is
+                // rarely the enum's own underlying type.
+                return Enum.ToObject(targetType, Convert.ToInt64(obj));
+            }
+
+            try
+            {
                 return Convert.ChangeType(obj, targetType);
+            }
+            catch (InvalidCastException)
+            {
+                throw new InvalidCastException($"Cannot cast object of type {obj.GetType()} to type {targetType}.");
             }
         }
 
@@ -696,6 +655,24 @@ namespace VaporEditor.Inspector
         }
 
         public void SetValue<T>(T val)
+        {
+            SetValue(val, true);
+        }
+
+        /// <summary>
+        /// Writes the value without asking the owning list to rebuild its elements.
+        /// <para>
+        /// Used when a struct member's edit is propagated back up into its container. The element snapshot
+        /// is refreshed in place either way, so the rebuild adds nothing - and the redraw it schedules tears
+        /// down the widget the user is still typing into, which cost you every character after the first.
+        /// </para>
+        /// </summary>
+        public void SetValueWithoutArrayRebuild<T>(T val)
+        {
+            SetValue(val, false);
+        }
+
+        private void SetValue<T>(T val, bool rebuildArray)
         {
             switch (PropertyInfoType)
             {
@@ -708,7 +685,7 @@ namespace VaporEditor.Inspector
 
                     if (IsArrayElement)
                     {
-                        ParentProperty.SetValueAtIndex(ElementIndex, val);
+                        ParentProperty.SetValueAtIndex(ElementIndex, val, rebuildArray);
                         ArrayElementObject = ParentProperty.GetValueAtIndex(ElementIndex);
                     }
                     else
@@ -718,7 +695,7 @@ namespace VaporEditor.Inspector
                         {
                             if (IsStruct)
                             {
-                                Debug.Log($"Setting Struct Value On {target.GetType()}");
+                                InspectorDebug.Log($"Setting Struct Value On {target.GetType()}");
                             }
                             FieldInfo.SetValue(target, val);
                         }
@@ -755,11 +732,6 @@ namespace VaporEditor.Inspector
                     break;
                 }
             }
-            // else if (PropertyInfoType == MemberInfoType.ArrayElement)
-            // {
-            //     Debug.Log($"Setting Array Element {val}");
-            //     ParentProperty.SetValueAtIndex(ElementIndex, val);
-            // }
         }
 
         public void Invoke(params object[] parameters)
@@ -775,7 +747,7 @@ namespace VaporEditor.Inspector
         }
 
         #region - List -
-        public void SetValueAtIndex<T>(int index, T val)
+        public void SetValueAtIndex<T>(int index, T val, bool rebuildArray = true)
         {
             if (!IsArray)
             {
@@ -807,6 +779,10 @@ namespace VaporEditor.Inspector
                 }
             }
             InspectorObject.ApplyModifiedProperties();
+            if (!rebuildArray)
+            {
+                return;
+            }
 #if UNITY_EDITOR_COROUTINES
             EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetElementValue), this);
 #endif
@@ -1004,7 +980,7 @@ namespace VaporEditor.Inspector
                     Array arr = Array.CreateInstance(_arrayHelper.ElementType, tempList.Count);
                     tempList.CopyTo(arr, 0);
                     SetValue(arr);
-                    Debug.Log($"Set New Array {arr.Length}");
+                    InspectorDebug.Log($"Set New Array {arr.Length}");
                 }
             }
             else
@@ -1066,7 +1042,9 @@ namespace VaporEditor.Inspector
         private IEnumerator DelayedBuildListProperties(ArrayRebuildReason reason)
         {
             yield return null;
-            Debug.Log(reason);
+            InspectorDebug.Log(reason);
+            // Marked built as well, so a later ArrayData access doesn't rebuild what we just rebuilt.
+            _childrenBuilt = true;
             BuildListProperties();
             RequireRedraw.Invoke();
         }
@@ -1094,23 +1072,66 @@ namespace VaporEditor.Inspector
         #endregion
 
         #region - Attributes -
+        /// <summary>
+        /// The attributes an array element inherits from the collection field that owns it.
+        /// <para>
+        /// Everything absent from this set describes the field as a single row - a tooltip, a suffix, an
+        /// inline button, a group, a conditional - and handing it to every element as well drew it once for
+        /// the list and again for each entry. What remains here describes the <i>value</i>, so it is meant
+        /// to reach each element: a range clamps every entry, [ReadOnly] locks every entry, and so on.
+        /// </para>
+        /// <para>Add to this set to make a new attribute propagate into elements.</para>
+        /// </summary>
+        private static readonly HashSet<Type> s_ArrayElementInheritedAttributes = new()
+        {
+            typeof(RangeAttribute),
+            typeof(SerializeReference),
+            typeof(ReadOnlyAttribute),
+            typeof(HideLabelAttribute),
+            typeof(LabelWidthAttribute),
+            typeof(RequireInterfaceAttribute),
+            typeof(ValidateInputAttribute),
+            typeof(OnValueChangedAttribute),
+            typeof(IgnoreCustomDrawerAttribute),
+            typeof(IgnoreChildNodesAttribute),
+            typeof(TypeSelectorAttribute),
+            typeof(TypeResolverAttribute),
+            typeof(AutoReferenceAttribute),
+            typeof(ChildGameObjectsOnlyAttribute),
+            typeof(FilePathAttribute),
+            typeof(FolderPathAttribute),
+        };
+
+        private static bool InheritsToArrayElements(Type attributeType)
+        {
+            return s_ArrayElementInheritedAttributes.Contains(attributeType);
+        }
+
         public bool HasAttribute<T>() where T : Attribute
         {
             return PropertyInfoType switch
             {
-                MemberInfoType.Field => IsArrayElement ? ParentProperty.HasAttribute<T>() : FieldInfo.IsDefined(typeof(T), true),
+                MemberInfoType.Field => IsArrayElement
+                    ? InheritsToArrayElements(typeof(T)) && ParentProperty.HasAttribute<T>()
+                    : FieldInfo.IsDefined(typeof(T), true),
                 MemberInfoType.Method => MethodInfo.IsDefined(typeof(T), true),
                 MemberInfoType.Property => PropertyInfo.IsDefined(typeof(T), true),
                 _ => false,
             };
         }
         public bool TryGetAttribute<T>(out T atr) where T : Attribute
-        {            
+        {
             switch (PropertyInfoType)
             {
                 case MemberInfoType.Field:
                     if (IsArrayElement)
                     {
+                        if (!InheritsToArrayElements(typeof(T)))
+                        {
+                            atr = null;
+                            return false;
+                        }
+
                         return ParentProperty.TryGetAttribute(out atr);
                     }
                     atr = FieldInfo.GetCustomAttribute<T>(true);
@@ -1121,7 +1142,6 @@ namespace VaporEditor.Inspector
                 case MemberInfoType.Property:
                     atr = PropertyInfo.GetCustomAttribute<T>(true);
                     return atr != null;
-                // case MemberInfoType.ArrayElement:
                 //     return ParentProperty.TryGetAttribute(out atr);
                 default:
                     atr = null;
@@ -1135,6 +1155,12 @@ namespace VaporEditor.Inspector
                 case MemberInfoType.Field:
                     if (IsArrayElement)
                     {
+                        if (!InheritsToArrayElements(typeof(T)))
+                        {
+                            atr = null;
+                            return false;
+                        }
+
                         return ParentProperty.TryGetAttributes(out atr);
                     }
                     atr = FieldInfo.GetCustomAttributes<T>(true).ToArray();
@@ -1145,7 +1171,6 @@ namespace VaporEditor.Inspector
                 case MemberInfoType.Property:
                     atr = PropertyInfo.GetCustomAttributes<T>(true).ToArray();
                     return atr is { Length: > 0 };
-                // case MemberInfoType.ArrayElement:
                 //     return ParentProperty.TryGetAttributes(out atr);
                 default:
                     atr = null;
@@ -1372,7 +1397,7 @@ namespace VaporEditor.Inspector
                 case SerializedPropertyType.Vector3Int:
                     return Vector3Int.zero;
                 case SerializedPropertyType.RectInt:
-                    return Rect.zero;
+                    return new RectInt();
                 case SerializedPropertyType.BoundsInt:
                     return new BoundsInt();
                 case SerializedPropertyType.ManagedReference:
@@ -1393,7 +1418,7 @@ namespace VaporEditor.Inspector
             }
         }
 
-        private static bool IsArrayOrList(Type type)
+        public static bool IsArrayOrList(Type type)
         {
             // Check if the type is an array
             if (type.IsArray)
