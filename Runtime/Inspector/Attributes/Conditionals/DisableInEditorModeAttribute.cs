@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
     public class DisableInEditorModeAttribute : PropertyAttribute
     {
         public string Resolver { get; } = "";

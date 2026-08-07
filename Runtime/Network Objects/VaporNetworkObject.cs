@@ -5,11 +5,10 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Pool;
-using Vapor.Inspector;
 
 namespace Vapor.NetworkObjects
 {
-    [System.Serializable]
+    [Serializable]
     public struct VaporNetworkObjectSaveData
     {
         public string SaveId;
@@ -26,6 +25,16 @@ namespace Vapor.NetworkObjects
         }
         
         public ulong NetworkObjectId { get; internal set; }
+
+        /// <summary>
+        /// Who owns this object, fixed for its lifetime. There is no transfer, by design.
+        /// </summary>
+        /// <remarks>
+        /// Reassigning it would not do what it looks like: the owner map is keyed on this value, an
+        /// owner-only object's relevance is derived from it, and every client already told about the
+        /// object would have to be re-evaluated. Owning it until despawn is what keeps that consistent,
+        /// and it is why a departing client's objects are despawned rather than handed on.
+        /// </remarks>
         public ulong OwnerClientId { get; internal set; }
         public ulong ParentNetworkObjectId { get; internal set; }
         public ushort ParentNetworkBehaviourOrderIndex { get; internal set; }
@@ -67,6 +76,13 @@ namespace Vapor.NetworkObjects
             ParentIsUnityObject = false;
             SubObjects = null;
             IsDirty = false;
+            _interestGroups = null;
+
+            // Variables can own native memory, which nothing else will release for them.
+            foreach (var variable in _networkVariables.Values)
+            {
+                variable.Dispose();
+            }
 
             _networkVariables.Clear();
             _dirtyVariables.Clear();
@@ -122,6 +138,95 @@ namespace Vapor.NetworkObjects
 
         #endregion
 
+        #region - Interest -
+
+        private HashSet<InterestGroup> _interestGroups;
+
+        /// <summary>
+        /// True while this object replicates to every connected client. Joining any interest group
+        /// narrows it to the clients subscribed to that group.
+        /// </summary>
+        public bool IsGloballyRelevant => _interestGroups == null || _interestGroups.Count == 0;
+
+        public IReadOnlyCollection<InterestGroup> InterestGroups =>
+            _interestGroups ?? (IReadOnlyCollection<InterestGroup>)Array.Empty<InterestGroup>();
+
+        public bool IsInInterestGroup(InterestGroup group) => _interestGroups != null && _interestGroups.Contains(group);
+
+        /// <summary>
+        /// Joins a replication channel. The first group an object joins stops it being global, so
+        /// clients subscribed to nothing relevant will see it despawn.
+        /// </summary>
+        public bool AddInterestGroup(InterestGroup group)
+        {
+            if (group.IsNone || !CanChangeInterest())
+            {
+                return false;
+            }
+
+            _interestGroups ??= new HashSet<InterestGroup>();
+            if (!_interestGroups.Add(group))
+            {
+                return false;
+            }
+
+            NotifyInterestChanged(group, true);
+            return true;
+        }
+
+        public bool RemoveInterestGroup(InterestGroup group)
+        {
+            if (group.IsNone || !CanChangeInterest() || _interestGroups == null || !_interestGroups.Remove(group))
+            {
+                return false;
+            }
+
+            NotifyInterestChanged(group, false);
+            return true;
+        }
+
+        /// <summary>Returns the object to global relevance.</summary>
+        public void ClearInterestGroups()
+        {
+            if (_interestGroups == null || _interestGroups.Count == 0 || !CanChangeInterest())
+            {
+                return;
+            }
+
+            var left = new List<InterestGroup>(_interestGroups);
+            _interestGroups.Clear();
+            foreach (var group in left)
+            {
+                NotifyInterestChanged(group, false);
+            }
+        }
+
+        private void NotifyInterestChanged(InterestGroup group, bool joined)
+        {
+            if (IsSpawned && NetworkMessages)
+            {
+                NetworkMessages.OnInterestChanged(this, group, joined);
+            }
+        }
+
+        /// <summary>
+        /// Interest drives who receives this object, so only the authority may change it. Before spawn
+        /// there is no authority to test and nothing has replicated yet, which is what lets OnPreSpawn
+        /// place an object in its groups.
+        /// </summary>
+        private bool CanChangeInterest()
+        {
+            if (!IsSpawned || !NetworkMessages || IsServer)
+            {
+                return true;
+            }
+
+            Debug.LogError($"Interest groups can only be changed on the server. {GetType().Name} [{NetworkObjectId}]");
+            return false;
+        }
+
+        #endregion
+
         #region - Network Variables -
 
         internal void RegisterNetworkVariable(VaporNetworkVariableBase networkVariable)
@@ -171,15 +276,7 @@ namespace Vapor.NetworkObjects
                 return;
             }
 
-            __rpc_exec = true;
-            try
-            {
-                entry.Handler.Invoke(this, reader);
-            }
-            finally
-            {
-                __rpc_exec = false;
-            }
+            entry.Handler.Invoke(this, reader);
         }
 
         public virtual void Serialize(FastBufferWriter writer, bool fullPacket)
@@ -190,7 +287,7 @@ namespace Vapor.NetworkObjects
                 writer.WriteValueSafe(_networkVariables.Count);
                 foreach (var variable in _networkVariables.Values)
                 {
-                    variable.Write(writer);
+                    variable.WriteFull(writer);
                 }
             }
             else
@@ -200,10 +297,12 @@ namespace Vapor.NetworkObjects
                 {
                     variable.Write(writer);
                 }
-            }
 
-            _dirtyVariables.Clear();
-            IsDirty = false;
+                // Only the delta consumes the dirty state. A full packet is a snapshot for one joining
+                // client, and the changes it happens to contain are still owed to everyone else.
+                _dirtyVariables.Clear();
+                IsDirty = false;
+            }
         }
 
         public virtual void Deserialize(FastBufferReader reader, out bool fullPacket)
@@ -224,37 +323,39 @@ namespace Vapor.NetworkObjects
 
         #region - Rpcs (Codegen Support) -
 
-        // Everything in this region is the support surface for the VaporRpc IL post-processor
-        // (Vapor Core/Editor/CodeGen). User code never calls these members directly; the weaver emits
-        // calls to them inside [VaporRpc] method bodies and their generated receive handlers.
-        // They are public only because woven code in other assemblies must reach them.
+        // The support surface for the VaporRpc source generator (Tools~/VaporRpcGenerator). You never
+        // call these yourself: the generator writes the send path and the receive handler for every
+        // [VaporRpc] method into the partial class that declares it, and those call in here.
+        //
+        // Everything is protected rather than public because generated code always lives inside a
+        // subclass. Argument serialization is the exception — see RpcSerialization, which generated
+        // code reaches from other assemblies and so has to be public.
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public delegate void __RpcReceiveHandler(VaporNetworkObject target, FastBufferReader reader);
+        protected delegate void RpcReceiveHandler(VaporNetworkObject target, FastBufferReader reader);
 
         private readonly struct RpcTableEntry
         {
-            public readonly __RpcReceiveHandler Handler;
+            public readonly RpcReceiveHandler Handler;
             public readonly string Name;
 
-            public RpcTableEntry(__RpcReceiveHandler handler, string name)
+            public RpcTableEntry(RpcReceiveHandler handler, string name)
             {
                 Handler = handler;
                 Name = name;
             }
         }
 
-        // Keyed by the weave-time hash of the declaring type + method signature, so the table is global
-        // rather than per-instance and inherited rpcs resolve without walking type hierarchies.
+        // Keyed by the compile-time hash of the declaring type + method signature, so the table is
+        // global rather than per-instance and inherited rpcs resolve without walking type hierarchies.
         private static readonly Dictionary<uint, RpcTableEntry> s_RpcHandlers = new();
 
-        // Set by OnMessageReceived around handler invocation; a woven [VaporRpc] method that observes it
-        // true clears it and runs its body instead of serializing a send.
+        /// <summary>
+        /// Called once per declaring type at subsystem registration, from the generated
+        /// <c>RegisterVaporRpcs</c>.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool __rpc_exec;
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __registerRpc(uint hash, __RpcReceiveHandler handler, string name)
+        protected static void RegisterRpc(uint hash, RpcReceiveHandler handler, string name)
         {
             if (s_RpcHandlers.TryGetValue(hash, out var existing) && existing.Name != name)
             {
@@ -266,7 +367,7 @@ namespace Vapor.NetworkObjects
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool __beginSendRpc(uint hash, out FastBufferWriter writer)
+        protected bool BeginSendRpc(uint hash, out FastBufferWriter writer)
         {
             if (!IsSpawned || !NetworkMessages)
             {
@@ -284,127 +385,16 @@ namespace Vapor.NetworkObjects
 
         /// <summary>
         /// Sends the finished rpc buffer to every remote target and returns true when the local peer is
-        /// itself in the target set, in which case the woven method falls through and runs its body.
+        /// itself in the target set, in which case the generated send path falls through and runs the
+        /// rpc's body here too.
         /// </summary>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool __endSendRpc(FastBufferWriter writer, SendTo sendTo, NetworkDelivery networkDelivery)
+        protected bool EndSendRpc(FastBufferWriter writer, SendTo sendTo, NetworkDelivery networkDelivery)
         {
             using (writer)
             {
                 return NetworkMessages.SendRpc(this, writer, sendTo, networkDelivery);
             }
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __writeValue<T>(FastBufferWriter writer, T value)
-        {
-            NetworkVariableSerialization<T>.Write(writer, ref value);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static T __readValue<T>(FastBufferReader reader)
-        {
-            T value = default;
-            NetworkVariableSerialization<T>.Read(reader, ref value);
-            return value;
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __writeNetworkObject(FastBufferWriter writer, VaporNetworkObject value)
-        {
-            if (value == null)
-            {
-                writer.WriteValueSafe(true);
-                return;
-            }
-
-            writer.WriteValueSafe(false);
-            writer.WriteValueSafe(value.NetworkObjectId);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static VaporNetworkObject __readNetworkObject(FastBufferReader reader)
-        {
-            reader.ReadValueSafe(out bool isNull);
-            if (isNull)
-            {
-                return null;
-            }
-
-            reader.ReadValueSafe(out ulong networkObjectId);
-            NetworkMessages.Instance.NetworkObjects.TryGetValue(networkObjectId, out var value);
-            return value;
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __writeNetworkBehaviour(FastBufferWriter writer, NetworkBehaviour value)
-        {
-            if (!value)
-            {
-                writer.WriteValueSafe(true);
-                return;
-            }
-
-            writer.WriteValueSafe(false);
-            writer.WriteValueSafe((NetworkBehaviourReference)value);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static NetworkBehaviour __readNetworkBehaviour(FastBufferReader reader)
-        {
-            reader.ReadValueSafe(out bool isNull);
-            if (isNull)
-            {
-                return null;
-            }
-
-            reader.ReadValueSafe(out NetworkBehaviourReference reference);
-            reference.TryGet(out NetworkBehaviour value);
-            return value;
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __writePacket(FastBufferWriter writer, INetworkPacket value)
-        {
-            if (value == null)
-            {
-                writer.WriteValueSafe(true);
-                return;
-            }
-
-            writer.WriteValueSafe(false);
-            PacketHandler.CreatePacket(writer, value);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static INetworkPacket __readPacket(FastBufferReader reader)
-        {
-            reader.ReadValueSafe(out bool isNull);
-            return isNull ? null : PacketHandler.FromPacket(reader);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static void __writeSerializable<T>(FastBufferWriter writer, T value) where T : INetworkSerializable, new()
-        {
-            bool isNull = (object)value == null;
-            writer.WriteValueSafe(isNull);
-            if (!isNull)
-            {
-                writer.WriteNetworkSerializable(value);
-            }
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public static T __readSerializable<T>(FastBufferReader reader) where T : INetworkSerializable, new()
-        {
-            reader.ReadValueSafe(out bool isNull);
-            if (isNull)
-            {
-                return default;
-            }
-
-            reader.ReadNetworkSerializable(out T value);
-            return value;
         }
 
         #endregion

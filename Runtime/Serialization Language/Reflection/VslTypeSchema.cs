@@ -186,11 +186,18 @@ namespace Vapor.Serialization
 
             if (!unityRules || field.IsDefined(typeof(NonSerializedAttribute), true))
             {
+                RequireSerializeAlongsideReference(field);
                 return false;
             }
 
             // Unity's own rule: public fields, plus non-public fields carrying [SerializeField].
-            return field.IsPublic || field.IsDefined(typeof(SerializeField), true);
+            if (field.IsPublic || field.IsDefined(typeof(SerializeField), true))
+            {
+                return true;
+            }
+
+            RequireSerializeAlongsideReference(field);
+            return false;
         }
 
         private static bool ShouldSerialize(PropertyInfo property)
@@ -204,6 +211,7 @@ namespace Vapor.Serialization
             // either, and a computed property can have side effects. They must be asked for.
             if (!property.IsDefined(typeof(VslSerializeAttribute), true))
             {
+                RequireSerializeAlongsideReference(property);
                 return false;
             }
 
@@ -219,6 +227,26 @@ namespace Vapor.Serialization
 
             throw new VslException(
                 $"{property.DeclaringType?.Name}.{property.Name} is marked [VslSerialize] but needs both a getter and a setter.");
+        }
+
+        /// <summary>
+        /// Rejects a member marked <see cref="VslSerializeReferenceAttribute"/> that is not serialized.
+        /// </summary>
+        /// <remarks>
+        /// Reached only on the paths that decided to skip a member. Declaring a slot polymorphic and
+        /// then not serializing it is always a mistake, and a silent one: the picker appears in the
+        /// inspector, the value is chosen, and the document never records it.
+        /// </remarks>
+        private static void RequireSerializeAlongsideReference(MemberInfo member)
+        {
+            if (!member.IsDefined(typeof(VslSerializeReferenceAttribute), true))
+            {
+                return;
+            }
+
+            throw new VslException(
+                $"{member.DeclaringType?.Name}.{member.Name} is marked [VslSerializeReference] but not [VslSerialize], " +
+                "so it would not be written. Add [VslSerialize] beside it.");
         }
 
         private static VslMember CreateMember(FieldInfo field, PropertyInfo property, HashSet<string> claimed)

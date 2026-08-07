@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
     public class LabelWidthAttribute : PropertyAttribute
     {
         public StyleLength Width { get; }

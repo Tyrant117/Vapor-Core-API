@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
     public class HelpUrlAttribute : PropertyAttribute
     {
         public string HelpText { get; }

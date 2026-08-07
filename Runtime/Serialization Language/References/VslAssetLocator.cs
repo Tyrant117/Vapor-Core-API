@@ -142,6 +142,23 @@ namespace Vapor.Serialization
 
         private static Object LoadResource(string key, Type expectedType)
         {
+            // A named sub-asset - an AnimationClip inside an imported model, most often - is not what
+            // Resources.Load returns for the path, so the path is scanned and matched by name. The
+            // fallback below matches on type alone, which for a model holding a dozen clips picked
+            // whichever came first rather than the one that was asked for.
+            if (TrySplitSubKey(key, out var mainKey, out var subKey))
+            {
+                foreach (var candidate in Resources.LoadAll(mainKey))
+                {
+                    if (candidate != null && candidate.name == subKey && IsCompatible(candidate, expectedType))
+                    {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            }
+
             var loaded = expectedType != null && typeof(Object).IsAssignableFrom(expectedType)
                 ? Resources.Load(key, expectedType)
                 : Resources.Load(key);
@@ -161,6 +178,39 @@ namespace Vapor.Serialization
 
             return loaded;
         }
+
+        /// <summary>
+        /// Splits an <c>address[SubAsset]</c> key into its two halves.
+        /// </summary>
+        /// <remarks>
+        /// The bracket form is Addressables' own convention for addressing a sub-asset, so a key
+        /// written this way already loads through Addressables with no help from us. It is reused for
+        /// <c>Resources</c> keys so both sources read the same way and one parse covers both.
+        /// </remarks>
+        public static bool TrySplitSubKey(string key, out string mainKey, out string subKey)
+        {
+            mainKey = key;
+            subKey = null;
+
+            if (string.IsNullOrEmpty(key) || key[^1] != ']')
+            {
+                return false;
+            }
+
+            var open = key.LastIndexOf('[');
+            if (open <= 0)
+            {
+                return false;
+            }
+
+            mainKey = key[..open];
+            subKey = key.Substring(open + 1, key.Length - open - 2);
+            return !string.IsNullOrEmpty(subKey);
+        }
+
+        /// <summary>Builds an <c>address[SubAsset]</c> key.</summary>
+        public static string CombineSubKey(string mainKey, string subKey) =>
+            string.IsNullOrEmpty(subKey) ? mainKey : $"{mainKey}[{subKey}]";
 
         private static Object LoadAddressable(string key, Type expectedType)
         {

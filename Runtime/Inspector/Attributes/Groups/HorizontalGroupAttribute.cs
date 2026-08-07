@@ -1,12 +1,11 @@
 using System;
 using System.Diagnostics;
-using UnityEngine.Assertions;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public class HorizontalGroupAttribute : VaporGroupAttribute
     {
         public override UIGroupType Type => UIGroupType.Horizontal;

@@ -1,11 +1,10 @@
 using System;
 using System.Diagnostics;
-using UnityEngine.Assertions;
 
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public class FoldoutGroupAttribute : VaporGroupAttribute
     {
         public string Header { get; }

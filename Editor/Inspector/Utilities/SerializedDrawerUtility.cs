@@ -861,6 +861,28 @@ namespace VaporEditor.Inspector
             return drawerType != null;
         }
 
+        /// <summary>
+        /// Whether a custom drawer exists for this type <em>and</em> can actually run here.
+        /// </summary>
+        /// <remarks>
+        /// A stock <see cref="PropertyDrawer"/> — Unity's own, or one from a package — is built on
+        /// <see cref="SerializedProperty"/>. A plain C# object has none, so handing the row to that
+        /// drawer produces a field bound to null that draws nothing and edits nothing. A
+        /// <see cref="VaporPropertyDrawer"/> reads through the property tree instead and works either
+        /// way. Telling the two apart lets an unusable drawer fall back to the reflected layout rather
+        /// than to an empty row.
+        /// </remarks>
+        public static bool HasUsableCustomPropertyDrawer(Type type, bool isManagedReference, bool hasSerializedProperty)
+        {
+            var drawerType = ScriptAttributeUtilityReflection.GetDrawerTypeForType(type, isManagedReference);
+            if (drawerType == null)
+            {
+                return false;
+            }
+
+            return hasSerializedProperty || typeof(VaporPropertyDrawer).IsAssignableFrom(drawerType);
+        }
+
         public static bool TryGetCustomPropertyDrawer(Type type, bool isManagedReference, out PropertyDrawer propertyDrawer)
         {
             var drawerType = ScriptAttributeUtilityReflection.GetDrawerTypeForType(type, isManagedReference);

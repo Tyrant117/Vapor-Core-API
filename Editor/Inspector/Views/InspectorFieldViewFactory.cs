@@ -1,5 +1,4 @@
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
 
@@ -15,6 +14,13 @@ namespace VaporEditor.Inspector
         public static InspectorTreeElement.TreeView Create(InspectorTreeFieldElement owner)
         {
             var property = owner.Property;
+
+            // Before the generic list path: a list of data extensions is a set of capabilities keyed by
+            // type, not an ordered collection, so reordering and duplicate slots do not apply to it.
+            if (DataExtensionListView.Matches(property, out var extensionType))
+            {
+                return new InspectorTreeElement.TreeView(new DataExtensionListView(property, owner, extensionType));
+            }
 
             if (TryGetInlineGroupType(property, out var inlinedGroupType))
             {
@@ -70,7 +76,7 @@ namespace VaporEditor.Inspector
                 || property.IsUnityObjectOrSubclass()
                 || property.HasCustomDrawer
                 || property.IsWrappedSystemObject
-                || property.HasAttribute<SerializeReference>())
+                || property.IsManagedReference)
             {
                 return false;
             }
@@ -85,7 +91,7 @@ namespace VaporEditor.Inspector
                    && !property.HasCustomDrawer
                    && !property.NoChildProperties
                    && !property.IsWrappedSystemObject
-                   && !property.HasAttribute<SerializeReference>();
+                   && !property.IsManagedReference;
         }
 
         private static void ApplyGroupTooltip(InspectorTreeProperty property, VisualElement group)

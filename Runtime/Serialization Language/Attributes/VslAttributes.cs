@@ -30,6 +30,36 @@ namespace Vapor.Serialization
     }
 
     /// <summary>
+    /// Marks a <see cref="VslSerializeAttribute"/> member as a polymorphic slot: it holds a subclass or
+    /// an implementation, and the document records which one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the VSL counterpart of <see cref="UnityEngine.SerializeReference"/>, which cannot be
+    /// applied to a property — Unity only serializes fields. It changes nothing about how the value is
+    /// written: a member whose declared type is not sealed already gets a <c>!Tag</c> and is rebuilt
+    /// through it. What it adds is the declaration at the call site, and with it the inspector's type
+    /// picker, which otherwise has no way to know a slot is meant to be filled with a chosen type
+    /// rather than drawn as a fixed object.
+    /// </para>
+    /// <para>
+    /// Pair it with <see cref="VslSerializeAttribute"/>. It does not imply it: the source generator
+    /// keys off <c>[VslSerialize]</c> alone, so a member carrying only this one would be serialized by
+    /// the reflection path and skipped by the generated formatter — the same type behaving two
+    /// different ways depending on whether it happens to be <c>partial</c>. Declaring both keeps the
+    /// two paths honest, and leaving one off is reported rather than silently ignored.
+    /// </para>
+    /// <para>
+    /// Options for the picker itself — flattening, whether null is offered, whether the selector is
+    /// drawn at all — come from <c>[SerializeReferenceDrawer]</c>, which already works on properties.
+    /// </para>
+    /// </remarks>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
+    public sealed class VslSerializeReferenceAttribute : Attribute
+    {
+    }
+
+    /// <summary>
     /// Excludes a field or property from VSL serialization, overriding any type-level policy.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]

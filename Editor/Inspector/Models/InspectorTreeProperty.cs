@@ -12,6 +12,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Vapor.Inspector;
+using Vapor.Serialization;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
 
@@ -283,7 +284,7 @@ namespace VaporEditor.Inspector
             }
 
             IsWrappedSystemObject = SerializedPropertyType == SerializedPropertyType.ManagedReference && PropertyType == typeof(object);
-            HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference);
+            HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasUsableCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference, IsUnitySerializedProperty);
             NoChildProperties = HasIgnoreChildNodes();
         }
 
@@ -347,12 +348,29 @@ namespace VaporEditor.Inspector
                 _arrayHelper = CreateArrayHelper(PropertyType);
             }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
+
+            // A [VslSerialize] property is drawn as an editable field, so it needs the same null
+            // initialization a field gets - a null list or nested object gives the drawer nothing to
+            // bind to. Deliberately not done for a [ShowInInspector] property: that one is computed and
+            // read-only, and writing through its setter here could have side effects.
+            if (ReflectionUtility.IsVslSerialized(propInfo) && (!IsUnitySerializedProperty || IsArray))
+            {
+                var currentValue = GetValueSafe(true);
+                if (currentValue == null)
+                {
+                    // Without the rebuild: this runs while the property is still being constructed, so
+                    // there is no element list to rebuild and nothing drawn to redraw - only a coroutine
+                    // per null collection, scheduled every time the tree is built.
+                    SetValueWithoutArrayRebuild(GetDefaultValue(SerializedPropertyType, PropertyType));
+                }
+            }
+
             if (IsStruct)
             {
                 _cachedStructObject = GetValue(true);
             }
 
-            HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference);
+            HasCustomDrawer = !TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() && SerializedDrawerUtility.HasUsableCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference, IsUnitySerializedProperty);
             NoChildProperties = HasIgnoreChildNodes();
         }
 
@@ -420,7 +438,7 @@ namespace VaporEditor.Inspector
 
             HasCustomDrawer = ParentProperty.HasCustomDrawer ||
                               (!TypeHasAttribute<IgnoreCustomDrawerAttribute>() && !HasAttribute<IgnoreCustomDrawerAttribute>() &&
-                               SerializedDrawerUtility.HasCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference));
+                               SerializedDrawerUtility.HasUsableCustomPropertyDrawer(PropertyType, SerializedPropertyType == SerializedPropertyType.ManagedReference, IsUnitySerializedProperty));
             NoChildProperties = HasIgnoreChildNodes();
         }
 
@@ -516,14 +534,17 @@ namespace VaporEditor.Inspector
             _properties = new List<InspectorTreeProperty>();
             foreach (var property in propertyInfos)
             {
-                if (!ReflectionUtility.PropertySearchPredicate(property))
+                // See InspectorTreeObject: a [VslSerialize] property is editable stored state, so it
+                // joins the fields rather than the read-only computed rows.
+                var editable = ReflectionUtility.IsVslSerialized(property);
+                if (!editable && !ReflectionUtility.PropertySearchPredicate(property))
                 {
                     continue;
                 }
 
                 var path = ChildPath(property.Name);
                 var prop = new InspectorTreeProperty(InspectorObject, this, property, path);
-                _properties.Add(prop);
+                (editable ? _fields : _properties).Add(prop);
                 InspectorObject.AddToMap(path, prop);
             }
         }
@@ -704,7 +725,15 @@ namespace VaporEditor.Inspector
                     {
                         InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
+                        // Only when a rebuild was actually asked for. rebuildArray was already threaded
+                        // into SetValueAtIndex above but never consulted here, so every caller of
+                        // SetValueWithoutArrayRebuild still scheduled the rebuild it was avoiding - and
+                        // an element of a struct type propagates its edit up through that path on every
+                        // keystroke, stacking a coroutine and a full list redraw per character.
+                        if (rebuildArray)
+                        {
+                            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
+                        }
 #endif
                     }
 
@@ -725,7 +754,11 @@ namespace VaporEditor.Inspector
                     {
                         InspectorObject.ApplyModifiedProperties();
 #if UNITY_EDITOR_COROUTINES
-                        EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
+                        // See the field case: honoured so SetValueWithoutArrayRebuild actually skips it.
+                        if (rebuildArray)
+                        {
+                            EditorCoroutineUtility.StartCoroutine(DelayedBuildListProperties(ArrayRebuildReason.SetValue), this);
+                        }
 #endif
                     }
 
@@ -1086,6 +1119,7 @@ namespace VaporEditor.Inspector
         {
             typeof(RangeAttribute),
             typeof(SerializeReference),
+            typeof(VslSerializeReferenceAttribute),
             typeof(ReadOnlyAttribute),
             typeof(HideLabelAttribute),
             typeof(LabelWidthAttribute),
@@ -1106,6 +1140,19 @@ namespace VaporEditor.Inspector
         {
             return s_ArrayElementInheritedAttributes.Contains(attributeType);
         }
+
+        /// <summary>
+        /// True when this member holds a chosen type rather than a fixed one, and so is drawn with a
+        /// type picker.
+        /// </summary>
+        /// <remarks>
+        /// Two attributes mean the same thing here. <see cref="SerializeReference"/> is Unity's, and
+        /// only works on fields; <see cref="VslSerializeReferenceAttribute"/> is VSL's, and is what a
+        /// property has to use, since Unity does not serialize properties at all. Every place that used
+        /// to ask for the first one asks this instead, so a VSL-authored type gets the same treatment as
+        /// a Unity-serialized one.
+        /// </remarks>
+        public bool IsManagedReference => HasAttribute<SerializeReference>() || HasAttribute<VslSerializeReferenceAttribute>();
 
         public bool HasAttribute<T>() where T : Attribute
         {

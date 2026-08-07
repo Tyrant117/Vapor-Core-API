@@ -59,9 +59,18 @@ namespace Vapor.NetworkObjects
 
         public override void Write(FastBufferWriter writer)
         {
+            WriteFull(writer);
+            IsDirty = false;
+        }
+
+        /// <summary>
+        /// Writes the value without consuming the dirty state. A snapshot goes to one joining client;
+        /// the change it describes may still be owed to everyone else.
+        /// </summary>
+        public override void WriteFull(FastBufferWriter writer)
+        {
             BytePacker.WriteValueBitPacked(writer, NetworkVariableId);
             NetworkVariableSerialization<T>.Write(writer, ref InternalValue);
-            IsDirty = false;
         }
 
         public override void Read(FastBufferReader reader)

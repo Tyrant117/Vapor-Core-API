@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Unity.Properties;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -10,6 +11,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Inspector;
+using Vapor.Serialization;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
 using Object = UnityEngine.Object;
 
@@ -152,7 +154,7 @@ namespace VaporEditor.Inspector
                 }
             }
 
-            if(!Property.IsArray && Property.HasAttribute<SerializeReference>())
+            if(!Property.IsArray && Property.IsManagedReference)
             {
                 VisualElement referenceGroup;
                 if (Property.TryGetTypeAttribute<DrawWithVaporAttribute>(out var vaporGroupAttribute))
@@ -186,14 +188,36 @@ namespace VaporEditor.Inspector
                         values.Add(null);
                     }
 
+                    // Which types are offered depends on who is going to persist the value. Unity's
+                    // [SerializeReference] can only rebuild a [Serializable] type; VSL rebuilds anything
+                    // it can construct, and its types have no reason to carry [Serializable] at all.
+                    var isVslReference = Property.HasAttribute<VslSerializeReferenceAttribute>();
+                    var candidates = ReflectionUtility.GetAssignableTypesOf(PropertyType)
+                        .Where(t => !t.IsDefined(typeof(IgnoreDropdownAttribute))
+                                    && !t.IsSubclassOf(typeof(Object))
+                                    && (isVslReference ? IsVslConstructable(t) : t.IsDefined(typeof(SerializableAttribute))))
+                        .ToList();
+
                     if (!PropertyType.IsAbstract)
                     {
-                        keys.Add($"{PropertyType.Namespace}/{PropertyType.Name}");
+                        candidates.Add(PropertyType);
+                    }
+
+                    // Flat and spaced out, not filed under a namespace every sibling shares. The suffix
+                    // is taken from the candidates so it can only ever drop what they have in common.
+                    var sharedSuffix = TypeDisplayNames.FindSharedSuffix(candidates);
+                    if (!PropertyType.IsAbstract)
+                    {
+                        candidates.Remove(PropertyType);
+                        keys.Add(TypeDisplayNames.GetDisplayName(PropertyType, sharedSuffix));
                         values.Add(PropertyType);
                     }
 
-                    var types = ReflectionUtility.GetAssignableTypesOf(PropertyType).Where(t => !t.IsDefined(typeof(IgnoreDropdownAttribute)) && t.IsDefined(typeof(SerializableAttribute)) && !t.IsSubclassOf(typeof(Object)));
-                    var dropdownModels = types.Select(t => new DropdownModel(t.Namespace, t.Name, t, t.GetCustomAttribute<DropdownTooltipAttribute>()?.Tooltip ?? t.Name));
+                    var dropdownModels = candidates.Select(t => new DropdownModel(
+                        null,
+                        TypeDisplayNames.GetDisplayName(t, sharedSuffix),
+                        t,
+                        TypeDisplayNames.Describe(t) ?? t.Name));
                     SplitTupleToDropdown(keys, values, tooltips, dropdownModels);
 
                     var current = Property.GetValue();
@@ -984,7 +1008,7 @@ namespace VaporEditor.Inspector
                     : BindingUpdateTrigger.OnSourceChanged
             };
 
-            if (_valueSource == ValueSource.ReadOnce)
+            if (_valueSource == ValueSource.ReadOnce || !IsPathResolvable())
             {
                 // Built but never attached. The numeric and mask cases add converters to _fieldBinding right
                 // after calling this, so it still has to exist; the widget just keeps the value it was
@@ -993,6 +1017,65 @@ namespace VaporEditor.Inspector
             }
 
             field.SetBinding("value", _fieldBinding);
+        }
+
+        /// <summary>
+        /// Whether UI Toolkit can actually resolve <see cref="DataBinding.dataSourcePath"/> for this
+        /// member.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The binding path is resolved by <c>Unity.Properties</c> against a reflected property bag,
+        /// which is built from fields — public ones, and non-public ones carrying
+        /// <see cref="SerializeField"/>. A C# property is not in it at all unless it asks to be with
+        /// <see cref="CreatePropertyAttribute"/>; accessor visibility has nothing to do with it. Attach
+        /// a binding to anything outside that set and UI Toolkit logs "could not retrieve the value at
+        /// path" on every scheduler tick and never delivers a value.
+        /// </para>
+        /// <para>
+        /// That makes this the common case rather than the exception here: a <c>[VslSerialize]</c>
+        /// member is drawn as an editable field but owes nothing to Unity's serializer, so it is
+        /// routinely a property, or a private field with no <c>[SerializeField]</c> on it.
+        /// </para>
+        /// <para>
+        /// Nothing is lost by skipping it. Every call site seeds the widget with
+        /// <c>SetValueWithoutNotify</c> straight after building the binding, and edits travel back
+        /// through this field's own change handling rather than through the binding — so the binding
+        /// only ever added live refresh from a source changing behind the inspector's back.
+        /// </para>
+        /// </remarks>
+        private bool IsPathResolvable()
+        {
+            // An array element is addressed by index into its collection rather than by member name,
+            // so the member's own visibility says nothing about it.
+            if (Property.IsArrayElement)
+            {
+                return true;
+            }
+
+            switch (Property.PropertyInfoType)
+            {
+                case InspectorTreeProperty.MemberInfoType.Field:
+                    var field = Property.FieldInfo;
+                    if (field == null || field.IsDefined(typeof(CompilerGeneratedAttribute), true))
+                    {
+                        // An auto-property's backing field. [field: SerializeField] puts it in reach of
+                        // the drawing predicates, but its name is '<Foo>k__BackingField' — angle
+                        // brackets and all — which is not a path Unity.Properties will ever resolve.
+                        return false;
+                    }
+
+                    return field.IsPublic
+                           || field.IsDefined(typeof(SerializeField), true)
+                           || field.IsDefined(typeof(CreatePropertyAttribute), true);
+
+                case InspectorTreeProperty.MemberInfoType.Property:
+                    var info = Property.PropertyInfo;
+                    return info != null && info.IsDefined(typeof(CreatePropertyAttribute), true);
+
+                default:
+                    return true;
+            }
         }
 
         #region - Change Callbacks -
@@ -1197,6 +1280,24 @@ namespace VaporEditor.Inspector
             CommitWidgetValue(oldAqn, newAqn, null);
         }
         
+        /// <summary>
+        /// Whether VSL could rebuild this type from a document, and so whether the picker should offer it.
+        /// </summary>
+        /// <remarks>
+        /// The same test <c>VslReflection.CreateInstance</c> makes — a non-abstract type with a
+        /// parameterless constructor of any accessibility. Offering one it cannot construct would let you
+        /// pick a value that fails to load back.
+        /// </remarks>
+        private static bool IsVslConstructable(Type type)
+        {
+            const BindingFlags Any = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            return !type.IsAbstract
+                   && !type.IsInterface
+                   && !type.IsGenericTypeDefinition
+                   && (type.IsValueType || type.GetConstructor(Any, null, Type.EmptyTypes, null) != null);
+        }
+
         public void OnSerializeReferenceSelectionChanged(ComboBox<object> comboBox, List<int> selectedIndices)
         {
             List<Type> selection = new();

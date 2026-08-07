@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class ListDrawerAttribute : PropertyAttribute
     {
         public string ElementChangedMethodName { get; }

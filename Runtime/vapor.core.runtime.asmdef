@@ -8,6 +8,7 @@
         "Unity.Netcode.Runtime",
         "vapor.core.runtime.unsafe",
         "Unity.Collections",
+        "Unity.Mathematics",
         "Unity.Localization"
     ],
     "includePlatforms": [],

@@ -4,7 +4,6 @@ using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Pool;
-using Vapor.Inspector;
 
 namespace Vapor.GameplayTags
 {
@@ -15,8 +14,14 @@ namespace Vapor.GameplayTags
         Clear,
     }
 
+    /// <summary>
+    /// Declares <see cref="INetworkSerializable"/> so the container can cross the wire as an rpc
+    /// argument. The implementation was already here — without the interface it fell through to
+    /// <c>NetworkVariableSerialization</c>, which has no serializer for a managed type and threw on
+    /// the first send.
+    /// </summary>
     [Serializable]
-    public class GameplayTagContainer
+    public class GameplayTagContainer : INetworkSerializable
     {
         public delegate void TagsChangedHandler(GameplayTagContainer container, List<GameplayTag> tags, GameplayTagContainerChangeType changeType);
         

@@ -2,12 +2,11 @@ using System;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Vapor;
 
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
     public class MarginsAttribute : PropertyAttribute
     {
         public StyleLength Left { get; }

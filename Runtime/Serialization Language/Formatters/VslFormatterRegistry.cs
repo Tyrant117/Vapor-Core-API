@@ -215,6 +215,17 @@ namespace Vapor.Serialization
             Register(QuaternionFormatter.Instance);
             Register(Matrix4x4Formatter.Instance);
 
+            // The Burst maths types, written identically to the engine ones above. Without them
+            // anything written for jobs — where a vector is a float3, not a Vector3 — falls through to
+            // the reflection formatter and serializes as a nested object with three members: correct,
+            // and unreadable in a format whose purpose is being read.
+            Register(Float2Formatter.Instance);
+            Register(Float3Formatter.Instance);
+            Register(Float4Formatter.Instance);
+            Register(Int2Formatter.Instance);
+            Register(Int3Formatter.Instance);
+            Register(QuaternionMathFormatter.Instance);
+
             Register(ColorFormatter.Instance);
             Register(Color32Formatter.Instance);
             Register(GradientFormatter.Instance);
@@ -231,6 +242,8 @@ namespace Vapor.Serialization
             Register(AnimationCurveFormatter.Instance);
             Register(KeyframeFormatter.Instance);
             Register(Hash128Formatter.Instance);
+
+            Register(LocalizedStringFormatter.Instance);
 
             Register(GameplayTagFormatter.Instance);
             Register(GameplayTagContainerFormatter.Instance);

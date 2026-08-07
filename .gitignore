@@ -43,6 +43,11 @@ ExportedObj/
 *.booproj
 *.svd
 *.pdb
+
+# The *.csproj rule above is aimed at the ones Unity regenerates. The Tools~ generators are
+# hand-written .NET projects, and without their .csproj a clone has their source but no way to
+# rebuild the analyzer DLLs beside it.
+!Tools~/**/*.csproj
 *.mdb
 *.opendb
 *.VC.db

@@ -59,13 +59,18 @@ namespace VaporEditor.Serialization
                 return false;
             }
 
+            // An AnimationClip inside an imported model, a sprite inside a sheet: the path names the
+            // file, not the object. Without the sub-asset name the reference reads back as the model
+            // itself, so the clip that was picked is not the clip that loads.
+            var subAsset = AssetDatabase.IsSubAsset(obj) ? obj.name : null;
+
             // Resources first: it needs no build step and no package, so it is the more dependable
             // of the two when an asset qualifies for both.
             var resourcePath = VslAssetLocator.ToResourcePath(path);
             if (!string.IsNullOrEmpty(resourcePath))
             {
                 source = VslAssetSource.Resource;
-                key = resourcePath;
+                key = VslAssetLocator.CombineSubKey(resourcePath, subAsset);
                 return true;
             }
 
@@ -73,7 +78,7 @@ namespace VaporEditor.Serialization
             if (!string.IsNullOrEmpty(address))
             {
                 source = VslAssetSource.Addressable;
-                key = address;
+                key = VslAssetLocator.CombineSubKey(address, subAsset);
                 return true;
             }
 
@@ -89,26 +94,58 @@ namespace VaporEditor.Serialization
             }
 
             var assetType = ToAssetType(expectedType);
+            var hasSubAsset = VslAssetLocator.TrySplitSubKey(key, out var mainKey, out var subAsset);
 
             switch (source)
             {
                 case VslAssetSource.Resource:
-                    obj = Resources.Load(key, assetType);
+                    obj = hasSubAsset
+                        ? FindSubAsset(AssetDatabase.GetAssetPath(Resources.Load(mainKey)), subAsset, assetType)
+                        : Resources.Load(mainKey, assetType);
                     break;
 
                 case VslAssetSource.Addressable:
                 {
-                    var path = FindAssetPathByAddress(key);
-                    if (!string.IsNullOrEmpty(path))
+                    var path = FindAssetPathByAddress(mainKey);
+                    if (string.IsNullOrEmpty(path))
                     {
-                        obj = AssetDatabase.LoadAssetAtPath(path, assetType);
+                        break;
                     }
 
+                    obj = hasSubAsset
+                        ? FindSubAsset(path, subAsset, assetType)
+                        : AssetDatabase.LoadAssetAtPath(path, assetType);
                     break;
                 }
             }
 
             return obj != null;
+        }
+
+        /// <summary>
+        /// Picks a named object out of an asset file.
+        /// </summary>
+        /// <remarks>
+        /// Matched on name and type together. A model can hold several clips and a mesh and a
+        /// material, so either check alone can land on the wrong object.
+        /// </remarks>
+        private static Object FindSubAsset(string assetPath, string subAsset, Type assetType)
+        {
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                return null;
+            }
+
+            foreach (var candidate in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+            {
+                if (candidate != null && candidate.name == subAsset &&
+                    (assetType == null || assetType.IsInstanceOfType(candidate)))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

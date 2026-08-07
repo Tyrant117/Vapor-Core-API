@@ -14,9 +14,15 @@ namespace Vapor.NetworkObjects
 
         public override void Write(FastBufferWriter writer)
         {
+            WriteFull(writer);
+            IsDirty = false;
+        }
+
+        /// <inheritdoc/>
+        public override void WriteFull(FastBufferWriter writer)
+        {
             BytePacker.WriteValueBitPacked(writer, NetworkVariableId);
             InternalValue.Serialize(writer, true);
-            IsDirty = false;
         }
 
         public override void Read(FastBufferReader reader)

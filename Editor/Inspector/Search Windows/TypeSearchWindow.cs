@@ -290,9 +290,11 @@ namespace VaporEditor.Inspector
 
             if (item.SearchModel != null)
             {
-                if (HasSearch)
+                // Skipped when the picker is flat: the column would be blank but still hold its width,
+                // pushing every name away from the edge for nothing.
+                if (HasSearch && !string.IsNullOrEmpty(item.SearchModel.Category))
                 {
-                    var category = item.SearchModel.Category?.Replace("Types/", string.Empty).Replace('/','.');
+                    var category = item.SearchModel.Category.Replace("Types/", string.Empty).Replace('/','.');
                     element.Add(new Label(category)
                     {
                         style =
@@ -357,30 +359,57 @@ namespace VaporEditor.Inspector
 
             if (labels != null)
             {
-                var i = 0;
+                // A column, so a description can sit under the name. The name itself stays a row -
+                // search splits it into several labels to highlight the matched run.
                 var ve = new VisualElement()
                 {
                     style =
                     {
                         flexShrink = 1f,
                         flexGrow = 1f,
-                        flexDirection = FlexDirection.Row,
                         flexBasis = 0f,
+                        overflow = Overflow.Hidden,
+                    }
+                };
+
+                var nameRow = new VisualElement
+                {
+                    style =
+                    {
+                        flexDirection = FlexDirection.Row,
                         overflow = Overflow.Hidden,
                         textOverflow = TextOverflow.Ellipsis,
                     }
                 };
+
                 foreach (var label in labels)
                 {
                     label.tooltip = item.Name.ToHumanReadable();
                     label.AddToClassList("node-name");
-                    ve.Add(label);
+                    nameRow.Add(label);
                 }
-                element.Insert(i, ve);
 
-                // var spacer = new VisualElement();
-                // spacer.AddToClassList("nodes-label-spacer");
-                // element.Insert(i, spacer);
+                ve.Add(nameRow);
+
+                var description = item.SearchModel?.Tooltip;
+                if (!string.IsNullOrEmpty(description))
+                {
+                    ve.Add(new Label(description)
+                    {
+                        name = "nodeDescription",
+                        tooltip = description,
+                        style =
+                        {
+                            fontSize = 10,
+                            opacity = 0.6f,
+                            marginTop = -2,
+                            overflow = Overflow.Hidden,
+                            textOverflow = TextOverflow.Ellipsis,
+                        },
+                    });
+                }
+
+                element.Insert(0, ve);
             }
         }
 

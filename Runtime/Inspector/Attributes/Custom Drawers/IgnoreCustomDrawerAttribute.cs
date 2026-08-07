@@ -8,7 +8,7 @@ namespace Vapor.Inspector
     /// Ignores the PropertyDrawer for this field if it exists.
     /// </summary>
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
     public class IgnoreCustomDrawerAttribute : PropertyAttribute
     {
         

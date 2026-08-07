@@ -2,21 +2,56 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 using UnityEngine;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
 using Vapor.Unsafe;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Vapor
 {
     public static class GlobalDataRegistry
     {
         private static readonly Dictionary<uint, IData> s_RegistryMap = new(2048);
-        
+
         public static event Action OnRegistriesBuilt;
+
+        /// <summary>
+        /// Two names that hashed to the same key, so the second was dropped.
+        /// </summary>
+        /// <remarks>
+        /// Recorded as well as logged. Keys are a 32-bit hash of the name, and by the birthday bound a
+        /// project with a few thousand entries has a real chance of one collision — at which point a
+        /// quest or recipe silently does not exist, behind a single console line nobody reads. Keeping
+        /// the list lets an editor validator fail the build on it instead.
+        /// </remarks>
+        public readonly struct KeyCollision
+        {
+            public readonly uint Key;
+            public readonly string ExistingName;
+            public readonly string DroppedName;
+            public readonly string ExistingType;
+            public readonly string DroppedType;
+
+            /// <summary>True when the same name was registered twice, rather than two names colliding.</summary>
+            public bool IsDuplicateName => ExistingName == DroppedName;
+
+            public KeyCollision(uint key, string existingName, string droppedName, string existingType, string droppedType)
+            {
+                Key = key;
+                ExistingName = existingName;
+                DroppedName = droppedName;
+                ExistingType = existingType;
+                DroppedType = droppedType;
+            }
+        }
+
+        private static readonly List<KeyCollision> s_Collisions = new();
+
+        /// <summary>Collisions seen while building the current registry. Cleared on each rebuild.</summary>
+        public static IReadOnlyList<KeyCollision> Collisions => s_Collisions;
 
 #if UNITY_EDITOR
         [InitializeOnLoadMethod]
@@ -33,6 +68,7 @@ namespace Vapor
         public static void Initialize()
         {
             s_RegistryMap.Clear();
+            s_Collisions.Clear();
             var assetTypes = VaporTypeCache.GetTypesDerivedFrom<IScriptableData>().GetTypesWithAttribute<IsAddressableAttribute>().Where(t => !t.IsInterface && !t.IsAbstract);
             SortedDictionary<int, List<IScriptableData>> assetsByOrder = new();
             List<AsyncOperationHandle<ScriptableObject>> handles = new();
@@ -96,9 +132,26 @@ namespace Vapor
                 registriesByOrder[order].Add(reg);
             }
 
-            var orders = new List<int>(registriesByOrder.Keys.Count + assetsByOrder.Keys.Count);
+            // The third source: data authored as text rather than as code or as assets. Grouped by
+            // the same order scale so a VSL document can be sequenced against the code registries -
+            // gameplay tags at -500 before attributes at -300 - instead of always landing last.
+            SortedDictionary<int, List<IData>> documentsByOrder = new();
+            List<AsyncOperationHandle<TextAsset>> documentHandles = new();
+            foreach (var (_, order, entries) in VslDataStore.ReadAll(documentHandles))
+            {
+                if (!documentsByOrder.TryGetValue(order, out var bucket))
+                {
+                    bucket = new List<IData>();
+                    documentsByOrder.Add(order, bucket);
+                }
+
+                bucket.AddRange(entries);
+            }
+
+            var orders = new List<int>(registriesByOrder.Keys.Count + assetsByOrder.Keys.Count + documentsByOrder.Keys.Count);
             orders.AddRange(registriesByOrder.Keys);
             orders.AddRangeUnique(assetsByOrder.Keys);
+            orders.AddRangeUnique(documentsByOrder.Keys);
             orders.Sort();
             foreach (var order in orders)
             {
@@ -117,6 +170,14 @@ namespace Vapor
                         asset.Register();
                     }
                 }
+
+                if (documentsByOrder.TryGetValue(order, out var documents))
+                {
+                    foreach (var data in documents)
+                    {
+                        Register(data);
+                    }
+                }
             }
 
             foreach (var handle in handles)
@@ -124,9 +185,17 @@ namespace Vapor
                 handle.Release();
             }
             handles.Clear();
+
+            foreach (var handle in documentHandles)
+            {
+                handle.Release();
+            }
+            documentHandles.Clear();
+
             assetsByOrder.Clear();
             registriesByOrder.Clear();
-            
+            documentsByOrder.Clear();
+
             OnRegistriesBuilt?.Invoke();
         }
         
@@ -143,6 +212,7 @@ namespace Vapor
                 bool sameName = existing.Name == data.Name;
                 Debug.LogError($"GlobalDataRegistry: {(sameName ? "Duplicate Key" : "Hash collision")} {data.Name} | {data.Key}." +
                                $" Existing={existing.GetType().Name} ({existing.Name}), New={data.GetType().Name} ({data.Name})");
+                s_Collisions.Add(new KeyCollision(data.Key, existing.Name, data.Name, existing.GetType().Name, data.GetType().Name));
                 return;
             }
 

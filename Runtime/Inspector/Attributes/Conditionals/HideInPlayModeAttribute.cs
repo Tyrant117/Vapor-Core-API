@@ -1,11 +1,11 @@
 using System;
-using UnityEngine;
 using System.Diagnostics;
+using UnityEngine;
 
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
     public class HideInPlayModeAttribute : PropertyAttribute
     {
         public string Resolver { get; } = "";

@@ -1,10 +1,11 @@
 ﻿using System;
-using JetBrains.Annotations;
 using UnityEngine;
 
 namespace Vapor.GameplayTags
 {
-    [AttributeUsage(AttributeTargets.Field)]
+    // Properties as well as fields: a [VslSerialize] property is drawn as an editable field, so it
+    // needs the same filtering metadata a field would carry.
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
     public class GameplayTagDrawerAttribute : PropertyAttribute
     {
         public bool LeavesOnly { get; }

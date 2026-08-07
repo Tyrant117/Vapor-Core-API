@@ -3,6 +3,10 @@
     "rootNamespace": "Vapor.Tests",
     "references": [
         "vapor.core.runtime",
+        "vapor.core.runtime.unsafe",
+        "Unity.Localization",
+        "Unity.Netcode.Runtime",
+        "Unity.Collections",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

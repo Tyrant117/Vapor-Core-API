@@ -70,9 +70,7 @@ namespace VaporEditor
 
             // Add the asset to the Addressable Group
             string guid = AssetDatabase.AssetPathToGUID(assetPath);
-            Debug.Log(guid);
             AddressableAssetEntry entry = settings.CreateOrMoveEntry(guid, group);
-            Debug.Log(entry);
 
             // Optional: Set an address name (e.g., same name as the asset)
             entry.address = Path.GetFileNameWithoutExtension(assetPath);

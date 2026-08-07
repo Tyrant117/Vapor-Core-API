@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using UnityEngine;
-using Vapor.Inspector;
 
 namespace Vapor.Inspector
 {

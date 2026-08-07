@@ -97,7 +97,7 @@ namespace VaporEditor.Inspector
         protected virtual void BuildChildren()
         {
             IsUnityObject = Property.IsUnityObjectOrSubclass();
-            if (IsUnityObject || !Property.TypeHasAttribute<SerializableAttribute>() || Property.HasAttribute<SerializeReference>())
+            if (IsUnityObject || !Property.TypeHasAttribute<SerializableAttribute>() || Property.IsManagedReference)
             {
                 // Exit if the object is a unity object or it isnt serializable.
                 // This is so it doesnt redraw Monobehaviours instead of giving you an object field.

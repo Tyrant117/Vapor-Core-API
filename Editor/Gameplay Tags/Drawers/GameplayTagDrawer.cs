@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,40 +17,77 @@ namespace VaporEditor.GameplayTags
         private TreePropertyField _field;
         private VisualElement _tagContainer;
         private GameplayTagSearchProvider _searchProvider;
-        // private GameplayTagDrawerAttribute _drawer;
+
+        /// <summary>The tag to show as chosen once the picker is built.</summary>
+        private string _toggledName;
+
+        /// <summary>
+        /// The picker's model, built the first time the picker is opened.
+        /// </summary>
+        /// <remarks>
+        /// Building it walks every tag in the project, looks each one up in the registry and allocates
+        /// a model for it. Doing that while drawing meant a field that may never be clicked paid for
+        /// the whole tag tree — and an array of tags paid for it once per element, on every redraw.
+        /// </remarks>
+        private GameplayTagSearchProvider SearchProvider
+        {
+            get
+            {
+                if (_searchProvider != null)
+                {
+                    return _searchProvider;
+                }
+
+                bool hasDrawer = _field.Property.TryGetAttribute<GameplayTagDrawerAttribute>(out var drawer);
+                List<TagSearchModel<GameplayTagTreeNode>> searchModels = new();
+                GameplayTagTree.Traverse(n =>
+                {
+                    if (hasDrawer && drawer.FilteredParents != null)
+                    {
+                        foreach (var ap in drawer.FilteredParents)
+                        {
+                            if (!GameplayTagTree.HasParentTag(n.Key, ap.Hash32()))
+                            {
+                                continue;
+                            }
+
+                            var filteredTooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var filteredData) && !string.IsNullOrEmpty(filteredData.EditorTooltip) ? filteredData.EditorTooltip : n.Name;
+                            searchModels.Add(new GameplayTagSearchModel(n.Name, filteredTooltip, true) { Node = n });
+                            break;
+                        }
+
+                        return;
+                    }
+
+                    var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
+                    searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip, true) { Node = n });
+                });
+
+                BuildTree(drawer, searchModels);
+
+                _searchProvider = new GameplayTagSearchProvider(OnSelect, searchModels, false);
+                if (!string.IsNullOrEmpty(_toggledName))
+                {
+                    _searchProvider.SetModelToggled(_toggledName, true);
+                }
+
+                return _searchProvider;
+            }
+        }
+
+        /// <summary>Records the chosen tag, and tells the picker only if it has been built.</summary>
+        private void SetToggled(string name)
+        {
+            _toggledName = name;
+            _searchProvider?.SetModelToggled(name, true);
+        }
 
         public override VisualElement CreateVaporPropertyGUI(TreePropertyField field)
         {
             _field = field;
-            bool hasDrawer = _field.Property.TryGetAttribute<GameplayTagDrawerAttribute>(out var drawer);
-            List<TagSearchModel<GameplayTagTreeNode>> searchModels = new();
-            GameplayTagTree.Traverse(n =>
-            {
-                if (hasDrawer && drawer.FilteredParents != null)
-                {
-                    // Debug.Log(n.Key + " " + n.Name);
-                    foreach (var ap in drawer.FilteredParents)
-                    {
-                        if (!GameplayTagTree.HasParentTag(n.Key, ap.Hash32()))
-                        {
-                            continue;
-                        }
+            _searchProvider = null;
+            _toggledName = null;
 
-                        var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
-                        searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip, true) { Node = n as GameplayTagTreeNode });
-                        break;
-                    }
-                    
-                }
-                else
-                {
-                    var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
-                    searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip, true) { Node = n as GameplayTagTreeNode });
-                }
-            });
-            BuildTree(drawer, searchModels);
-            
-            _searchProvider = new GameplayTagSearchProvider(OnSelect, searchModels, false);
             var group = new Group("my=4px")
             {
                 Align = Align.Stretch
@@ -85,7 +121,7 @@ namespace VaporEditor.GameplayTags
                 {
                     var worldRect = GUIUtility.GUIToScreenRect(_tagContainer.worldBound);
                     var pos = new Vector2(worldRect.position.x + 24, worldRect.position.y + _tagContainer.worldBound.height + 16);
-                    TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, _searchProvider);
+                    TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, SearchProvider);
                 })
                 .WithActivator(EventModifiers.None, MouseButton.LeftMouse)
                 .WithHoverEntered(_ => { _tagContainer.WithBorder(1, 6, new Color(0.227f, 0.475f, 0.733f)); })
@@ -94,10 +130,15 @@ namespace VaporEditor.GameplayTags
             var container = _field.Property.GetValue<GameplayTag>();
             if (container.IsNone())
             {
+                // Normalized locally and deliberately not written back. Marking the field dirty while
+                // drawing it re-enters the write path, and for an array element that schedules a list
+                // rebuild - which redraws every row, whose empty tags mark themselves dirty again. A
+                // newly added element is None, so adding one span a rebuild loop that never settled.
+                // The value is already zero here; there was never anything to persist.
                 container = GameplayTag.None();
-                _field.MarkDirtyWithValue(container, container);
             }
-            _searchProvider.SetModelToggled(container.GetName(), true);
+
+            SetToggled(container.GetName());
             var tag = CreateTag(container);
             _tagContainer.Add(tag);
 
@@ -125,7 +166,7 @@ namespace VaporEditor.GameplayTags
 
             _tagContainer.Clear();
 
-            _searchProvider.SetModelToggled(container.GetName(), true);
+            SetToggled(container.GetName());
             var tag = CreateTag(container);
             _tagContainer.Add(tag);
         }
@@ -137,15 +178,15 @@ namespace VaporEditor.GameplayTags
             {
                 var worldRect = GUIUtility.GUIToScreenRect(tag.worldBound);
                 var pos = new Vector2(worldRect.position.x + 24, worldRect.position.y + tag.worldBound.height + 16);
-                TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, _searchProvider);
+                TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, SearchProvider);
             };
             tag.OnTagRemoved += tagName =>
             {
-                _searchProvider.SetModelToggled(tagName, false);
+                _searchProvider?.SetModelToggled(tagName, false);
                 var container = GameplayTag.None();
                 _field.MarkDirtyWithValue(container, container);
 
-                _searchProvider.SetModelToggled(container.GetName(), true);
+                SetToggled(container.GetName());
                 var newTag = CreateTag(container);
                 _tagContainer.Add(newTag);
             };

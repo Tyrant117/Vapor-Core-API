@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace Vapor.Inspector
 {
     [Conditional("VAPOR_INSPECTOR")]
-    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public class VerticalGroupAttribute : VaporGroupAttribute
     {
         public override UIGroupType Type => UIGroupType.Vertical;

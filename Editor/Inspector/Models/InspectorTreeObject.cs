@@ -142,13 +142,17 @@ namespace VaporEditor.Inspector
             _properties = new List<InspectorTreeProperty>();
             foreach (var property in propertyInfos)
             {
-                if (!ReflectionUtility.PropertySearchPredicate(property))
+                // A [VslSerialize] property is stored state with a setter, so it is drawn as an
+                // editable field rather than as a read-only computed row. Sorting it into _fields is
+                // all that takes: the field element is chosen by which list a member lands in.
+                var editable = ReflectionUtility.IsVslSerialized(property);
+                if (!editable && !ReflectionUtility.PropertySearchPredicate(property))
                 {
                     continue;
                 }
 
                 var prop = new InspectorTreeProperty(this, null, property, property.Name);
-                _properties.Add(prop);
+                (editable ? _fields : _properties).Add(prop);
                 AddToMap(property.Name, prop);
             }
         }

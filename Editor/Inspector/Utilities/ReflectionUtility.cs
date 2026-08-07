@@ -5,16 +5,46 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using Vapor.Inspector;
+using Vapor.Serialization;
 
 namespace VaporEditor.Inspector
 {
     public static class ReflectionUtility
     {
         public static readonly Func<FieldInfo, bool> FieldSearchPredicate = f => !f.IsDefined(typeof(HideInInspector))
-                                                                                 && !f.IsDefined(typeof(NonSerializedAttribute))
-                                                                                 && (f.IsPublic || f.IsDefined(typeof(SerializeField)));
+                                                                                 && (IsVslSerialized(f)
+                                                                                     || (!f.IsDefined(typeof(NonSerializedAttribute))
+                                                                                         && (f.IsPublic || f.IsDefined(typeof(SerializeField)))));
         public static readonly Func<MethodInfo, bool> MethodSearchPredicate = f => f.IsDefined(typeof(ButtonAttribute));
         public static readonly Func<PropertyInfo, bool> PropertySearchPredicate = f => f.IsDefined(typeof(ShowInInspectorAttribute));
+
+        /// <summary>
+        /// True for a member VSL stores, whatever its access modifier.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A <c>[VslSerialize]</c> member is stored state that persists to a document, so it belongs in
+        /// the inspector on the same terms as a public field — and it is editable, unlike a
+        /// <c>[ShowInInspector]</c> property. Without this, a type authored entirely through VSL
+        /// attributes draws an empty inspector, and worse, any member the inspector did show but VSL
+        /// did not store would silently lose its edits on the next save.
+        /// </para>
+        /// <para>
+        /// A property needs both accessors to qualify. <c>VslTypeSchema</c> treats a one-sided property
+        /// as an error; hiding it here degrades that into something the author can see rather than a
+        /// row that cannot write back.
+        /// </para>
+        /// </remarks>
+        public static bool IsVslSerialized(FieldInfo field) =>
+            field.IsDefined(typeof(VslSerializeAttribute), true) && !field.IsDefined(typeof(VslIgnoreAttribute), true);
+
+        /// <inheritdoc cref="IsVslSerialized(FieldInfo)"/>
+        public static bool IsVslSerialized(PropertyInfo property) =>
+            property.IsDefined(typeof(VslSerializeAttribute), true)
+            && !property.IsDefined(typeof(VslIgnoreAttribute), true)
+            && property.CanRead
+            && property.CanWrite
+            && property.GetIndexParameters().Length == 0;
 
         private static readonly Dictionary<Type, List<Type>> s_TypeCache = new();
         private static readonly Dictionary<Type, List<FieldInfo>> s_FieldCache = new();

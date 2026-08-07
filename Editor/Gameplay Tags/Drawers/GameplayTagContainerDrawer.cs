@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -19,43 +18,97 @@ namespace VaporEditor.GameplayTags
         private VisualElement _tagContainer;
         private GameplayTagSearchProvider _searchProvider;
 
+        /// <summary>Tags to show as chosen once the picker is built.</summary>
+        private readonly List<string> _toggledNames = new();
+
+        /// <summary>
+        /// The picker's model, built the first time the picker is opened.
+        /// </summary>
+        /// <remarks>
+        /// Building it walks every tag in the project, looks each one up in the registry and allocates
+        /// a model for it. Doing that while drawing meant a field that may never be clicked paid for
+        /// the whole tag tree — and a list of entries each holding a container paid for it once per
+        /// row, on every redraw.
+        /// </remarks>
+        private GameplayTagSearchProvider SearchProvider
+        {
+            get
+            {
+                if (_searchProvider != null)
+                {
+                    return _searchProvider;
+                }
+
+                bool hasDrawer = _field.Property.TryGetAttribute<GameplayTagDrawerAttribute>(out var drawer);
+                List<TagSearchModel<GameplayTagTreeNode>> searchModels = new();
+                GameplayTagTree.Traverse(n =>
+                {
+                    if (n.Key == 0)
+                    {
+                        return;
+                    }
+
+                    if (hasDrawer && drawer.FilteredParents != null)
+                    {
+                        foreach (var ap in drawer.FilteredParents)
+                        {
+                            if (!GameplayTagTree.HasParentTag(n.Key, ap.Hash32()))
+                            {
+                                continue;
+                            }
+
+                            var filteredTooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var filteredData) && !string.IsNullOrEmpty(filteredData.EditorTooltip) ? filteredData.EditorTooltip : n.Name;
+                            searchModels.Add(new GameplayTagSearchModel(n.Name, filteredTooltip, true) { Node = n });
+                            break;
+                        }
+
+                        return;
+                    }
+
+                    var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
+                    searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip) { Node = n });
+                });
+
+                BuildTree(drawer, searchModels);
+
+                _searchProvider = new GameplayTagSearchProvider(OnSelect, searchModels, true);
+
+                // Straight to the provider, not through SetToggled - that writes to the list being
+                // iterated here.
+                foreach (var name in _toggledNames)
+                {
+                    _searchProvider.SetModelToggled(name, true);
+                }
+
+                return _searchProvider;
+            }
+        }
+
+        /// <summary>Records a chosen tag, and tells the picker only if it has been built.</summary>
+        private void SetToggled(string name, bool toggled)
+        {
+            if (toggled)
+            {
+                if (!_toggledNames.Contains(name))
+                {
+                    _toggledNames.Add(name);
+                }
+            }
+            else
+            {
+                _toggledNames.Remove(name);
+            }
+
+            _searchProvider?.SetModelToggled(name, toggled);
+        }
+
         public override VisualElement CreateVaporPropertyGUI(TreePropertyField field)
         {
             _field = field;
-            bool hasDrawer = _field.Property.TryGetAttribute<GameplayTagDrawerAttribute>(out var drawer);
-            List<TagSearchModel<GameplayTagTreeNode>> searchModels = new();
-            GameplayTagTree.Traverse(n =>
-            {
-                // Debug.Log($"Gameplay Tag Drawer found: {n.Name} - {n.Key}");
-                if (n.Key == 0)
-                {
-                    return;
-                }
-
-                if (hasDrawer && drawer.FilteredParents != null)
-                {
-                    foreach (var ap in drawer.FilteredParents)
-                    {
-                        if (!GameplayTagTree.HasParentTag(n.Key, ap.Hash32()))
-                        {
-                            continue;
-                        }
-
-                        var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
-                        searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip, true) { Node = n as GameplayTagTreeNode });
-                        break;
-                    }
-                }
-                else
-                {
-                    var tooltip = GlobalDataRegistry.TryGet<GameplayTagData>(n.Key, out var tagData) && !string.IsNullOrEmpty(tagData.EditorTooltip) ? tagData.EditorTooltip : n.Name;
-                    searchModels.Add(new GameplayTagSearchModel(n.Name, tooltip) { Node = n as GameplayTagTreeNode });
-                }
-            });
-            BuildTree(drawer, searchModels);
+            _searchProvider = null;
+            _toggledNames.Clear();
 
             var container = _field.Property.GetValue<GameplayTagContainer>();
-            _searchProvider = new GameplayTagSearchProvider(OnSelect, searchModels, true);
             var group = new Group("my=4px")
             {
                 Align = Align.Stretch
@@ -89,7 +142,7 @@ namespace VaporEditor.GameplayTags
                 {
                     var worldRect = GUIUtility.GUIToScreenRect(_tagContainer.worldBound);
                     var pos = new Vector2(worldRect.position.x + 24, worldRect.position.y + _tagContainer.worldBound.height + 16);
-                    TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, _searchProvider);
+                    TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, SearchProvider);
                 })
                 .WithActivator(EventModifiers.None, MouseButton.LeftMouse)
                 .WithHoverEntered(_ =>
@@ -104,14 +157,14 @@ namespace VaporEditor.GameplayTags
             {
                 // if (GameplayTagUtility.TryUpdateIfMissing(activeTag, out var updatedTag))
                 // {
-                //     _searchProvider.SetModelToggled(updatedTag.GetName(), true);
+                //     SetToggled(updatedTag.GetName(), true);
                 //     var tag = CreateTag(updatedTag);
                 //     _tagContainer.Add(tag);
                 // }
                 // else
                 {
 
-                    _searchProvider.SetModelToggled(activeTag.GetName(), true);
+                    SetToggled(activeTag.GetName(), true);
                     var tag = CreateTag(activeTag);
                     _tagContainer.Add(tag);
                 }
@@ -138,7 +191,7 @@ namespace VaporEditor.GameplayTags
             _tagContainer.Clear();
             foreach (var activeTag in container.Tags)
             {
-                _searchProvider.SetModelToggled(activeTag.GetName(), true);
+                SetToggled(activeTag.GetName(), true);
                 var tag = CreateTag(activeTag);
                 _tagContainer.Add(tag);
             }
@@ -151,7 +204,7 @@ namespace VaporEditor.GameplayTags
             {
                 var worldRect = GUIUtility.GUIToScreenRect(tag.worldBound);
                 var pos = new Vector2(worldRect.position.x + 24, worldRect.position.y + tag.worldBound.height + 16);
-                TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, _searchProvider);
+                TagSearchWindow<GameplayTagTreeNode>.Show<GameplayTagSearchWindow>(pos, pos, SearchProvider);
             };
             tag.OnTagRemoved += tagName =>
             {
@@ -160,7 +213,7 @@ namespace VaporEditor.GameplayTags
                 if (idx != -1)
                 {
                     container.Tags.RemoveAt(idx);
-                    _searchProvider.SetModelToggled(tagName, false);
+                    SetToggled(tagName, false);
                 }
                 _field.MarkDirtyWithValue(container, container);
             };

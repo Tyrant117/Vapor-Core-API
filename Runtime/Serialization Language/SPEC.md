@@ -181,6 +181,7 @@ either duplicate an asset or recurse through the whole scene.
 | `@(9241421688590303745, resource, "UI/Icons/Sword")` | that id, plus how to load it in a build |
 | `@(addressable, "Boss_Fireking")` | a durable locator with no id |
 | `@resource "UI/Icons/Sword"` | the same, without brackets |
+| `@(addressable, "Characters/Hero[Run]")` | a named object inside that asset |
 
 The two halves answer different questions, which is why both are written.
 
@@ -198,6 +199,20 @@ first, because when it works it is free and exact, then falls back to loading by
 An asset that is neither under `Resources` nor addressable gets an id only, and will not resolve in a
 build — that is a property of the project, not of the format. Put it in one of the two places if the
 reference has to survive.
+
+### Sub-assets
+
+A locator's key may name an object *inside* an asset, as `key[Name]`. An `AnimationClip` imported as
+part of a model is the common case: the file is what ships, but the clip is what the reference means,
+and the path alone would load the model instead.
+
+The bracket form is Addressables' own convention, so an addressable key written this way needs no
+special handling on read. The same form is used for `Resources`, where the path is scanned and matched
+by name and type together — a model holding a dozen clips, a mesh and a material can satisfy either
+check alone with the wrong object.
+
+The name is the sub-asset's own, which is unique within its file by construction. A path that itself
+contains brackets is fine: the sub-asset is the last bracketed group.
 
 `res` and `addr` are accepted as short forms on read. A bare string in a reference slot —
 `icon: "UI/Icons/Sword"` — is read as a Resources path, which is the most likely thing a

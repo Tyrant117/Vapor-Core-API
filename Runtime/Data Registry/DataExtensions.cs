@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.ResourceManagement.AsyncOperations;
-
+using Vapor.GameplayTags;
 
 namespace Vapor
 {
@@ -14,7 +14,7 @@ namespace Vapor
             return data;
         }
 
-        public static T WithIcon<T>(this T data, uint iconAddressableKey) where T : IDataIcon
+        public static T WithIcon<T>(this T data, GameplayTag iconAddressableKey) where T : IDataIcon
         {
             data.IconAddressableKey = iconAddressableKey;
             return data;
@@ -22,7 +22,15 @@ namespace Vapor
 
         public static AsyncOperationHandle<Sprite> GetIconAsync<T>(this T data) where T : IDataIcon
         {
-            return data.IconAddressableKey == 0 ? default : DataRegistry<AddressableData>.Get(data.IconAddressableKey).LoadAsync<Sprite>();
+            if (data.IconAddressableKey.IsNone())
+            {
+                return default;
+            }
+
+            // Looked up rather than assumed: a key can name an addressable that has since been removed
+            // from the registry, and Get answers null for that rather than throwing.
+            var addressable = DataRegistry<AddressableData>.Get(data.IconAddressableKey.Key);
+            return addressable == null ? default : addressable.LoadAsync<Sprite>();
         }
     }
 }
