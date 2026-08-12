@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
+using UnityEngine.Assemblies;
 
 namespace Vapor.Serialization
 {
@@ -13,6 +15,7 @@ namespace Vapor.Serialization
     /// search rather than a lookup: explicit <see cref="VslTypeAttribute"/> registrations first, then
     /// subclasses of the declared type by name, then a full type name as a last resort.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public static class VslTypeRegistry
     {
         private static readonly ConcurrentDictionary<Type, string> s_TagsByType =
@@ -130,7 +133,7 @@ namespace Vapor.Serialization
 
             // Otherwise search for a concrete type with this short name that fits the slot.
             Type fallback = null;
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 foreach (var type in SafeGetTypes(assembly))
                 {
@@ -183,7 +186,7 @@ namespace Vapor.Serialization
                     return;
                 }
 
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+                foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
                 {
                     foreach (var type in SafeGetTypes(assembly))
                     {

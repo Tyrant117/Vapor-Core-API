@@ -1,16 +1,12 @@
-using UnityEngine;
+using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor
 {
-    public static class GameSessionState
+    [AutoStaticsCleanup]
+    public static partial class GameSessionState
     {
-        private static readonly System.Collections.Generic.Dictionary<string, object> s_SessionData = new();
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Init()
-        {
-            s_SessionData.Clear();
-        }
+        private static readonly Dictionary<string, object> s_SessionData = new();
 
         public static void SetValue<T>(string key, T value)
         {

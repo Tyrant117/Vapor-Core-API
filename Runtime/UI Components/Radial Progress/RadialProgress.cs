@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor.Inspector;
@@ -6,6 +7,7 @@ namespace Vapor
 {
     // An element that displays progress inside a partially filled circle
     [UxmlElement]
+    [NoAutoStaticsCleanup]
     public partial class RadialProgress : VisualElement
     {
         // These are USS class names for the control overall and the label.

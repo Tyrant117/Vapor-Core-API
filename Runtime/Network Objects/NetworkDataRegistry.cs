@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.Inspector;
 
 namespace Vapor.NetworkObjects
 {
+    [NoAutoStaticsCleanup]
     public static class NetworkDataRegistry<TData> where TData : VaporNetworkObject
     {
-        
         private static readonly Dictionary<NetworkRegistryIdentifier, TData> s_RegistryMap = new(256);
         
         static NetworkDataRegistry()

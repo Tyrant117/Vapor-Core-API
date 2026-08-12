@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using Object = UnityEngine.Object;
@@ -32,29 +33,30 @@ namespace Vapor.Serialization
     /// is loaded by is remembered in <see cref="Remember"/>, so a document loaded at runtime and
     /// written back out keeps the same durable keys instead of degrading to session-only ids.
     /// </remarks>
-    public static class VslAssetLocator
+    public static partial class VslAssetLocator
     {
         private const string ResourcesFolder = "/Resources/";
 
         /// <summary>
         /// Editor-side locator, installed on domain load. Null in a player.
         /// </summary>
+        /// <remarks>
+        /// Deliberately outside the automatic statics cleanup below. The editor installs this once per
+        /// code load, not once per play session, so clearing it on entering play mode would leave the
+        /// editor with no locator for the rest of the session.
+        /// </remarks>
+        [NoAutoStaticsCleanup]
         public static IVslAssetLocator Provider { get; set; }
 
         // Objects we have loaded by key, so writing them back out reproduces the same key. Also the
         // load cache: an addressable handle must stay alive for the asset to stay valid, so results
         // are held rather than released.
+        [AutoStaticsCleanup]
         private static readonly Dictionary<Object, VslObjectReference> s_KnownObjects =
             new Dictionary<Object, VslObjectReference>();
 
+        [AutoStaticsCleanup]
         private static readonly Dictionary<string, Object> s_LoadedByKey = new Dictionary<string, Object>();
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetCaches()
-        {
-            s_KnownObjects.Clear();
-            s_LoadedByKey.Clear();
-        }
 
         /// <summary>Records how an object was loaded, so it can be written back the same way.</summary>
         public static void Remember(Object obj, VslAssetSource source, string key)

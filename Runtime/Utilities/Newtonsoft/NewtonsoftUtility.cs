@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.NewtonsoftConverters
 {
+    [NoAutoStaticsCleanup]
     public static class NewtonsoftUtility
     {
         public static readonly JsonSerializerSettings SerializerSettings = new()

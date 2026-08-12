@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Serialization
@@ -10,6 +11,7 @@ namespace Vapor.Serialization
     /// whole scene graph. The id comes from <see cref="VslContext.References"/>, which decides what
     /// an id means — by default an <c>EntityId</c>, valid for the current session.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class UnityObjectFormatter<T> : VslFormatter<T> where T : Object
     {
         public static readonly UnityObjectFormatter<T> Instance = new UnityObjectFormatter<T>();

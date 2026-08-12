@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor
@@ -21,7 +22,8 @@ namespace Vapor
     /// full name still works as the way out of a collision.
     /// </para>
     /// </remarks>
-    public static class TypeNameResolver
+    [AutoStaticsCleanup]
+    public static partial class TypeNameResolver
     {
         /// <summary>Built once per base type, since the type cache does not change within a domain.</summary>
         private static readonly Dictionary<Type, Dictionary<string, Type>> s_ByBaseType = new();

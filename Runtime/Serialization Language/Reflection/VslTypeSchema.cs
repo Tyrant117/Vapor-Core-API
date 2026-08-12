@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Serialization
@@ -53,7 +54,9 @@ namespace Vapor.Serialization
     /// The cached list of members VSL serializes for a type, after applying the opt-in and
     /// <see cref="VslSerializableAttribute"/> policies.
     /// </summary>
-    public sealed class VslTypeSchema
+    // Reset by ResetCache below rather than automatically; see the note there.
+    [NoAutoStaticsCleanup]
+    public sealed partial class VslTypeSchema
     {
         private const BindingFlags DeclaredInstance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -83,7 +86,9 @@ namespace Vapor.Serialization
             }
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        // Not [AutoStaticsCleanup]: that guarantees Clear() only for the collection types it names, and
+        // a readonly ConcurrentDictionary is not among them.
+        [OnEnteringPlayMode]
         private static void ResetCache() => s_Schemas.Clear();
 
         public static VslTypeSchema Get(Type type) =>

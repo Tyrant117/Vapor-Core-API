@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Tables;
 
@@ -21,6 +22,7 @@ namespace Vapor.Serialization
     /// what the same value looks like in a <c>.asset</c> file.
     /// </para>
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class LocalizedStringFormatter : VslFormatter<LocalizedString>
     {
         private const string GuidPrefix = "GUID:";

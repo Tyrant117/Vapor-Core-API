@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Serialization
@@ -10,6 +11,7 @@ namespace Vapor.Serialization
     /// Names are accepted but not written: <c>[ Water Player ]</c> is the friendlier thing to author,
     /// while hex is the only form that survives a project whose layer names have changed.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class LayerMaskFormatter : VslFormatter<LayerMask>
     {
         public static readonly LayerMaskFormatter Instance = new LayerMaskFormatter();
@@ -41,6 +43,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class RenderingLayerMaskFormatter : VslFormatter<RenderingLayerMask>
     {
         public static readonly RenderingLayerMaskFormatter Instance = new RenderingLayerMaskFormatter();
@@ -76,6 +79,7 @@ namespace Vapor.Serialization
     /// A keyframe as <c>(time, value, inTangent, outTangent)</c>, extended to
     /// <c>(..., inWeight, outWeight, weightedMode)</c> only when the key actually carries weights.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class KeyframeFormatter : VslFormatter<Keyframe>
     {
         public static readonly KeyframeFormatter Instance = new KeyframeFormatter();
@@ -125,6 +129,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class AnimationCurveFormatter : VslFormatter<AnimationCurve>
     {
         public static readonly AnimationCurveFormatter Instance = new AnimationCurveFormatter();
@@ -202,6 +207,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Hash128Formatter : VslFormatter<Hash128>
     {
         public static readonly Hash128Formatter Instance = new Hash128Formatter();

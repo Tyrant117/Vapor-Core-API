@@ -1,11 +1,12 @@
 using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
 namespace VaporEditor.Inspector
 {
-    public static class InspectorMenu
+    public static partial class InspectorMenu
     {
         private const string EnableVaporInspectors = "_enableVaporInspectors";
         private const string InspectorSessionStateInitialized = "_inspectorSessionStateInitialized";
@@ -18,19 +19,28 @@ namespace VaporEditor.Inspector
 
         private const string SymbolName = "VAPOR_INSPECTOR";
 
-        [InitializeOnLoadMethod]
+        /// <remarks>
+        /// Deferred a tick: <see cref="OnCodeInitializingAttribute"/> runs earlier than the
+        /// <c>[InitializeOnLoadMethod]</c> it replaces, before the menu is registered and before the
+        /// asset database is ready for the refresh that define changes end in.
+        /// </remarks>
+        [OnCodeInitializing]
         private static void InitToggle()
         {
             if (SessionState.GetBool(InspectorSessionStateInitialized, false))
             {
-                Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
+                EditorApplication.delayCall += () =>
+                    Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
                 return;
             }
 
             SessionState.SetBool(InspectorSessionStateInitialized, true);
 
-            Debug.Log("Running one-time editor session initialization...");
-            InitializeOncePerSession();
+            EditorApplication.delayCall += () =>
+            {
+                Debug.Log("Running one-time editor session initialization...");
+                InitializeOncePerSession();
+            };
         }
 
         private static void InitializeOncePerSession()

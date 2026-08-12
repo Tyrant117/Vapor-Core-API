@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using JetBrains.Annotations;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.Inspector;
-using Vapor.Keys;
 using Vapor.Unsafe;
 
 namespace Vapor
 {
+    [NoAutoStaticsCleanup]
     public static class DataRegistry<TData> where TData : class, IData
     {
         private static readonly Dictionary<uint, TData> s_RegistryMap = new(256);

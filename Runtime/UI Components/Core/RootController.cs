@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor
@@ -6,7 +7,10 @@ namespace Vapor
     /// <summary>
     /// This is the first ViewController to be initialized. It asks as the root element for the PlayerController.HudRoot.
     /// </summary>
-    public abstract class RootController : ViewController
+    // Reset by InitializeRootController below rather than automatically, because s_Listeners must come
+    // back as an empty list and an automatic reset would leave it null.
+    [NoAutoStaticsCleanup]
+    public abstract partial class RootController : ViewController
     {
         private static List<IRootInitializedListener> s_Listeners;
         public static bool IsInitialized { get; private set; }
@@ -20,7 +24,9 @@ namespace Vapor
 
         public abstract void SetLayerVisibility(int layer, bool isVisible);
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        // Not [AutoStaticsCleanup]: s_Listeners has no initializer, so resetting it would produce null
+        // rather than the empty list AddListener and NotifyRootInitialized both dereference.
+        [OnEnteringPlayMode]
         private static void InitializeRootController()
         {
             IsInitialized = false;

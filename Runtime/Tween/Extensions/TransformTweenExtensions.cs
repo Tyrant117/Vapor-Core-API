@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -7,6 +8,7 @@ namespace Vapor.Tweening
     /// delegates (no per-call closure) and tags the tween with the transform as its target, so
     /// <see cref="KillTweens"/> / <see cref="Tween.Kill(object,bool)"/> can cancel them.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class TransformTweenExtensions
     {
         // ---- Cached delegates (allocated once, shared by every tween) ----

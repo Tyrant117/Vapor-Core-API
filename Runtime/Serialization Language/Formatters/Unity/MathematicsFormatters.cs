@@ -1,4 +1,5 @@
 using Unity.Mathematics;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Serialization
 {
@@ -13,6 +14,7 @@ namespace Vapor.Serialization
     // is the failure mode most likely to go unnoticed in a format whose whole purpose is being read.
 
     /// <summary>Writes a <see cref="float2"/> as a tuple, matching <see cref="Vector2Formatter"/>.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class Float2Formatter : VslFormatter<float2>
     {
         public static readonly Float2Formatter Instance = new();
@@ -39,6 +41,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Writes a <see cref="float3"/> as a tuple.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class Float3Formatter : VslFormatter<float3>
     {
         public static readonly Float3Formatter Instance = new();
@@ -74,6 +77,7 @@ namespace Vapor.Serialization
     /// go. Written as four plain numbers rather than in any colour notation, because nothing about the
     /// type says which it is.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class Float4Formatter : VslFormatter<float4>
     {
         public static readonly Float4Formatter Instance = new();
@@ -104,6 +108,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Writes an <see cref="int2"/> as a tuple, matching <see cref="Vector2IntFormatter"/>.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class Int2Formatter : VslFormatter<int2>
     {
         public static readonly Int2Formatter Instance = new();
@@ -130,6 +135,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Writes an <see cref="int3"/> as a tuple.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class Int3Formatter : VslFormatter<int3>
     {
         public static readonly Int3Formatter Instance = new();
@@ -165,6 +171,7 @@ namespace Vapor.Serialization
     /// readable and is not a faithful representation — three angles do not uniquely name a rotation,
     /// so a round trip through them can return a different one than went in.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class QuaternionMathFormatter : VslFormatter<quaternion>
     {
         public static readonly QuaternionMathFormatter Instance = new();

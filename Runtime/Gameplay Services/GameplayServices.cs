@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.GameplayTags;
 
@@ -17,15 +18,10 @@ namespace Vapor.GameplayFramework
     /// private void OnDisable() => GameplayServices.Unregister(_serviceTag, this);
     /// </code>
     /// </summary>
-    public static class GameplayServices
+    [AutoStaticsCleanup]
+    public static partial class GameplayServices
     {
         private static readonly Dictionary<uint, object> s_Services = new();
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Initialize()
-        {
-            s_Services.Clear();
-        }
 
         /// <summary>Registers a service under a gameplay tag, replacing any existing registration for that tag.</summary>
         public static void Register(GameplayTag tag, object service)

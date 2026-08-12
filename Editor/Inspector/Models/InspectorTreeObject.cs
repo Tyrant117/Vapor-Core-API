@@ -1,38 +1,50 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.Scripting.LifecycleManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
-    public class InspectorTreeObject
+    public partial class InspectorTreeObject
     {
         private static readonly HashSet<InspectorTreeObject> s_PendingApply = new();
         private static readonly List<InspectorTreeObject> s_FlushBuffer = new();
         private static bool s_FlushScheduled;
 
-        [InitializeOnLoadMethod]
+        // Anything that is about to read the serialized state gets the pending writes first, so a
+        // deferred flush can never be the reason an edit did not make it to disk. Three of the four
+        // points are attributes now; only scene saving still has no lifecycle equivalent, and it is
+        // the only reason this hook survives.
+        [OnCodeInitializing]
         private static void HookFlushPoints()
         {
-            // Anything that is about to read the serialized state gets the pending writes first, so a
-            // deferred flush can never be the reason an edit did not make it to disk.
-            AssemblyReloadEvents.beforeAssemblyReload -= FlushPendingApplies;
-            AssemblyReloadEvents.beforeAssemblyReload += FlushPendingApplies;
-
-            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-
             EditorSceneManager.sceneSaving -= OnSceneSaving;
             EditorSceneManager.sceneSaving += OnSceneSaving;
         }
 
-        private static void OnPlayModeStateChanged(PlayModeStateChange change)
-        {
-            FlushPendingApplies();
-        }
+        /// <summary>Replaces <c>AssemblyReloadEvents.beforeAssemblyReload</c>.</summary>
+        [OnCodeUnloading]
+        private static void FlushBeforeCodeUnload() => FlushPendingApplies();
+
+        /// <summary>
+        /// The two transitions that used to arrive through <c>playModeStateChanged</c>.
+        /// </summary>
+        /// <remarks>
+        /// Only the exiting halves are hooked. The entering ones fired immediately after, with no
+        /// opportunity for an edit in between, so they could never have had anything left to flush.
+        /// </remarks>
+        [OnExitingEditMode]
+        private static void FlushBeforeEnteringPlayMode() => FlushPendingApplies();
+
+        /// <inheritdoc cref="FlushBeforeEnteringPlayMode"/>
+        [OnExitingPlayMode]
+        private static void FlushBeforeLeavingPlayMode() => FlushPendingApplies();
 
         private static void OnSceneSaving(Scene scene, string path)
         {

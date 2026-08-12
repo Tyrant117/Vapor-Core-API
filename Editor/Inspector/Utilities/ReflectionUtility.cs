@@ -2,14 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEditor;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Assemblies;
 using Vapor.Inspector;
 using Vapor.Serialization;
 
 namespace VaporEditor.Inspector
 {
-    public static class ReflectionUtility
+    public static partial class ReflectionUtility
     {
         public static readonly Func<FieldInfo, bool> FieldSearchPredicate = f => !f.IsDefined(typeof(HideInInspector))
                                                                                  && (IsVslSerialized(f)
@@ -63,7 +64,7 @@ namespace VaporEditor.Inspector
 
         private const BindingFlags k_SearchFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly;
 
-        [InitializeOnLoadMethod]
+        [OnCodeInitializing]
         private static void Initialize()
         {
             s_TypeCache.Clear();
@@ -439,14 +440,22 @@ namespace VaporEditor.Inspector
         }
 
         #region - Assemblies -
-        private static Assembly[] GetCachedAssemblies() { return s_Assemblies ??= AppDomain.CurrentDomain.GetAssemblies(); }
+        /// <summary>
+        /// Unity's loaded set rather than the app domain's, which can still return assemblies Unity has
+        /// unloaded. That matters more here than elsewhere because the result is cached: holding a dead
+        /// assembly's types keeps it from being collected. <c>TypeCache</c> is not an alternative — these
+        /// callers want every type, which it cannot answer.
+        /// </summary>
+        private static Assembly[] GetCachedAssemblies() { return s_Assemblies ??= CurrentAssemblies.GetLoadedAssemblies().ToArray(); }
 
         private static List<Type[]> GetCachedTypesPerAssembly()
         {
             if (s_TypesPerAssembly != null)
                 return s_TypesPerAssembly;
 
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            // Reuses the cached array instead of enumerating a second time; the two must agree anyway,
+            // since GetCachedAssemblyTypeMaps indexes these lists in parallel.
+            var assemblies = GetCachedAssemblies();
             s_TypesPerAssembly = new List<Type[]>(assemblies.Length);
             foreach (var assembly in assemblies)
             {

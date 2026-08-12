@@ -1,9 +1,12 @@
+using Unity.Scripting.LifecycleManagement;
+
 namespace Vapor.Serialization
 {
     /// <summary>
     /// Per-operation state for a VSL read or write: the options in force, the reference resolver, and
     /// the recursion guard.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class VslContext
     {
         /// <summary>

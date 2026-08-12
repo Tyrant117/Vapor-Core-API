@@ -2,12 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Assemblies;
 using Vapor.Inspector;
 
 namespace Vapor
 {
-    public static class VaporTypeCache
+    // Not automatic cleanup: Initialize already resets the flag and rebuilds the cache on each code load.
+    [NoAutoStaticsCleanup]
+    public static partial class VaporTypeCache
     {
         private static readonly HashSet<Type> s_CachedTypes = new HashSet<Type>();
         private static bool s_IsInitialized;
@@ -25,15 +29,16 @@ namespace Vapor
             InitializeCache();
         }
 
-#if UNITY_EDITOR
-        [UnityEditor.InitializeOnLoadMethod]
-        public static void EditorInitialize()
-        {
-            InitializeCache();
-        }
-#endif
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
-        public static void RuntimeInitialize()
+        /// <summary>
+        /// Rebuilds the cache on every code load, in the editor and in a player alike.
+        /// </summary>
+        /// <remarks>
+        /// One method where there were two. The cache is pure reflection over loaded assemblies, so it
+        /// only ever needed the phase where all assemblies are present — which is exactly where
+        /// <see cref="OnCodeInitializingAttribute"/> sits, and it covers both hosts.
+        /// </remarks>
+        [OnCodeInitializing]
+        public static void Initialize()
         {
             s_IsInitialized = false;
             InitializeCache();
@@ -65,8 +70,9 @@ namespace Vapor
                 // Debug.LogException(e);
             }
 
-            // Get all assemblies in the current application domain
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            // Unity's loaded set rather than the app domain's: the domain can still hand back assemblies
+            // it has already unloaded, and scanning one of those throws or leaks.
+            var assemblies = CurrentAssemblies.GetLoadedAssemblies();
             foreach (Assembly assembly in assemblies)
             {
                 if (!assembly.IsDefined(typeof(TypeCacheAttribute), true))

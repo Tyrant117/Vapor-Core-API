@@ -269,6 +269,10 @@ namespace Vapor.Rpc.SourceGenerator
             var body = Pad(indent + 1);
 
             sb.AppendLine($"{pad}/// <summary>Puts {model.SimpleName}'s rpcs in the receive table before any of them can arrive.</summary>");
+            // Deliberately the older attribute pair rather than [OnCodeInitializing]: see the note in the
+            // VSL generator. Unity resolves the Unity.Analyzers.Common reference from lifecycle attributes
+            // present in source, before a generator contributes any, so an assembly whose only lifecycle
+            // method is generated never gets the reference and the registration silently does not run.
             sb.AppendLine($"{pad}[global::UnityEngine.RuntimeInitializeOnLoadMethod(global::UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]");
             sb.AppendLine("#if UNITY_EDITOR");
             sb.AppendLine($"{pad}[global::UnityEditor.InitializeOnLoadMethod]");

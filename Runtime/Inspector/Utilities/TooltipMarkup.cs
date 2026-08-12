@@ -1,5 +1,6 @@
 using System.Text;
 using Unity.Netcode;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Inspector
@@ -7,6 +8,7 @@ namespace Vapor.Inspector
     /// <summary>
     /// A static class that can be used to add rich text colors to inspector tooltips.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class TooltipMarkup
     {
         public const string LangWordStart = "<b><color=#3D8FD6FF>";

@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -15,6 +16,7 @@ namespace Vapor.NetworkObjects
         public string Json;
     }
 
+    [NoAutoStaticsCleanup]
     public abstract class VaporNetworkObject : INetworkPacket
     {
         protected VaporNetworkObject() { }

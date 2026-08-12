@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.NetworkObjects
 {
@@ -18,6 +19,7 @@ namespace Vapor.NetworkObjects
     /// no instance of.
     /// </para>
     /// </remarks>
+    [NoAutoStaticsCleanup]
     internal sealed class InterestRegistry
     {
         /// <summary>A hierarchy deeper than this is malformed; the walk stops rather than looping.</summary>

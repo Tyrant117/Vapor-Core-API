@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -22,6 +23,7 @@ namespace Vapor.Inspector
         Center,
     }
 
+    [NoAutoStaticsCleanup]
     public static class VisualElementExtensions
     {
         private static MethodInfo s_SetPropertyMethod;
@@ -596,6 +598,7 @@ namespace Vapor.Inspector
 
         #region - Animation -
 
+        [NoAutoStaticsCleanup]
         private static class AnimationToolkitBuilder
         {
             private static readonly List<StylePropertyName> s_AnimationProperties = new();

@@ -1,7 +1,9 @@
-﻿using UnityEngine.UIElements;
+using Unity.Scripting.LifecycleManagement;
+using UnityEngine.UIElements;
 
 namespace Vapor.UIComponents
 {
+    [NoAutoStaticsCleanup]
     public class Container : VisualElement, IVaporUIComponent
     {
         public const string ROOT_SELECTOR = "vapor-container-root";

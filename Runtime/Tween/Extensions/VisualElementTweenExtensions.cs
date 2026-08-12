@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,6 +18,7 @@ namespace Vapor.Tweening
     /// For any style property not covered here, use the generic <see cref="TweenTo(VisualElement,TweenGetter{float},TweenSetter{float},float,float)"/>
     /// overloads or <see cref="Tween.To{T}(object,TweenReader{T},TweenWriter{T},T,float,TweenOps{T})"/> directly.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class VisualElementTweenExtensions
     {
         // ---- Cached delegates (allocated once, shared by every tween) ----

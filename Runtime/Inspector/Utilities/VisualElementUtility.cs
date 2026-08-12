@@ -1,8 +1,7 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.CompilerServices;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -10,12 +9,17 @@ namespace Vapor.Inspector
 {
     
 
-    public static class VisualElementUtility
+    [AutoStaticsCleanup]
+    public static partial class VisualElementUtility
     {
         private static readonly HashSet<string> s_usedNames = new HashSet<string>();
 
+        // Excluded from the class-level cleanup: it is readonly with a typeof() initializer, which the
+        // generator cannot reproduce. It is also a constant in all but name and has nothing to reset.
+        [NoAutoStaticsCleanup]
         private static readonly Type s_FoldoutType = typeof(Foldout);
 
+        [NoAutoStaticsCleanup]
         private static readonly string s_InspectorElementUssClassName = "unity-inspector-element";
 
         public static string GetUniqueName(string nameBase)

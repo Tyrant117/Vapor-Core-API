@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Serialization
 {
@@ -12,6 +13,7 @@ namespace Vapor.Serialization
     /// Names rather than numbers is the point: a model writing <c>mode: Additive</c> needs no lookup
     /// table, and a human reading it needs no decoder. Undeclared values still round-trip as numbers.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class EnumFormatter<T> : VslFormatter<T> where T : struct, Enum
     {
         private static readonly string[] s_Names = Enum.GetNames(typeof(T));

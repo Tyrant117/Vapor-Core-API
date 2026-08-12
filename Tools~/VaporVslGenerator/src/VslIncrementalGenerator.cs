@@ -308,6 +308,12 @@ namespace Vapor.Vsl.SourceGenerator
             sb.AppendLine("{");
             sb.AppendLine($"    internal static class VslGeneratedRegistrar_{suffix}");
             sb.AppendLine("    {");
+            // Deliberately the older attribute pair rather than [OnCodeInitializing]. Unity decides
+            // whether an assembly references Unity.Analyzers.Common by looking for lifecycle attributes
+            // in source, which happens before this generator contributes any. An assembly whose only
+            // lifecycle method is this one therefore fails to reference it and the callback never runs —
+            // silently, taking every formatter in that assembly with it. That would land on any consumer
+            // with VSL types, in their assembly, with no obvious cause and no fix they own.
             sb.AppendLine("#if UNITY_EDITOR");
             sb.AppendLine("        [global::UnityEditor.InitializeOnLoadMethod]");
             sb.AppendLine("#endif");

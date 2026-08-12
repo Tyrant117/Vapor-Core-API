@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Serialization
@@ -12,6 +13,7 @@ namespace Vapor.Serialization
     /// 127.5/255), falls back to the tuple so the value survives the round trip exactly. Both forms
     /// are accepted on read.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class ColorFormatter : VslFormatter<Color>
     {
         private const float Epsilon = 1e-4f;
@@ -92,6 +94,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Color32Formatter : VslFormatter<Color32>
     {
         public static readonly Color32Formatter Instance = new Color32Formatter();
@@ -123,6 +126,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class GradientColorKeyFormatter : VslFormatter<GradientColorKey>
     {
         public static readonly GradientColorKeyFormatter Instance = new GradientColorKeyFormatter();
@@ -147,6 +151,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class GradientAlphaKeyFormatter : VslFormatter<GradientAlphaKey>
     {
         public static readonly GradientAlphaKeyFormatter Instance = new GradientAlphaKeyFormatter();
@@ -171,6 +176,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class GradientFormatter : VslFormatter<Gradient>
     {
         public static readonly GradientFormatter Instance = new GradientFormatter();

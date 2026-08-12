@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -11,7 +12,8 @@ namespace Vapor.Tweening
     /// The class is also the static entry point for creating tweens: <see cref="To{T}"/>,
     /// <see cref="FromTo{T}"/> and the typed overloads, plus <see cref="Kill"/>/<see cref="KillAll"/>.
     /// </summary>
-    public abstract class Tween
+    [AutoStaticsCleanup]
+    public abstract partial class Tween
     {
         // ----------------------------------------------------------------
         //  Global defaults (change once at startup to affect new tweens)

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -8,14 +9,10 @@ using Cursor = UnityEngine.Cursor;
 
 namespace Vapor
 {
-    public static class EventSystemUtility
+    [AutoStaticsCleanup]
+    public static partial class EventSystemUtility
     {
         private static InputSystemUIInputModule s_Module;
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Init()
-        {
-            s_Module = null;
-        }
 
         /// <summary>
         /// Checks if the pointer is over a GUI element

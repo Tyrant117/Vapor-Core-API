@@ -1,8 +1,10 @@
 using System;
 using System.Globalization;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Serialization
 {
+    [NoAutoStaticsCleanup]
     public sealed class BooleanFormatter : VslFormatter<bool>
     {
         public static readonly BooleanFormatter Instance = new BooleanFormatter();
@@ -11,6 +13,7 @@ namespace Vapor.Serialization
         public override bool Read(ref VslReader reader, VslContext context) => reader.ReadBoolean();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class CharFormatter : VslFormatter<char>
     {
         public static readonly CharFormatter Instance = new CharFormatter();
@@ -19,6 +22,7 @@ namespace Vapor.Serialization
         public override char Read(ref VslReader reader, VslContext context) => reader.ReadChar();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class SByteFormatter : VslFormatter<sbyte>
     {
         public static readonly SByteFormatter Instance = new SByteFormatter();
@@ -27,6 +31,7 @@ namespace Vapor.Serialization
         public override sbyte Read(ref VslReader reader, VslContext context) => reader.ReadSByte();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class ByteFormatter : VslFormatter<byte>
     {
         public static readonly ByteFormatter Instance = new ByteFormatter();
@@ -35,6 +40,7 @@ namespace Vapor.Serialization
         public override byte Read(ref VslReader reader, VslContext context) => reader.ReadByte();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Int16Formatter : VslFormatter<short>
     {
         public static readonly Int16Formatter Instance = new Int16Formatter();
@@ -43,6 +49,7 @@ namespace Vapor.Serialization
         public override short Read(ref VslReader reader, VslContext context) => reader.ReadInt16();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class UInt16Formatter : VslFormatter<ushort>
     {
         public static readonly UInt16Formatter Instance = new UInt16Formatter();
@@ -51,6 +58,7 @@ namespace Vapor.Serialization
         public override ushort Read(ref VslReader reader, VslContext context) => reader.ReadUInt16();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Int32Formatter : VslFormatter<int>
     {
         public static readonly Int32Formatter Instance = new Int32Formatter();
@@ -59,6 +67,7 @@ namespace Vapor.Serialization
         public override int Read(ref VslReader reader, VslContext context) => reader.ReadInt32();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class UInt32Formatter : VslFormatter<uint>
     {
         public static readonly UInt32Formatter Instance = new UInt32Formatter();
@@ -67,6 +76,7 @@ namespace Vapor.Serialization
         public override uint Read(ref VslReader reader, VslContext context) => reader.ReadUInt32();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Int64Formatter : VslFormatter<long>
     {
         public static readonly Int64Formatter Instance = new Int64Formatter();
@@ -75,6 +85,7 @@ namespace Vapor.Serialization
         public override long Read(ref VslReader reader, VslContext context) => reader.ReadInt64();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class UInt64Formatter : VslFormatter<ulong>
     {
         public static readonly UInt64Formatter Instance = new UInt64Formatter();
@@ -83,6 +94,7 @@ namespace Vapor.Serialization
         public override ulong Read(ref VslReader reader, VslContext context) => reader.ReadUInt64();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class SingleFormatter : VslFormatter<float>
     {
         public static readonly SingleFormatter Instance = new SingleFormatter();
@@ -91,6 +103,7 @@ namespace Vapor.Serialization
         public override float Read(ref VslReader reader, VslContext context) => reader.ReadSingle();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class DoubleFormatter : VslFormatter<double>
     {
         public static readonly DoubleFormatter Instance = new DoubleFormatter();
@@ -99,6 +112,7 @@ namespace Vapor.Serialization
         public override double Read(ref VslReader reader, VslContext context) => reader.ReadDouble();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class DecimalFormatter : VslFormatter<decimal>
     {
         public static readonly DecimalFormatter Instance = new DecimalFormatter();
@@ -107,6 +121,7 @@ namespace Vapor.Serialization
         public override decimal Read(ref VslReader reader, VslContext context) => reader.ReadDecimal();
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class StringFormatter : VslFormatter<string>
     {
         public static readonly StringFormatter Instance = new StringFormatter();
@@ -116,6 +131,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Round-trip ISO-8601, so the value survives a change of culture or time zone.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class DateTimeFormatter : VslFormatter<DateTime>
     {
         public static readonly DateTimeFormatter Instance = new DateTimeFormatter();
@@ -133,6 +149,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class DateTimeOffsetFormatter : VslFormatter<DateTimeOffset>
     {
         public static readonly DateTimeOffsetFormatter Instance = new DateTimeOffsetFormatter();
@@ -150,6 +167,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class TimeSpanFormatter : VslFormatter<TimeSpan>
     {
         public static readonly TimeSpanFormatter Instance = new TimeSpanFormatter();
@@ -167,6 +185,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class GuidFormatter : VslFormatter<Guid>
     {
         public static readonly GuidFormatter Instance = new GuidFormatter();
@@ -182,6 +201,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class UriFormatter : VslFormatter<Uri>
     {
         public static readonly UriFormatter Instance = new UriFormatter();
@@ -205,6 +225,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class VersionFormatter : VslFormatter<Version>
     {
         public static readonly VersionFormatter Instance = new VersionFormatter();

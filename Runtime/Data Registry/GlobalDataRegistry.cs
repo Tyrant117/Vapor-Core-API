@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,10 +8,12 @@ using Vapor.Inspector;
 using Vapor.Unsafe;
 #if UNITY_EDITOR
 using UnityEditor;
+using Unity.Scripting.LifecycleManagement;
 #endif
 
 namespace Vapor
 {
+    [NoAutoStaticsCleanup]
     public static class GlobalDataRegistry
     {
         private static readonly Dictionary<uint, IData> s_RegistryMap = new(2048);
@@ -109,10 +111,6 @@ namespace Vapor
                 }
             }
 
-            // var types = AppDomain.CurrentDomain.GetAssemblies()
-            //     .SelectMany(a => a.GetTypes())
-            //     .Where(t => typeof(IDataRegistry).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
-            //     .ToArray();
             var types = VaporTypeCache.GetTypesDerivedFrom<IDataRegistry>().Where(t => !t.IsInterface && !t.IsAbstract);
             SortedDictionary<int, List<IDataRegistry>> registriesByOrder = new();
             foreach (var type in types)

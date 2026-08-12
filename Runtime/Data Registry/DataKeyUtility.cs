@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using Vapor.GameplayTags;
 using Vapor.Inspector;
 using Vapor.Keys;
@@ -14,7 +15,8 @@ namespace Vapor
     /// whole <c>uint = Hash32(name)</c> space, every registered data name is a valid tag: the general picker
     /// enumerates all data while category / type-name filters narrow it.
     /// </summary>
-    public static class DataKeyUtility
+    [AutoStaticsCleanup]
+    public static partial class DataKeyUtility
     {
         private static bool s_Cached;
         private static bool s_Subscribed;

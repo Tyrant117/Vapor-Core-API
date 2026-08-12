@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -26,15 +27,23 @@ namespace VaporEditor.Serialization
     /// works in edit mode, where the Addressables content may not have been built.
     /// </para>
     /// </remarks>
-    [InitializeOnLoad]
-    public sealed class VslEditorAssetLocator : IVslAssetLocator
+    public sealed partial class VslEditorAssetLocator : IVslAssetLocator
     {
         // Addressable lookups walk every group, so the answer is cached per asset GUID. Invalidated
         // whenever the Addressables settings change.
         private static readonly Dictionary<string, string> s_AddressByGuid = new Dictionary<string, string>();
         private static bool s_SubscribedToSettings;
 
-        static VslEditorAssetLocator()
+        /// <summary>
+        /// Installs this locator as the provider on every code load.
+        /// </summary>
+        /// <remarks>
+        /// An explicit callback rather than the static constructor <c>[InitializeOnLoad]</c> used to
+        /// force: installation now happens at a defined point in the code lifecycle instead of
+        /// whenever the type first happened to be touched.
+        /// </remarks>
+        [OnCodeInitializing]
+        private static void Install()
         {
             VslAssetLocator.Provider = new VslEditorAssetLocator();
         }

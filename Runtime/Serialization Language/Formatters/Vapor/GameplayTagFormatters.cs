@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using Vapor.GameplayTags;
 
 namespace Vapor.Serialization
@@ -12,6 +13,7 @@ namespace Vapor.Serialization
     /// never registered. A tag whose name cannot be recovered falls back to its raw key so the value
     /// still survives the round trip.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class GameplayTagFormatter : VslFormatter<GameplayTag>
     {
         private const string NoneName = "None";
@@ -58,6 +60,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class GameplayTagContainerFormatter : VslFormatter<GameplayTagContainer>
     {
         public static readonly GameplayTagContainerFormatter Instance = new GameplayTagContainerFormatter();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Assemblies;
 
 namespace Vapor
 {
@@ -13,8 +14,9 @@ namespace Vapor
             var baseType = typeof(T);
             var result = new List<Type>();
 
-            // Search all loaded assemblies
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            // Unity's loaded set, not the app domain's: the domain can still return assemblies Unity has
+            // unloaded, and reflecting over one of those throws or holds it alive.
+            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type[] types;
                 try

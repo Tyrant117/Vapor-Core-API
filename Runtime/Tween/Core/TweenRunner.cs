@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -14,7 +15,8 @@ namespace Vapor.Tweening
     /// with a single compaction pass instead of per-element <c>RemoveAt</c>.
     /// </summary>
     [DefaultExecutionOrder(-100)]
-    internal sealed class TweenRunner : MonoBehaviour
+    [AutoStaticsCleanup] // Supports "enter play mode without domain reload".
+    internal sealed partial class TweenRunner : MonoBehaviour
     {
         private static TweenRunner s_Instance;
         private static bool s_Quitting;
@@ -35,14 +37,6 @@ namespace Vapor.Tweening
                 DontDestroyOnLoad(go);
                 return s_Instance;
             }
-        }
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics()
-        {
-            // Supports "enter play mode without domain reload".
-            s_Instance = null;
-            s_Quitting = false;
         }
 
         // ----------------------------------------------------------------

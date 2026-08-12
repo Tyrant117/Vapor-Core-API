@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using Object = UnityEngine.Object;
 
 namespace Vapor.Serialization
@@ -14,6 +15,7 @@ namespace Vapor.Serialization
     /// the typed path costs a field read rather than a dictionary probe. The untyped path keeps a
     /// <see cref="ConcurrentDictionary{TKey,TValue}"/> for reflection and polymorphic slots.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public static class VslFormatterRegistry
     {
         private static readonly ConcurrentDictionary<Type, IVslFormatter> s_Formatters =
@@ -30,6 +32,7 @@ namespace Vapor.Serialization
             RegisterBuiltIns();
         }
 
+        [NoAutoStaticsCleanup]
         private static class Cache<T>
         {
             public static IVslFormatter<T> Instance;

@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Serialization
 {
@@ -34,6 +35,7 @@ namespace Vapor.Serialization
     /// it does not — which is what makes a document written in the editor still load in a player.
     /// </para>
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public readonly struct VslObjectReference : IEquatable<VslObjectReference>
     {
         public static readonly VslObjectReference Null = default;

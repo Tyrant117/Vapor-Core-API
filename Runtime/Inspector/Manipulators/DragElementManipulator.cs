@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
-    public class DragElementManipulator : Manipulator
+    [AutoStaticsCleanup]
+    public partial class DragElementManipulator : Manipulator
     {
         private static readonly List<VisualElement> s_HoverCache = new();
 

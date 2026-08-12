@@ -1,17 +1,26 @@
 using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
 namespace VaporEditorInstaller
 {
-    public static class VaporInstaller
+    public static partial class VaporInstaller
     {
         private const string SessionStateInitialized = "_vaporSessionStateInitialized";
 
         private const string SymbolName = "VAPOR";
 
-        [InitializeOnLoadMethod]
+        /// <summary>
+        /// Installs package dependencies and the VAPOR define, once per editor session.
+        /// </summary>
+        /// <remarks>
+        /// The work is deferred a tick because <see cref="OnCodeInitializingAttribute"/> runs earlier
+        /// than the <c>[InitializeOnLoadMethod]</c> it replaces — before assets are fully loaded — and
+        /// package resolution ends in an <see cref="AssetDatabase.Refresh"/>.
+        /// </remarks>
+        [OnCodeInitializing]
         private static void InitializeSession()
         {
             if (SessionState.GetBool(SessionStateInitialized, false))
@@ -21,8 +30,11 @@ namespace VaporEditorInstaller
 
             SessionState.SetBool(SessionStateInitialized, true);
 
-            Debug.Log("[Vapor Installer] Running one-time editor session initialization...");
-            InitializeOncePerSession();
+            EditorApplication.delayCall += () =>
+            {
+                Debug.Log("[Vapor Installer] Running one-time editor session initialization...");
+                InitializeOncePerSession();
+            };
         }
 
         private static void InitializeOncePerSession()

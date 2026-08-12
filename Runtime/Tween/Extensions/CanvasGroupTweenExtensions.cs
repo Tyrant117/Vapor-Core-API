@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -6,6 +7,7 @@ namespace Vapor.Tweening
     /// High-level tween helpers for uGUI <see cref="CanvasGroup"/> — most commonly fading whole panels in and
     /// out. Uses cached <c>static</c> reader/writer delegates so no closure is allocated per call.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class CanvasGroupTweenExtensions
     {
         private static readonly TweenReader<float> s_ReadAlpha = o => ((CanvasGroup)o).alpha;

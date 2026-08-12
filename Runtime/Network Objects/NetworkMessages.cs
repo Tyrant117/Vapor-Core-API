@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.Pool;
 using Vapor.Inspector;
@@ -9,7 +10,8 @@ using Vapor.Unsafe;
 
 namespace Vapor.NetworkObjects
 {
-    public class NetworkMessages : VaporBehaviour
+    [AutoStaticsCleanup]
+    public partial class NetworkMessages : VaporBehaviour
     {
         public static NetworkMessages Instance { get; private set; }
         

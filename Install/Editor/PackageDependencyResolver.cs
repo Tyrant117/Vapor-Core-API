@@ -1,5 +1,5 @@
 using System;
-using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
@@ -7,13 +7,17 @@ using UnityEngine;
 
 namespace VaporEditorInstaller
 {
-    public static class PackageDependencyResolver
+    [AutoStaticsCleanup]
+    public static partial class PackageDependencyResolver
     {
         private static AddAndRemoveRequest s_Request;
         private static AddAndRemoveRequest s_RequestAddAndRemove;
 
         private static Action<bool> DependenciesLoaded;
 
+        // A fixed list, not session state. Excluded because a readonly array is neither reassignable nor
+        // one of the collection types the generator knows how to clear.
+        [NoAutoStaticsCleanup]
         private static readonly string[] s_Dependencies = {
             "com.unity.editorcoroutines",
             "com.unity.nuget.newtonsoft-json",

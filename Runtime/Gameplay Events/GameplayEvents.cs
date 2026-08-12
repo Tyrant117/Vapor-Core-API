@@ -1,25 +1,23 @@
 using System;
 using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.Keys;
 using Object = UnityEngine.Object;
 
 namespace Vapor.GameplayFramework
 {
-    public static class GameplayEvents
+    // All four tables are cleared, where the hand-written reset this replaces cleared only two. With
+    // domain reload on they are reconstructed either way; the difference was only ever visible with
+    // it off, where the channel tables leaked subscribers across play sessions.
+    [AutoStaticsCleanup]
+    public static partial class GameplayEvents
     {
         private static readonly Dictionary<uint, GameplayEvent> s_Events = new();
         private static readonly Dictionary<GameplayChannelId, GameplayEvent> s_ChannelEvents = new();
         private static readonly Dictionary<EntityId, Dictionary<uint, GameplayEvent>> s_EntityEvents = new();
         private static readonly Dictionary<EntityId, Dictionary<GameplayChannelId, GameplayEvent>> s_EntityChannelEvents = new();
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Initialize()
-        {
-            s_Events.Clear();
-            s_EntityEvents.Clear();
-        }
 
         public static void Subscribe([DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {

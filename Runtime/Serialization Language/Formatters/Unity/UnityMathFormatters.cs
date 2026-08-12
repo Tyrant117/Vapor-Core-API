@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Serialization
 {
+    [NoAutoStaticsCleanup]
     public sealed class Vector2Formatter : VslFormatter<Vector2>
     {
         public static readonly Vector2Formatter Instance = new Vector2Formatter();
@@ -25,6 +27,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Vector3Formatter : VslFormatter<Vector3>
     {
         public static readonly Vector3Formatter Instance = new Vector3Formatter();
@@ -50,6 +53,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Vector4Formatter : VslFormatter<Vector4>
     {
         public static readonly Vector4Formatter Instance = new Vector4Formatter();
@@ -77,6 +81,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Vector2IntFormatter : VslFormatter<Vector2Int>
     {
         public static readonly Vector2IntFormatter Instance = new Vector2IntFormatter();
@@ -100,6 +105,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class Vector3IntFormatter : VslFormatter<Vector3Int>
     {
         public static readonly Vector3IntFormatter Instance = new Vector3IntFormatter();
@@ -125,6 +131,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class QuaternionFormatter : VslFormatter<Quaternion>
     {
         public static readonly QuaternionFormatter Instance = new QuaternionFormatter();
@@ -159,6 +166,7 @@ namespace Vapor.Serialization
     /// Flat rather than nested rows: a matrix is rarely hand-edited, and a single row of numbers is
     /// both shorter and less error-prone to emit than four nested tuples.
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class Matrix4x4Formatter : VslFormatter<Matrix4x4>
     {
         public static readonly Matrix4x4Formatter Instance = new Matrix4x4Formatter();

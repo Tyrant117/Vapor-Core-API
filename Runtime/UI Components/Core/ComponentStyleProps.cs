@@ -1,12 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Vapor.UIComponents
 {
     [SuppressMessage("ReSharper", "InconsistentNaming")]
+    [NoAutoStaticsCleanup]
     public class ComponentStyleProps
     {
         private static readonly Dictionary<string, string> s_CachedProps = new();

@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -7,6 +8,7 @@ namespace Vapor.Tweening
     /// also inherits every <see cref="Transform"/> helper (position, scale, rotation). Uses cached
     /// <c>static</c> reader/writer delegates so no closure is allocated per call.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class RectTransformTweenExtensions
     {
         private static readonly TweenReader<Vector2> s_ReadAnchored = o => ((RectTransform)o).anchoredPosition;

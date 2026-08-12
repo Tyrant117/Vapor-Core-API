@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEditor;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Assemblies;
 using Vapor.Unsafe;
 
 namespace Vapor.NetworkObjects
@@ -22,7 +23,10 @@ namespace Vapor.NetworkObjects
     /// arrival is pure overhead on the hottest path there is.
     /// </para>
     /// </remarks>
-    public static class PacketRegistry
+    // Not automatic cleanup: RegisterAllPackets already clears and rebuilds every table on each code
+    // load, and an automatic reset in between would only empty a registry that is about to be refilled.
+    [NoAutoStaticsCleanup]
+    public static partial class PacketRegistry
     {
         private static readonly Dictionary<uint, Type> s_IDToType = new();
         private static readonly Dictionary<Type, uint> s_TypeToId = new();
@@ -35,10 +39,7 @@ namespace Vapor.NetworkObjects
         /// Runs in the editor too. Without it the registry is empty outside play mode, which makes
         /// every packet path untestable and silently breaks editor tooling that round-trips one.
         /// </summary>
-#if UNITY_EDITOR
-        [InitializeOnLoadMethod]
-#endif
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        [OnCodeInitializing]
         public static void RegisterAllPackets()
         {
             s_IDToType.Clear();
@@ -49,7 +50,12 @@ namespace Vapor.NetworkObjects
             var allTypesInAppDomain = new List<Type>();
             var packetTypes = new List<Type>();
 
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            // Unity's loaded set rather than the app domain's. The domain can hand back assemblies it has
+            // already unloaded, and a packet type resolved out of one of those is a type whose code is
+            // gone — it would sit in the opcode table and fail at construction. Narrowing here only ever
+            // removes dead assemblies, and opcodes are hashes of the type name rather than of discovery
+            // order, so which assemblies are walked cannot shift the opcode of anything still present.
+            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 Type[] types;
                 try

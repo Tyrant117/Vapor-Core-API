@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Tweening
@@ -39,6 +40,7 @@ namespace Vapor.Tweening
     /// Pre-built <see cref="TweenOps{T}"/> instances for the common Unity value types. All use the
     /// <c>Unclamped</c> interpolators so that overshooting eases (Back, Elastic, Bounce) render correctly.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public static class TweenLerp
     {
         public static readonly TweenOps<float> Float = new(

@@ -1,8 +1,11 @@
+using Unity.Scripting.LifecycleManagement;
+
 namespace Vapor.Serialization
 {
     /// <summary>
     /// Formatting and leniency settings for a VSL read or write.
     /// </summary>
+    [NoAutoStaticsCleanup]
     public sealed class VslOptions
     {
         /// <summary>

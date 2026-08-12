@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using Vapor.Unsafe;
 
 namespace Vapor.GameplayTags
@@ -9,13 +10,16 @@ namespace Vapor.GameplayTags
     /// <c>uint = Hash32(name)</c> space as <c>GameplayTag</c> and <c>IData</c>. Every segment of a dotted path
     /// gets its own node, so "Ability.Fire.Burn" also resolves "Ability.Fire" and "Ability".
     ///
-    /// <para>The tree builds lazily from <see cref="GameplayTagTree.Initialize"/> on first access and
-    /// rebuilds whenever the data registry is rebuilt, so callers never need to initialize it. Building lazily
-    /// is also what lets this type stand alone: Unity does not invoke <c>[RuntimeInitializeOnLoadMethod]</c> /
-    /// <c>[InitializeOnLoadMethod]</c> on generic types, and it avoids racing the registry's own startup
-    /// initialization.</para>
+    /// <para>The tree builds lazily from <see cref="Initialize"/> on first access and rebuilds whenever the
+    /// data registry is rebuilt, so callers never need to initialize it. Building lazily rather than from a
+    /// load callback is what keeps it from racing the registry's own startup initialization.</para>
+    ///
+    /// <para>Nodes are keyed by the hash of the dotted path, so two paths that collide resolve to the same
+    /// node. That is the same 32-bit exposure <c>GlobalDataRegistry</c> records collisions for, and it is not
+    /// re-checked here.</para>
     /// </summary>
-    public static class GameplayTagTree
+    [AutoStaticsCleanup]
+    public static partial class GameplayTagTree
     {
         private static bool s_Initialized;
         private static bool s_Initializing;
@@ -48,6 +52,9 @@ namespace Vapor.GameplayTags
             if (!s_Subscribed)
             {
                 // Rebuilding the registry (e.g. after regenerating data keys) must rebuild the tree.
+                // Unsubscribe first: the statics here are reset on entering play mode while the event on
+                // the registry is not, so a bare += would stack another handler every play session.
+                GlobalDataRegistry.OnRegistriesBuilt -= Invalidate;
                 GlobalDataRegistry.OnRegistriesBuilt += Invalidate;
                 s_Subscribed = true;
             }
@@ -66,8 +73,6 @@ namespace Vapor.GameplayTags
         /// </summary>
         public static void Initialize()
         {
-            // GetAllTags() reads the data registry, which can log or resolve a tag name and re-enter here.
-            // Build into locals and swap at the end so a re-entrant read sees the previous tree, never a torn one.
             if (s_Initializing)
             {
                 return;
@@ -76,48 +81,15 @@ namespace Vapor.GameplayTags
             s_Initializing = true;
             try
             {
+                // GetAllKeys() reads the data registry, which can log or resolve a tag name and re-enter
+                // here. Build into locals and swap at the end so a re-entrant read sees the previous tree,
+                // never a torn one.
                 var rootTags = new List<GameplayTagTreeNode>();
                 var tagMap = new Dictionary<uint, GameplayTagTreeNode>();
-                var tempTag = Activator.CreateInstance<GameplayTagTreeNode>();
-                var tags = tempTag.GetAllTags();
-                var nodeLookup = new Dictionary<string, GameplayTagTreeNode>();
 
-                foreach (var tag in tags)
+                foreach (var tag in GameplayTagUtility.GetAllKeys())
                 {
-                    string[] parts = tag.Name.Split('.', StringSplitOptions.RemoveEmptyEntries);
-                    string currentPath = "";
-                    GameplayTagTreeNode parent = null;
-
-                    for (int i = 0; i < parts.Length; i++)
-                    {
-                        currentPath = i == 0 ? parts[0] : $"{currentPath}.{parts[i]}";
-
-                        if (!nodeLookup.TryGetValue(currentPath, out var currentNode))
-                        {
-                            currentNode = new GameplayTagTreeNode
-                            {
-                                Name = currentPath,
-                                Key = currentPath == "None" ? 0 : currentPath.Hash32(),
-                                Children = new List<GameplayTagTreeNode>(),
-                                Parent = parent,
-                            };
-
-                            nodeLookup[currentPath] = currentNode;
-                            tagMap[currentNode.Key] = currentNode;
-
-                            if (parent != null)
-                            {
-                                currentNode.Root = nodeLookup[parts[0]];
-                                parent.Children.Add(currentNode);
-                            }
-                            else
-                            {
-                                rootTags.Add(currentNode);
-                            }
-                        }
-
-                        parent = currentNode;
-                    }
+                    AddPath(tag.Name, tagMap, rootTags);
                 }
 
                 s_RootTags = rootTags;
@@ -141,41 +113,68 @@ namespace Vapor.GameplayTags
             }
 
             EnsureInitialized();
+            AddPath(tag, s_TagMap, s_RootTags);
+        }
 
+        /// <summary>
+        /// Walks a dotted path, adding any segment that is not already present, and returns the deepest node.
+        /// </summary>
+        /// <remarks>
+        /// Shared by the full build and by <see cref="InsertTag"/>. They were separate copies that had
+        /// drifted: one keyed its lookup by path and the other by hash, so inserting "None" never found the
+        /// node it had just stored under the reserved key 0 and re-added it on every call; and the two
+        /// disagreed on what <c>Root</c> meant below the second level.
+        /// </remarks>
+        private static GameplayTagTreeNode AddPath(string tag, Dictionary<uint, GameplayTagTreeNode> tagMap, List<GameplayTagTreeNode> rootTags)
+        {
             string[] parts = tag.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            string currentPath = "";
-            GameplayTagTreeNode parent = null;
+            string currentPath = string.Empty;
+            GameplayTagTreeNode node = null;
 
             for (int i = 0; i < parts.Length; i++)
             {
                 currentPath = i == 0 ? parts[0] : $"{currentPath}.{parts[i]}";
-
-                if (!s_TagMap.TryGetValue(currentPath.Hash32(), out var currentNode))
-                {
-                    currentNode = new GameplayTagTreeNode
-                    {
-                        Name = currentPath,
-                        Key = currentPath == "None" ? 0 : currentPath.Hash32(),
-                        Children = new List<GameplayTagTreeNode>(),
-                        Parent = parent,
-                    };
-
-                    s_TagMap[currentNode.Key] = currentNode;
-
-                    if (parent != null)
-                    {
-                        currentNode.Root = parent.Root;
-                        parent.Children.Add(currentNode);
-                    }
-                    else
-                    {
-                        s_RootTags.Add(currentNode);
-                    }
-                }
-
-                parent = currentNode;
+                node = GetOrAddNode(currentPath, node, tagMap, rootTags);
             }
+
+            return node;
         }
+
+        private static GameplayTagTreeNode GetOrAddNode(string path, GameplayTagTreeNode parent, Dictionary<uint, GameplayTagTreeNode> tagMap, List<GameplayTagTreeNode> rootTags)
+        {
+            uint key = KeyFor(path);
+            if (tagMap.TryGetValue(key, out var node))
+            {
+                return node;
+            }
+
+            node = new GameplayTagTreeNode
+            {
+                Name = path,
+                Key = key,
+                Children = new List<GameplayTagTreeNode>(),
+                Parent = parent,
+            };
+
+            tagMap[key] = node;
+
+            if (parent == null)
+            {
+                rootTags.Add(node);
+            }
+            else
+            {
+                // Root is the top-level ancestor. A root's own Root stays null, so the second level takes
+                // the parent itself and everything below inherits it.
+                node.Root = parent.Root ?? parent;
+                parent.Children.Add(node);
+            }
+
+            return node;
+        }
+
+        /// <summary>"None" is the reserved zero key; every other path is the hash of its dotted name.</summary>
+        private static uint KeyFor(string path) => path == "None" ? 0u : path.Hash32();
 
         public static void Traverse(Action<GameplayTagTreeNode> visitor, bool preOrderSearch = true)
         {

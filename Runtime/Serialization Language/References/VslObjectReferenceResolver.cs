@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -22,6 +23,7 @@ namespace Vapor.Serialization
     /// session-scoped — there is nothing durable to record about it.
     /// </para>
     /// </remarks>
+    [NoAutoStaticsCleanup]
     public sealed class VslObjectReferenceResolver : IVslReferenceResolver
     {
         public static readonly VslObjectReferenceResolver Instance = new VslObjectReferenceResolver();

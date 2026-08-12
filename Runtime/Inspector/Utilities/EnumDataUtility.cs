@@ -1,13 +1,14 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Inspector
 {
-    public static class EnumDataUtility
+    [AutoStaticsCleanup]
+    public static partial class EnumDataUtility
     {
         public enum CachedType
         {

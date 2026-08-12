@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Tweening
 {
@@ -9,7 +10,8 @@ namespace Vapor.Tweening
     /// Every <see cref="Tween{T}"/> is created through <see cref="Get"/> and returned via <see cref="Release"/>
     /// when it dies, so steady-state tween creation is allocation-free once the pool has warmed up.
     /// </summary>
-    internal static class TweenPool<T>
+    [AutoStaticsCleanup]
+    internal static partial class TweenPool<T>
     {
         private const int MaxRetained = 512;
 

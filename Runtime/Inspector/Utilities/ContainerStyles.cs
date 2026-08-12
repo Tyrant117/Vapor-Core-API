@@ -1,8 +1,10 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Vapor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class ContainerStyles
     {
         public static StyleColor HeaderColor = new(new Color(0.3f, 0.3f, 0.3f));

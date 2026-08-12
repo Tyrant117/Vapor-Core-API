@@ -1,7 +1,9 @@
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Vapor.Serialization
 {
+    [NoAutoStaticsCleanup]
     public sealed class RectFormatter : VslFormatter<Rect>
     {
         public static readonly RectFormatter Instance = new RectFormatter();
@@ -29,6 +31,7 @@ namespace Vapor.Serialization
         }
     }
 
+    [NoAutoStaticsCleanup]
     public sealed class RectIntFormatter : VslFormatter<RectInt>
     {
         public static readonly RectIntFormatter Instance = new RectIntFormatter();
@@ -57,6 +60,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Centre followed by extents — the struct's own storage, so nothing is derived.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class BoundsFormatter : VslFormatter<Bounds>
     {
         public static readonly BoundsFormatter Instance = new BoundsFormatter();
@@ -93,6 +97,7 @@ namespace Vapor.Serialization
     }
 
     /// <summary>Position followed by size, matching how <see cref="BoundsInt"/> actually stores itself.</summary>
+    [NoAutoStaticsCleanup]
     public sealed class BoundsIntFormatter : VslFormatter<BoundsInt>
     {
         public static readonly BoundsIntFormatter Instance = new BoundsIntFormatter();

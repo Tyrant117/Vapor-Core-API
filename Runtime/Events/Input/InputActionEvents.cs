@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using UnityEditor;
+﻿using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Vapor.Inspector;
 
 namespace Vapor
 {
-    public static class InputActionEvents
+    [AutoStaticsCleanup]
+    public static partial class InputActionEvents
     {
         public static string FormatInputActionTag(string tagPrefix, InputAction action)
         {
@@ -17,9 +17,6 @@ namespace Vapor
         
         
         private static readonly Dictionary<uint, InputActionEvent> s_Events = new();
-        
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Initialize() => s_Events.Clear();
 
         public static void Subscribe(uint eventId, InputActionEventHandler callbackContext)
         {
