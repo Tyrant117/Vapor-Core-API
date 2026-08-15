@@ -76,11 +76,9 @@ namespace Vapor
         /// </remarks>
         public Type View { get; set; }
 
-        /// <summary>
-        /// A dedicated editor window type for this data (an <c>EditorWindow</c>). When set, the Data
-        /// Types window lists the type but opens this window instead of drawing the entries inline —
-        /// for data whose authoring wants its own tool, like actors.
-        /// </summary>
-        public Type Window { get; set; }
+        // A type that wants a whole window of its own rather than a view declares nothing here: the
+        // window marks itself with the editor-side [DataAuthoringWindow(typeof(TheData))], and the
+        // Data Types rail opens it in place of drawing the entries inline. An editor window cannot be
+        // named from a runtime assembly, which is why that side carries the link.
     }
 }

@@ -478,9 +478,9 @@ namespace VaporEditor.Inspector
                 return;
             }
 
-            // Nothing to recurse into for Unity.Objects (drawn as an ObjectField), non-serializable types,
-            // or anything explicitly opted out with [IgnoreChildNodes].
-            if (IsUnityObjectOrSubclass() || !TypeHasAttribute<SerializableAttribute>() || NoChildProperties)
+            // Nothing to recurse into for Unity.Objects (drawn as an ObjectField), types that are neither
+            // [Serializable] nor VSL-authored, or anything explicitly opted out with [IgnoreChildNodes].
+            if (IsUnityObjectOrSubclass() || !ReflectionUtility.IsExpandableType(PropertyType) || NoChildProperties)
             {
                 return;
             }

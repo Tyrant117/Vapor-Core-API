@@ -60,6 +60,14 @@ namespace VaporEditor.DataRegistry
         /// </remarks>
         public static void Open(IData entry)
         {
+            // A type with a window of its own is edited there. Routed before this window is even
+            // shown, so "edit this actor" lands in the Actors window and not on an empty pane here.
+            if (entry != null && DataAuthoringWindows.HasWindow(entry.GetType()))
+            {
+                DataAuthoringWindows.Open(entry.GetType(), entry);
+                return;
+            }
+
             Open();
 
             if (entry == null)

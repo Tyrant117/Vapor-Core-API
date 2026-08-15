@@ -97,6 +97,13 @@ namespace VaporEditor.DataRegistry
                 any = true;
                 _body.Add(BuildTypeBar(type, concrete));
 
+                // A type with a window of its own is a link out of here; its family is that window's
+                // business, so there is nothing to expand.
+                if (DataAuthoringWindows.HasWindow(type))
+                {
+                    continue;
+                }
+
                 if (concrete.Count < 2 || (!IsExpanded(type) && string.IsNullOrEmpty(query)))
                 {
                     continue;
@@ -123,15 +130,20 @@ namespace VaporEditor.DataRegistry
         {
             var color = VslDataStore.GetColor(type);
             var selected = SelectedType == type;
-            var hasFamily = concrete.Count > 1;
+            var hasWindow = DataAuthoringWindows.TryGetWindow(type, out var windowType);
+            var hasFamily = !hasWindow && concrete.Count > 1;
             var expanded = hasFamily && (IsExpanded(type) || !string.IsNullOrEmpty(_search.value));
             var exists = File.Exists(VslDataStore.GetAbsolutePath(type));
 
+            var location = exists
+                ? $"{type.FullName}\n{VslDataStore.GetAssetPath(type)}"
+                : $"{type.FullName}\n{VslDataStore.GetAssetPath(type)} (created on save)";
+
             var bar = new VisualElement
             {
-                tooltip = exists
-                    ? $"{type.FullName}\n{VslDataStore.GetAssetPath(type)}"
-                    : $"{type.FullName}\n{VslDataStore.GetAssetPath(type)} (created on save)",
+                tooltip = hasWindow
+                    ? $"{location}\nAuthored in its own window ({ObjectNames.NicifyVariableName(windowType.Name)}). Click to open it."
+                    : location,
                 style =
                 {
                     flexDirection = FlexDirection.Row,
@@ -175,6 +187,22 @@ namespace VaporEditor.DataRegistry
                 });
             }
 
+            if (hasWindow)
+            {
+                // Says where the click goes. Text rather than a glyph, for the same reason the arrow
+                // is drawn from borders: it cannot come out as a missing character.
+                bar.Add(new Label("Window")
+                {
+                    style =
+                    {
+                        opacity = 0.6f,
+                        flexShrink = 0f,
+                        fontSize = 10,
+                        unityFontStyleAndWeight = FontStyle.Italic,
+                    },
+                });
+            }
+
             bar.RegisterCallback<PointerDownEvent>(evt =>
             {
                 if (evt.button != 0)
@@ -182,7 +210,17 @@ namespace VaporEditor.DataRegistry
                     return;
                 }
 
-                OnTypeClicked(type, hasFamily);
+                if (hasWindow)
+                {
+                    // Not selected here — this window has nothing to show for it. The open document,
+                    // whatever it is, stays exactly as it was.
+                    DataAuthoringWindows.Open(type);
+                }
+                else
+                {
+                    OnTypeClicked(type, hasFamily);
+                }
+
                 evt.StopPropagation();
             });
 
@@ -369,6 +407,12 @@ namespace VaporEditor.DataRegistry
                 return;
             }
 
+            // Not this window's to open; the caller should have gone to the dedicated one.
+            if (DataAuthoringWindows.HasWindow(type))
+            {
+                return;
+            }
+
             if (SelectType(type))
             {
                 SetExpanded(type, true);
@@ -377,11 +421,16 @@ namespace VaporEditor.DataRegistry
             Rebuild();
         }
 
-        /// <summary>Opens the first type, so the window has something on screen.</summary>
+        /// <summary>Opens the first type this window draws itself, so it has something on screen.</summary>
         public void SelectFirst()
         {
             foreach (var type in VslDataStore.GetAuthoredTypes())
             {
+                if (DataAuthoringWindows.HasWindow(type))
+                {
+                    continue;
+                }
+
                 SelectType(type);
                 Rebuild();
                 return;

@@ -72,9 +72,6 @@ namespace Vapor
                     continue;
                 }
 
-                var type = data.GetType();
-                var (scriptName, category) = KeyGenerator.DeriveScriptAndCategory(type, type.GetCustomAttribute<KeyOptionsAttribute>());
-
                 var tooltip = (data as GameplayTagData)?.EditorTooltip;
                 if (string.IsNullOrEmpty(tooltip))
                 {
@@ -85,19 +82,37 @@ namespace Vapor
                 var model = new DropdownModel(data.Name, (GameplayTag)data.Key, tooltip);
                 s_AllDropdownModels.Add(model);
 
-                if (!s_CachedCategories.TryGetValue(category, out var categoryList))
+                // Filed under its own type and under every IData class above it, matching the key
+                // classes: a picker asking for the family's root sees the whole family, one asking
+                // for a level of it sees that level down.
+                foreach (var type in KeyGenerator.WithKeyAncestors(data.GetType()))
                 {
-                    categoryList = new List<DropdownModel>();
-                    s_CachedCategories[category] = categoryList;
-                }
-                categoryList.Add(model);
+                    var (scriptName, category) = KeyGenerator.DeriveScriptAndCategory(type, type.GetCustomAttribute<KeyOptionsAttribute>());
 
-                if (!s_CachedTypeNames.TryGetValue(scriptName, out var typeList))
-                {
-                    typeList = new List<DropdownModel>();
-                    s_CachedTypeNames[scriptName] = typeList;
+                    if (!s_CachedCategories.TryGetValue(category, out var categoryList))
+                    {
+                        categoryList = new List<DropdownModel>();
+                        s_CachedCategories[category] = categoryList;
+                    }
+
+                    // A base type may share a category with a subclass through [KeyOptions]; the
+                    // entry is filed once per bucket, not once per level.
+                    if (!categoryList.Contains(model))
+                    {
+                        categoryList.Add(model);
+                    }
+
+                    if (!s_CachedTypeNames.TryGetValue(scriptName, out var typeList))
+                    {
+                        typeList = new List<DropdownModel>();
+                        s_CachedTypeNames[scriptName] = typeList;
+                    }
+
+                    if (!typeList.Contains(model))
+                    {
+                        typeList.Add(model);
+                    }
                 }
-                typeList.Add(model);
             }
 
             s_Cached = true;

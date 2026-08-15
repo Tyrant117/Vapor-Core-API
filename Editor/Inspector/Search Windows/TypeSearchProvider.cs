@@ -8,7 +8,7 @@ using Assembly = System.Reflection.Assembly;
 
 namespace VaporEditor.Inspector
 {
-    internal class TypeSearchProvider : ISearchProvider<TypeSearchModel>
+    public class TypeSearchProvider : ISearchProvider<TypeSearchModel>
     {
         private static List<TypeSearchModel> s_CachedDescriptors;
         

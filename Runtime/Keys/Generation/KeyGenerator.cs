@@ -78,6 +78,47 @@ namespace Vapor.Keys
             scriptName = $"{scriptName}Keys";
             return (scriptName, category);
         }
+
+        /// <summary>
+        /// The types a key set exists for: <paramref name="type"/> itself and every <see cref="IData"/>
+        /// class it derives from, nearest first.
+        /// </summary>
+        /// <remarks>
+        /// A family authored under one root — actors, say: <c>Pawn</c> and <c>PlayerController</c>
+        /// under <c>Actor</c> — must generate one key class and one dropdown category for the whole
+        /// family, or a picker asking for "an actor" would only ever see the entries whose runtime
+        /// type is exactly <c>Actor</c>. Every level gets a set of its own, so a picker can also ask
+        /// for "a pawn". Callers that used to take only the direct base type widen through here.
+        /// </remarks>
+        public static IEnumerable<Type> WithKeyAncestors(Type type)
+        {
+            for (var t = type; t != null && t != typeof(object); t = t.BaseType)
+            {
+                if (t.IsClass && typeof(IData).IsAssignableFrom(t))
+                {
+                    yield return t;
+                }
+            }
+        }
+
+        /// <inheritdoc cref="WithKeyAncestors(Type)"/>
+        public static List<Type> WithKeyAncestors(IEnumerable<Type> types)
+        {
+            var seen = new HashSet<Type>();
+            var result = new List<Type>();
+            foreach (var type in types)
+            {
+                foreach (var t in WithKeyAncestors(type))
+                {
+                    if (seen.Add(t))
+                    {
+                        result.Add(t);
+                    }
+                }
+            }
+
+            return result;
+        }
         #endregion
 
 #if UNITY_EDITOR

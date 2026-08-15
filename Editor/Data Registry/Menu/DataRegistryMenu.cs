@@ -46,14 +46,10 @@ namespace VaporEditor
         {
             GlobalDataRegistry.Initialize();
 
-            var types = GlobalDataRegistry.GetAllTypes().ToList();
-            var baseTypes = types
-                .Select(t => t.BaseType)
-                .Where(t => t != null && t != typeof(object) && typeof(IData).IsAssignableFrom(t))
-                .ToList();
-            types.AddRange(baseTypes);
-            // Filter out types that don't implement IData
-            types = types.Distinct().ToList();
+            // Every registered type and every IData class above it, so a family shared under one
+            // authored root generates one key class for the whole family (ActorKeys covers pawns and
+            // controllers alike) as well as one per level.
+            var types = KeyGenerator.WithKeyAncestors(GlobalDataRegistry.GetAllTypes());
 
             HashSet<string> prefixes = new();
             foreach (var type in types)

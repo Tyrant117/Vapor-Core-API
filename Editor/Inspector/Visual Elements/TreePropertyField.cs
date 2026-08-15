@@ -1532,12 +1532,23 @@ namespace VaporEditor.Inspector
 
         private void DrawRichTooltip()
         {
-            if (!Property.TryGetAttribute<RichTextTooltipAttribute>(out var rtAtr)) return;
-
             var label = _internalLabel;
-            if (label != null)
+            if (label == null)
+            {
+                return;
+            }
+
+            if (Property.TryGetAttribute<RichTextTooltipAttribute>(out var rtAtr))
             {
                 label.tooltip = rtAtr.Tooltip;
+                return;
+            }
+
+            // The comment VSL writes into the document is the member's documentation; the inspector
+            // shows the same words rather than asking for them twice.
+            if (Property.TryGetAttribute<VslCommentAttribute>(out var comment) && !string.IsNullOrEmpty(comment.Comment))
+            {
+                label.tooltip = comment.Comment;
             }
         }
 
