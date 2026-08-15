@@ -278,7 +278,7 @@ namespace Game
         private static void FormatterFollowsVslMemberRules()
         {
             const string source = @"
-using Vapor;
+using Vapor.Serialization;
 using Vapor.Networking;
 
 namespace Game

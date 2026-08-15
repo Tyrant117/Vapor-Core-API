@@ -32,7 +32,7 @@ namespace UnityEditor
     public sealed class InitializeOnLoadMethodAttribute : Attribute { }
 }
 
-namespace Vapor
+namespace Vapor.Serialization
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)] public sealed class VslSerializableAttribute : Attribute { }
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)] public sealed class VslSerializeAttribute : Attribute { }

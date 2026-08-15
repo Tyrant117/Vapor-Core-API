@@ -75,9 +75,9 @@ namespace Vapor.Network.SourceGenerator
             NetworkSerializable = compilation.GetTypeByMetadataName("Vapor.Networking.NetworkSerializableAttribute"),
             NetworkSerialize = compilation.GetTypeByMetadataName("Vapor.Networking.NetworkSerializeAttribute"),
             NetworkIgnore = compilation.GetTypeByMetadataName("Vapor.Networking.NetworkIgnoreAttribute"),
-            VslSerializable = compilation.GetTypeByMetadataName("Vapor.VslSerializableAttribute"),
-            VslSerialize = compilation.GetTypeByMetadataName("Vapor.VslSerializeAttribute"),
-            VslIgnore = compilation.GetTypeByMetadataName("Vapor.VslIgnoreAttribute"),
+            VslSerializable = compilation.GetTypeByMetadataName("Vapor.Serialization.VslSerializableAttribute"),
+            VslSerialize = compilation.GetTypeByMetadataName("Vapor.Serialization.VslSerializeAttribute"),
+            VslIgnore = compilation.GetTypeByMetadataName("Vapor.Serialization.VslIgnoreAttribute"),
             SerializeField = compilation.GetTypeByMetadataName("UnityEngine.SerializeField"),
             NonSerialized = compilation.GetTypeByMetadataName("System.NonSerializedAttribute"),
         };

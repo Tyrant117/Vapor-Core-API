@@ -23,14 +23,21 @@ namespace Vapor.Serialization
 
         public Type MemberType { get; }
 
-        internal VslMember(string name, string comment, FieldInfo field, PropertyInfo property)
+        /// <summary>The profiles this member belongs to; <see cref="VslProfiles.All"/> unless restricted with <see cref="VslProfileAttribute"/>.</summary>
+        public VslProfiles Profiles { get; }
+
+        internal VslMember(string name, string comment, FieldInfo field, PropertyInfo property, VslProfiles profiles = VslProfiles.All)
         {
             Name = name;
             Comment = comment;
             _field = field;
             _property = property;
+            Profiles = profiles;
             MemberType = field != null ? field.FieldType : property.PropertyType;
         }
+
+        /// <summary>True when the member takes part in a read or write filtered to <paramref name="active"/>.</summary>
+        public bool IsIn(VslProfiles active) => (Profiles & active) != 0;
 
         /// <summary>Resolved on first use, so a type that contains itself does not recurse at build time.</summary>
         public IVslFormatter Formatter => _formatter ??= VslFormatterRegistry.Get(MemberType);
@@ -276,7 +283,8 @@ namespace Vapor.Serialization
             }
 
             claimed.Add(name);
-            return new VslMember(name, comment?.Comment, field, property);
+            var profile = member.GetCustomAttribute<VslProfileAttribute>(true);
+            return new VslMember(name, comment?.Comment, field, property, profile?.Profiles ?? VslProfiles.All);
         }
 
         private static string ToCamelCase(ReadOnlySpan<char> name)

@@ -75,5 +75,12 @@ namespace Vapor
         /// editor assembly, which runtime code cannot reference. The window validates it.
         /// </remarks>
         public Type View { get; set; }
+
+        /// <summary>
+        /// A dedicated editor window type for this data (an <c>EditorWindow</c>). When set, the Data
+        /// Types window lists the type but opens this window instead of drawing the entries inline —
+        /// for data whose authoring wants its own tool, like actors.
+        /// </summary>
+        public Type Window { get; set; }
     }
 }

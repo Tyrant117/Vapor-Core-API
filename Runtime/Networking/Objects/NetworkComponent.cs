@@ -71,6 +71,19 @@ namespace Vapor.Networking
         #region - Custom state -
 
         /// <summary>
+        /// Written once into every full entry for this component (spawn, add, resync), before its
+        /// state, and read right after construction on the receiving peer — for whatever the component
+        /// needs to become itself (an actor component ships its authored config when it did not come
+        /// from a template both peers hold).
+        /// </summary>
+        protected virtual void WriteSpawnData(NetworkWriter writer) { }
+
+        protected virtual void ReadSpawnData(NetworkReader reader) { }
+
+        internal void WriteSpawnDataInternal(NetworkWriter writer) => WriteSpawnData(writer);
+        internal void ReadSpawnDataInternal(NetworkReader reader) => ReadSpawnData(reader);
+
+        /// <summary>
         /// State beyond network variables. Called with <c>full</c> for spawn and new observers, and
         /// without after <see cref="MarkDirty"/>. Whatever is written here must be read back in the same
         /// order by <see cref="ReadState"/>.

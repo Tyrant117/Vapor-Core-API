@@ -396,7 +396,7 @@ namespace Vapor.Networking
             foreach (var id in peer.Known)
             {
                 if (!_world.TryGet(id, out var networkObject) || !networkObject.HasSnapshotChannel) continue;
-                if (networkObject.OwnerWritesSnapshots && networkObject.OwnerClientId == peer.ClientId) continue;
+                if (!networkObject.HasSnapshotToSendInternal(peer.ClientId, networkObject.OwnerClientId == peer.ClientId)) continue;
 
                 float scale = lod?.RateScale(networkObject, peer.ClientId) ?? 1f;
                 if (scale <= 0f) continue;
@@ -447,7 +447,7 @@ namespace Vapor.Networking
                 _ownerSnapshotDue.TryGetValue(networkObject.NetworkObjectId, out float owed);
                 owed += (float)(networkObject.SnapshotRateHz * dt);
                 if (owed > 2f) owed = 2f;
-                if (owed >= 1f)
+                if (owed >= 1f && networkObject.HasSnapshotToSendInternal(NetworkSession.ServerClientId, isOwner: false))
                 {
                     owed -= 1f;
                     _stateScratch.Reset();

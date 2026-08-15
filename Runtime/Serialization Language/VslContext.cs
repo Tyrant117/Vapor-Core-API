@@ -22,6 +22,15 @@ namespace Vapor.Serialization
         public IVslReferenceResolver References { get; set; } = VslObjectReferenceResolver.Instance;
 
         /// <summary>
+        /// The member profiles in force. A member is written or read only when its
+        /// <see cref="VslMember.Profiles"/> intersect this; the default touches every member.
+        /// </summary>
+        public VslProfiles Profiles { get; set; } = VslProfiles.All;
+
+        /// <summary>A context restricted to <paramref name="profiles"/>, otherwise like <see cref="Default"/>.</summary>
+        public static VslContext For(VslProfiles profiles, VslOptions options = null) => new VslContext(options) { Profiles = profiles };
+
+        /// <summary>
         /// Nesting limit, which is what stops a reference cycle from becoming a stack overflow. VSL
         /// has no back-reference syntax, so a cycle is a authoring error rather than something to
         /// encode.

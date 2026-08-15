@@ -46,8 +46,14 @@ namespace Vapor.Serialization
             try
             {
                 writer.BeginObject(schema.PrefersInline(context));
+                var profiles = context.Profiles;
                 foreach (var member in schema.Members)
                 {
+                    if (!member.IsIn(profiles))
+                    {
+                        continue;
+                    }
+
                     if (member.Comment != null)
                     {
                         writer.WriteComment(member.Comment);
@@ -165,6 +171,13 @@ namespace Vapor.Serialization
                             throw new VslException($"'{name.ToString()}' is not a serialized member of {schema.Type.Name}.");
                         }
 
+                        reader.SkipValue();
+                        continue;
+                    }
+
+                    // Present in the document but outside the active profile: leave the instance alone.
+                    if (!member.IsIn(context.Profiles))
+                    {
                         reader.SkipValue();
                         continue;
                     }

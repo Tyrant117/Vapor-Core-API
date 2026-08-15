@@ -12,6 +12,11 @@ namespace Vapor.Vsl.SourceGenerator
         public string Access;      // expression relative to 'value', e.g. "_health"
         public string TypeName;    // fully qualified with global::
         public string Comment;     // [VslComment] text, or null
+        public uint ProfileMask = uint.MaxValue;   // [VslProfile], or every profile
+        public bool DeclaredHere;                  // on the type itself rather than a base
+        public ITypeSymbol Type;                   // for the clone expression
+
+        public bool IsInEveryProfile => ProfileMask == uint.MaxValue;
     }
 
     internal sealed class VslTypeModel
@@ -22,9 +27,18 @@ namespace Vapor.Vsl.SourceGenerator
         public string SimpleName;
         public bool IsValueType;
         public bool IsSealedOrValueType;
+        public bool IsAbstract;
         public List<string> ContainingTypes = new List<string>();   // outermost first, e.g. "partial class Outer"
         public string TypeKeyword;                                   // "class", "struct", "record"
         public List<VslMemberModel> Members = new List<VslMemberModel>();
+
+        /// <summary>False when the type falls back to reflection but still gets its clone members.</summary>
+        public bool EmitFormatter = true;
+
+        // [VslCloneable]
+        public bool IsCloneable;
+        public bool BaseIsCloneable;
+        public bool BaseDeclaresClone;      // any base has a parameterless Clone() -> 'new'
     }
 
     internal static class VslModelBuilder
@@ -34,17 +48,29 @@ namespace Vapor.Vsl.SourceGenerator
         public const string IgnoreAttribute = "Vapor.Serialization.VslIgnoreAttribute";
         public const string NameAttribute = "Vapor.Serialization.VslNameAttribute";
         public const string CommentAttribute = "Vapor.Serialization.VslCommentAttribute";
+        public const string ProfileAttribute = "Vapor.Serialization.VslProfileAttribute";
+        public const string CloneableAttribute = "Vapor.Serialization.VslCloneableAttribute";
         public const string SerializeFieldAttribute = "UnityEngine.SerializeField";
 
         /// <summary>
-        /// Builds the model for a type, or returns null when the type must fall back to reflection.
-        /// Reports whatever the author needs to know either way.
+        /// Builds the model for a type, or returns null when there is nothing to generate. A type that
+        /// must fall back to reflection for its formatter still gets a model (with
+        /// <see cref="VslTypeModel.EmitFormatter"/> off) when it is <c>[VslCloneable]</c>, because the
+        /// clone members are per-level and never blocked by a base's privates.
         /// </summary>
         public static VslTypeModel Build(INamedTypeSymbol type, SourceProductionContext context)
         {
-            // Abstract types are never instantiated, and open generics would need a formatter per
-            // construction. Reflection covers both.
-            if (type.IsAbstract || type.IsStatic || type.IsGenericType || type.TypeKind == TypeKind.Interface)
+            if (type.IsStatic || type.IsGenericType || type.TypeKind == TypeKind.Interface)
+            {
+                return null;
+            }
+
+            bool cloneable = HasAttribute(type, CloneableAttribute) && type.TypeKind == TypeKind.Class;
+
+            // Abstract types are never instantiated, and reflection covers them; but an abstract
+            // cloneable base still has to contribute its CopyFrom to the chain.
+            bool emitFormatter = !type.IsAbstract;
+            if (!emitFormatter && !cloneable)
             {
                 return null;
             }
@@ -56,7 +82,7 @@ namespace Vapor.Vsl.SourceGenerator
                 return null;
             }
 
-            if (type.TypeKind == TypeKind.Class && !HasParameterlessConstructor(type))
+            if (type.TypeKind == TypeKind.Class && !type.IsAbstract && !HasParameterlessConstructor(type))
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     VslDiagnostics.NoParameterlessConstructor, Location(type), type.ToDisplayString()));
@@ -64,16 +90,24 @@ namespace Vapor.Vsl.SourceGenerator
             }
 
             var members = CollectMembers(type, context, out var blockedBy);
-            if (blockedBy != null)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    VslDiagnostics.InaccessibleBaseMember, Location(type), blockedBy, type.ToDisplayString()));
-                return null;
-            }
-
             if (members == null)
             {
                 return null;
+            }
+
+            if (blockedBy != null)
+            {
+                if (emitFormatter)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(
+                        VslDiagnostics.InaccessibleBaseMember, Location(type), blockedBy, type.ToDisplayString()));
+                }
+
+                emitFormatter = false;
+                if (!cloneable)
+                {
+                    return null;
+                }
             }
 
             var model = new VslTypeModel
@@ -85,8 +119,13 @@ namespace Vapor.Vsl.SourceGenerator
                 SimpleName = type.Name,
                 IsValueType = type.IsValueType,
                 IsSealedOrValueType = type.IsSealed || type.IsValueType,
+                IsAbstract = type.IsAbstract,
                 TypeKeyword = TypeKeywordOf(type),
                 Members = members,
+                EmitFormatter = emitFormatter,
+                IsCloneable = cloneable,
+                BaseIsCloneable = cloneable && BaseHasAttribute(type, CloneableAttribute),
+                BaseDeclaresClone = cloneable && BaseDeclaresParameterlessClone(type),
                 HintName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
                     .Replace("global::", string.Empty)
                     .Replace('.', '_')
@@ -100,6 +139,27 @@ namespace Vapor.Vsl.SourceGenerator
             }
 
             return model;
+        }
+
+        public static bool BaseHasAttribute(INamedTypeSymbol type, string attribute)
+        {
+            for (var current = type.BaseType; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                if (HasAttribute(current, attribute)) return true;
+            }
+
+            return false;
+        }
+
+        private static bool BaseDeclaresParameterlessClone(INamedTypeSymbol type)
+        {
+            for (var current = type.BaseType; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                if (HasAttribute(current, CloneableAttribute)) return true;
+                if (current.GetMembers("Clone").OfType<IMethodSymbol>().Any(m => m.Parameters.Length == 0 && !m.IsStatic)) return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -137,15 +197,17 @@ namespace Vapor.Vsl.SourceGenerator
                             }
 
                             // A formatter nested in the derived type cannot see a base type's
-                            // privates; the whole type has to fall back rather than serialize a
-                            // partial view of itself.
+                            // privates; the formatter has to fall back rather than serialize a
+                            // partial view of the type. (Clone members are unaffected: each level
+                            // copies its own.)
                             if (isBase && field.DeclaredAccessibility == Accessibility.Private)
                             {
-                                blockedBy = $"{level.Name}.{field.Name}";
-                                return null;
+                                blockedBy ??= $"{level.Name}.{field.Name}";
                             }
 
-                            members.Add(CreateMember(field.Name, field.Type, field, claimed));
+                            var member = CreateMember(field.Name, field.Type, field, claimed);
+                            member.DeclaredHere = !isBase;
+                            members.Add(member);
                             break;
                         }
 
@@ -158,11 +220,12 @@ namespace Vapor.Vsl.SourceGenerator
 
                             if (isBase && property.DeclaredAccessibility == Accessibility.Private)
                             {
-                                blockedBy = $"{level.Name}.{property.Name}";
-                                return null;
+                                blockedBy ??= $"{level.Name}.{property.Name}";
                             }
 
-                            members.Add(CreateMember(property.Name, property.Type, property, claimed));
+                            var member = CreateMember(property.Name, property.Type, property, claimed);
+                            member.DeclaredHere = !isBase;
+                            members.Add(member);
                             break;
                         }
                     }
@@ -245,7 +308,30 @@ namespace Vapor.Vsl.SourceGenerator
                 Access = memberName,
                 TypeName = memberType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 Comment = comment,
+                ProfileMask = GetProfileMask(symbol),
+                Type = memberType,
             };
+        }
+
+        /// <summary>The [VslProfile] mask as the runtime sees it: the enum's underlying uint, or every bit.</summary>
+        private static uint GetProfileMask(ISymbol symbol)
+        {
+            var attribute = symbol.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ProfileAttribute);
+            if (attribute == null || attribute.ConstructorArguments.Length == 0)
+            {
+                return uint.MaxValue;
+            }
+
+            var value = attribute.ConstructorArguments[0].Value;
+            try
+            {
+                return System.Convert.ToUInt32(value);
+            }
+            catch
+            {
+                return uint.MaxValue;
+            }
         }
 
         public static string StripPrefix(string name)

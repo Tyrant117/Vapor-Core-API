@@ -133,6 +133,21 @@ namespace Vapor.Networking
             }
         }
 
+        /// <summary>
+        /// Client: the server's tick as a continuous value (whole ticks plus the fraction elapsed since
+        /// the last one), for interpolation timelines. Server: the local tick plus its accumulator.
+        /// </summary>
+        public double EstimatedServerTickExact
+        {
+            get
+            {
+                if (IsServer) return _tick + _tickAccumulator * _config.TickRate;
+                if (!_hasTimeSync) return _tick + _tickAccumulator * _config.TickRate;
+                double elapsed = EstimatedServerTime - _serverTimeAtSync;
+                return _serverTickAtSync + Math.Max(0, elapsed * _config.TickRate);
+            }
+        }
+
         /// <summary>Client: the server's clock right now. Server: the local clock.</summary>
         public double EstimatedServerTime => IsServer ? _clock.Now : _clock.Now + _clockOffset;
 

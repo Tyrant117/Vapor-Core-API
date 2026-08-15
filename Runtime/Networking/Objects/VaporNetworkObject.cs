@@ -216,11 +216,21 @@ namespace Vapor.Networking
         /// </summary>
         public virtual bool OwnerWritesSnapshots => false;
 
+        /// <summary>
+        /// Whether there is anything worth sending to <paramref name="forClientId"/> right now. The
+        /// default sends to everyone except the owner of an owner-written object (its truth flows the
+        /// other way); an override can add change thresholds, or return true for the owner to push a
+        /// correction.
+        /// </summary>
+        protected virtual bool HasSnapshotToSend(ulong forClientId, bool isOwner) => !(OwnerWritesSnapshots && isOwner);
+
         /// <summary>Server (or the owner, when owner-authoritative): write the latest state for one peer.</summary>
         protected virtual void WriteSnapshot(NetworkWriter writer, uint tick, ulong forClientId) { }
 
         /// <summary>Everyone else: apply a snapshot. <paramref name="fromClientId"/> is the server, or the owner on the server.</summary>
         protected virtual void ReadSnapshot(NetworkReader reader, uint tick, ulong fromClientId) { }
+
+        internal bool HasSnapshotToSendInternal(ulong forClientId, bool isOwner) => HasSnapshotToSend(forClientId, isOwner);
 
         internal void WriteSnapshotInternal(NetworkWriter writer, uint tick, ulong forClientId) => WriteSnapshot(writer, tick, forClientId);
 
@@ -240,7 +250,9 @@ namespace Vapor.Networking
         {
             if (component == null) throw new ArgumentNullException(nameof(component));
             if (component.Owner != null) throw new InvalidOperationException($"{component.GetType().Name} is already attached to an object.");
-            if (IsSpawned && !IsAuthority) throw new InvalidOperationException("Only the authority may add components to a spawned object.");
+            // Before the spawn completes anyone may attach — that is how a client rebuilds a template's
+            // stack in OnPreSpawn; afterwards it is the authority's call and it replicates.
+            if (_spawnCompleted && !IsAuthority) throw new InvalidOperationException("Only the authority may add components to a spawned object.");
 
             AttachComponent(component, _nextComponentId++);
             if (_spawnCompleted)
@@ -259,7 +271,7 @@ namespace Vapor.Networking
         public bool RemoveComponent(NetworkComponent component)
         {
             if (component == null || component.Owner != this) return false;
-            if (IsSpawned && !IsAuthority) throw new InvalidOperationException("Only the authority may remove components from a spawned object.");
+            if (_spawnCompleted && !IsAuthority) throw new InvalidOperationException("Only the authority may remove components from a spawned object.");
 
             if (_spawnCompleted)
             {
@@ -582,6 +594,7 @@ namespace Vapor.Networking
             writer.WriteVarUInt32(NetworkTypeRegistry.TagOf(component.GetType()));
             int at = writer.ReserveUInt16();
             int start = writer.Position;
+            component.WriteSpawnDataInternal(writer);
             component.Write(writer, full: true);
             writer.PatchUInt16(at, checked((ushort)(writer.Position - start)));
         }
@@ -670,6 +683,7 @@ namespace Vapor.Networking
             var existing = GetComponentById(id);
             if (existing != null && NetworkTypeRegistry.TagOf(existing.GetType()) == typeTag)
             {
+                existing.ReadSpawnDataInternal(reader);
                 existing.Read(reader, full: true);
                 reader.Seek(end);
                 return;
@@ -690,6 +704,7 @@ namespace Vapor.Networking
             }
 
             AttachComponent(created, id);
+            created.ReadSpawnDataInternal(reader);
             created.Read(reader, full: true);
             reader.Seek(end);
             if (_spawnCompleted)

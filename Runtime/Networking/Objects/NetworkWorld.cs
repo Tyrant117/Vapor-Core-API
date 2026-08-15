@@ -32,6 +32,12 @@ namespace Vapor.Networking
         /// <summary>The world rpc arguments resolve against when no world is passed explicitly.</summary>
         public static NetworkWorld Current { get; set; }
 
+        /// <summary>
+        /// Whatever owns this world at the layer above (the actor world). Objects reach their
+        /// higher-level context through it without the networking layer knowing what that is.
+        /// </summary>
+        public object Host { get; set; }
+
         public NetworkWorld(NetworkSession session = null)
         {
             EnsureFormatters();
@@ -232,6 +238,9 @@ namespace Vapor.Networking
                 return null;
             }
 
+            // The world is known before anything else, so spawn data can reach the host layer
+            // (an actor resolving its template) before the object is formally spawned.
+            networkObject.World = this;
             networkObject.ReadSpawnDataInternal(reader);
             networkObject.SpawnInternal(this, id, owner, parent, spawnedOnlyOnOwner, isPlayerObject);
             networkObject.ReadObjectState(reader, full: true);
