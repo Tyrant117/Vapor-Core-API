@@ -1244,6 +1244,32 @@ namespace VaporEditor.Inspector
         #region - Helpers -
         public bool IsUnityObjectOrSubclass() => SerializedPropertyType is SerializedPropertyType.ObjectReference or SerializedPropertyType.ExposedReference;
 
+        /// <summary>
+        /// True when a single widget draws the whole value, so there is nothing beneath it left to draw.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Unity's value types are <see cref="SerializableAttribute"/> structs like any other, and the ones
+        /// that expose their components as public fields - <see cref="Vector2"/>, <see cref="Vector3"/>,
+        /// <see cref="Vector4"/>, <see cref="Color"/> - read to a reflected walk as things to descend into.
+        /// The result was a Vector2Field with an X and a Y row underneath it, three widgets editing the
+        /// same two floats.
+        /// </para>
+        /// <para>
+        /// The exclusions are the cases where the widget is not the whole story.
+        /// <see cref="SerializedPropertyType.Generic"/> is a collection, or a type with no mapping at all;
+        /// <see cref="SerializedPropertyType.ManagedReference"/> is drawn <i>by</i> recursing into it, and
+        /// is where every authored type lands; <see cref="SerializedPropertyType.Quaternion"/> and
+        /// <see cref="SerializedPropertyType.ExposedReference"/> have no widget of their own, so their
+        /// members are the only thing that draws them.
+        /// </para>
+        /// </remarks>
+        public bool IsDrawnAsSingleField => SerializedPropertyType
+            is not (SerializedPropertyType.Generic
+                or SerializedPropertyType.ManagedReference
+                or SerializedPropertyType.Quaternion
+                or SerializedPropertyType.ExposedReference);
+
         public bool ParentIsStruct() => ParentType.IsValueType && !ParentType.IsPrimitive;
 
         public static SerializedPropertyType TypeToSerializedPropertyType(Type type)

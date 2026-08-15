@@ -101,7 +101,6 @@ namespace VaporEditor.Inspector
             {
                 // Exit if the object is a unity object or it isnt serializable.
                 // This is so it doesnt redraw Monobehaviours instead of giving you an object field.
-                // Also if I try do draw anything it will use custom drawers for things like Vector2, so tag everything with DrawWithVapor that should be drawn this way.
                 // Also need to remove serialize reference because the serialize reference can handle drawing its entire contents and you will get duplicated fields.
                 return;
             }
@@ -112,6 +111,15 @@ namespace VaporEditor.Inspector
             }
 
             if (Property.HasCustomDrawer)
+            {
+                return;
+            }
+
+            // A built-in widget already covers everything the type holds - a Vector2Field is an X and a Y -
+            // so descending into it would draw those same values a second time beneath it. Anything the
+            // field system has no widget for is a [DrawWithVapor] type, a plain authored class or a
+            // collection, and those are drawn by recursing into them.
+            if (Property.IsDrawnAsSingleField)
             {
                 return;
             }

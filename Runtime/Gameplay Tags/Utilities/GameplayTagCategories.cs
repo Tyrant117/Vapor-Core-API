@@ -19,17 +19,34 @@ namespace Vapor.GameplayTags
         Items,
         Entity,
         Loot,
-        Spell,
-        Item,
         GameplayTagData,
-        Vapor,
-        Profession,
+        Item,
+        Rune,
         Skill,
-        Achievement,
-        Recipe,
-        Perk,
-        GameInstanceConfig,
-        WorldSettings,
+        Focus,
+        Damage,
+        Stance,
+        Monster,
+        Npc,
+        World,
+        Structure,
+        City,
+        Mine,
+        Guild,
+        Enchant,
+        Sim,
+        Agent,
+        Ui,
+        State,
+        Ai,
+        Terrain,
+        Vapor,
+        Spell,
+        Resist,
+        Enchantment,
+        Progression,
+        Biome,
+        Camp,
     }
 
     public static class GameplayTagCategories
@@ -48,17 +65,34 @@ namespace Vapor.GameplayTags
         public const string ITEMS = "Items";
         public const string ENTITY = "Entity";
         public const string LOOT = "Loot";
-        public const string SPELL = "Spell";
-        public const string ITEM = "Item";
         public const string GAMEPLAY_TAG_DATA = "GameplayTagData";
-        public const string VAPOR = "Vapor";
-        public const string PROFESSION = "Profession";
+        public const string ITEM = "Item";
+        public const string RUNE = "Rune";
         public const string SKILL = "Skill";
-        public const string ACHIEVEMENT = "Achievement";
-        public const string RECIPE = "Recipe";
-        public const string PERK = "Perk";
-        public const string GAME_INSTANCE_CONFIG = "GameInstanceConfig";
-        public const string WORLD_SETTINGS = "WorldSettings";
+        public const string FOCUS = "Focus";
+        public const string DAMAGE = "Damage";
+        public const string STANCE = "Stance";
+        public const string MONSTER = "Monster";
+        public const string NPC = "Npc";
+        public const string WORLD = "World";
+        public const string STRUCTURE = "Structure";
+        public const string CITY = "City";
+        public const string MINE = "Mine";
+        public const string GUILD = "Guild";
+        public const string ENCHANT = "Enchant";
+        public const string SIM = "Sim";
+        public const string AGENT = "Agent";
+        public const string UI = "Ui";
+        public const string STATE = "State";
+        public const string AI = "Ai";
+        public const string TERRAIN = "Terrain";
+        public const string VAPOR = "Vapor";
+        public const string SPELL = "Spell";
+        public const string RESIST = "Resist";
+        public const string ENCHANTMENT = "Enchantment";
+        public const string PROGRESSION = "Progression";
+        public const string BIOME = "Biome";
+        public const string CAMP = "Camp";
 
         public static string GetNameForCategory(GameplayTagDefaultCategories category)
         {
@@ -78,17 +112,34 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Items => ITEMS,
                 GameplayTagDefaultCategories.Entity => ENTITY,
                 GameplayTagDefaultCategories.Loot => LOOT,
-                GameplayTagDefaultCategories.Spell => SPELL,
-                GameplayTagDefaultCategories.Item => ITEM,
                 GameplayTagDefaultCategories.GameplayTagData => GAMEPLAY_TAG_DATA,
-                GameplayTagDefaultCategories.Vapor => VAPOR,
-                GameplayTagDefaultCategories.Profession => PROFESSION,
+                GameplayTagDefaultCategories.Item => ITEM,
+                GameplayTagDefaultCategories.Rune => RUNE,
                 GameplayTagDefaultCategories.Skill => SKILL,
-                GameplayTagDefaultCategories.Achievement => ACHIEVEMENT,
-                GameplayTagDefaultCategories.Recipe => RECIPE,
-                GameplayTagDefaultCategories.Perk => PERK,
-                GameplayTagDefaultCategories.GameInstanceConfig => GAME_INSTANCE_CONFIG,
-                GameplayTagDefaultCategories.WorldSettings => WORLD_SETTINGS,
+                GameplayTagDefaultCategories.Focus => FOCUS,
+                GameplayTagDefaultCategories.Damage => DAMAGE,
+                GameplayTagDefaultCategories.Stance => STANCE,
+                GameplayTagDefaultCategories.Monster => MONSTER,
+                GameplayTagDefaultCategories.Npc => NPC,
+                GameplayTagDefaultCategories.World => WORLD,
+                GameplayTagDefaultCategories.Structure => STRUCTURE,
+                GameplayTagDefaultCategories.City => CITY,
+                GameplayTagDefaultCategories.Mine => MINE,
+                GameplayTagDefaultCategories.Guild => GUILD,
+                GameplayTagDefaultCategories.Enchant => ENCHANT,
+                GameplayTagDefaultCategories.Sim => SIM,
+                GameplayTagDefaultCategories.Agent => AGENT,
+                GameplayTagDefaultCategories.Ui => UI,
+                GameplayTagDefaultCategories.State => STATE,
+                GameplayTagDefaultCategories.Ai => AI,
+                GameplayTagDefaultCategories.Terrain => TERRAIN,
+                GameplayTagDefaultCategories.Vapor => VAPOR,
+                GameplayTagDefaultCategories.Spell => SPELL,
+                GameplayTagDefaultCategories.Resist => RESIST,
+                GameplayTagDefaultCategories.Enchantment => ENCHANTMENT,
+                GameplayTagDefaultCategories.Progression => PROGRESSION,
+                GameplayTagDefaultCategories.Biome => BIOME,
+                GameplayTagDefaultCategories.Camp => CAMP,
                 _ => throw new ArgumentOutOfRangeException(nameof(category), category, null)
             };
         }

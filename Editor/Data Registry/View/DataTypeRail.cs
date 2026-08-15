@@ -355,6 +355,28 @@ namespace VaporEditor.DataRegistry
             return true;
         }
 
+        /// <summary>
+        /// Opens a named type, expanding whatever family holds it. For jumping to an entry.
+        /// </summary>
+        /// <remarks>
+        /// Goes through the same path a click does, so an unsaved document still gets its prompt —
+        /// arriving from somewhere else is not a reason to lose edits.
+        /// </remarks>
+        public void Select(Type type)
+        {
+            if (type == null || SelectedType == type)
+            {
+                return;
+            }
+
+            if (SelectType(type))
+            {
+                SetExpanded(type, true);
+            }
+
+            Rebuild();
+        }
+
         /// <summary>Opens the first type, so the window has something on screen.</summary>
         public void SelectFirst()
         {

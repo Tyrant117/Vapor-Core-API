@@ -9,12 +9,10 @@ namespace Vapor.Inspector
     public class HelpUrlAttribute : PropertyAttribute
     {
         public string HelpText { get; }
-        public string HelpUrl { get; }
 
-        public HelpUrlAttribute(string helpText, string helpUrl = null)
+        public HelpUrlAttribute(string helpText)
         {
             HelpText = TooltipMarkup.FormatString(helpText);
-            HelpUrl = helpUrl;
         }
     }
 }

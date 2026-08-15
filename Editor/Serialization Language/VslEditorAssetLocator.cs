@@ -84,6 +84,15 @@ namespace VaporEditor.Serialization
             }
 
             var address = FindAddressableAddress(path);
+
+            // Nothing publishes this asset yet, so nothing would ship it. Referencing an asset is
+            // taken as intent to ship it — see VslEditorAssetLocator.AutoAddress.cs for what that
+            // writes and how to switch it off.
+            if (string.IsNullOrEmpty(address))
+            {
+                address = PublishAddressable(path);
+            }
+
             if (!string.IsNullOrEmpty(address))
             {
                 source = VslAssetSource.Addressable;

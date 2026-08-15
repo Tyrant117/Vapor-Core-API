@@ -224,6 +224,11 @@ namespace VaporEditor.Inspector
 
             foreach (var target in s_FlushBuffer)
             {
+                if (target == null)
+                {
+                    continue;
+                }
+                
                 if (!target.IsUnityObject || !(Object)target.Object)
                 {
                     continue;

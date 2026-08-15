@@ -12,20 +12,12 @@ namespace VaporEditor
             this.ConstructFromResourcePath("Styles/HelpUrlView");
         }
 
-        public HelpUrlView(string helpText, string helpUrl = null) : this()
+        public HelpUrlView(string helpText) : this()
         {
             tooltip = helpText;
-            if (helpUrl != null)
-            {
-                // Click handler
-                RegisterCallback<ClickEvent>(evt =>
-                {
-                    Application.OpenURL(helpUrl);
-                });
-            }
         }
 
-        public HelpUrlView(HelpUrlAttribute helpUrlAttribute) : this(helpUrlAttribute.HelpText, helpUrlAttribute.HelpUrl)
+        public HelpUrlView(HelpUrlAttribute helpUrlAttribute) : this(helpUrlAttribute.HelpText)
         {
             
         }

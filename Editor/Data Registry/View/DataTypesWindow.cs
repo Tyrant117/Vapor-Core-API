@@ -36,6 +36,68 @@ namespace VaporEditor.DataRegistry
             window.minSize = new Vector2(720, 420);
         }
 
+        /// <summary>Opens the window on one entry, with its type already selected.</summary>
+        /// <remarks>
+        /// <para>
+        /// So that anything holding an <see cref="IData"/> can hand the user the editor for it. Every
+        /// tool that shows authored content eventually wants "edit this", and without it each one grows
+        /// its own inspector window instead — a second place the same fields are drawn, and a second
+        /// place they fall out of date.
+        /// </para>
+        /// <para>
+        /// The type rail and the selection are both private, and deliberately: opening at an entry has
+        /// to select the type, load its document and pin the row in one step, or the window comes up on
+        /// the right type with nothing chosen.
+        /// </para>
+        /// <para>
+        /// <b>Matched by key, not by reference, and that is the whole difficulty.</b> A caller holds
+        /// the registry's instance; selecting the type makes <see cref="OpenType"/> load the document
+        /// fresh, which builds its OWN instances from the file. They are equal in every way that
+        /// matters and identical in none — so pinning the caller's object put a row in the list that
+        /// <see cref="RefreshEntryList"/> then dropped, because it intersects the selection with what
+        /// the document holds. The window opened on the right type with nothing selected.
+        /// </para>
+        /// </remarks>
+        public static void Open(IData entry)
+        {
+            Open();
+
+            if (entry == null)
+            {
+                return;
+            }
+
+            var window = GetWindow<DataTypesWindow>();
+
+            // A window opening for the first time has not run CreateGUI yet, so there is no rail to
+            // select on and no list to highlight. Deferred a frame rather than half-applied, or the
+            // first use after a domain reload is the one that silently does nothing.
+            if (window._typeRail == null || window._entryList == null)
+            {
+                EditorApplication.delayCall += () => Open(entry);
+                return;
+            }
+
+            window._typeRail.Select(entry.GetType());
+
+            // The document's own instance of it, which is the one every other path here deals in.
+            var opened = window._document?.Entries?.FirstOrDefault(e => e != null && e.Key == entry.Key);
+            if (opened == null)
+            {
+                return;
+            }
+
+            window.SelectOnly(opened);
+            window.RefreshEntryList();
+
+            // The list draws from _filtered, which RefreshEntryList has just rebuilt with the pinned
+            // row at the top. Telling the ListView about it is what highlights the row; RefreshInspector
+            // is what puts the fields on screen. Neither follows from setting _selection alone.
+            window._entryList?.SetSelectionWithoutNotify(new[] { 0 });
+            window.RefreshInspector();
+            window.UpdateStatus();
+        }
+
         private DataTypeRail _typeRail;
         private ListView _entryList;
         private ToolbarSearchField _search;

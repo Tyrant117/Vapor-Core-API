@@ -106,13 +106,38 @@ namespace Vapor.Inspector
             }
         }
 
+        /// <summary>
+        /// Begins the drag, but only for this panel's own capture.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The callbacks are registered on <see cref="PanelElement"/> because that is what
+        /// <see cref="ProcessDownEvent"/> captures the pointer on — so move events keep arriving once
+        /// the pointer leaves the drag handle. That is correct, and it has one consequence:
+        /// <b>a capture by any descendant bubbles through here too.</b>
+        /// </para>
+        /// <para>
+        /// Without the target check, a resize grip or an item slot capturing the pointer started a drag
+        /// nobody asked for — and because this immediately calls <see cref="UpdateDragPosition"/> with
+        /// the <em>last</em> recorded pointer position, the panel jumped on mouse-down, before a single
+        /// move event. On a fresh session that stale position is zero, so the panel went to the corner.
+        /// </para>
+        /// <para>
+        /// The drag is a gesture on this panel, not on anything that happens to live inside it.
+        /// </para>
+        /// </remarks>
         private void OnBeginDragEvent(PointerCaptureEvent evt)
         {
             if (!IsEnabled)
             {
                 return;
             }
-            
+
+            if (!ReferenceEquals(evt.target, PanelElement))
+            {
+                return;
+            }
+
             IsDragging = true;
 
             BeginDrag.Invoke();
@@ -178,7 +203,26 @@ namespace Vapor.Inspector
             evt.StopPropagation();
         }
 
-        protected void UpdateDragPosition(float worldX, float worldY)
+        /// <summary>
+        /// Places the panel for a pointer at the given world position.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Virtual so a subclass can decide where the panel actually lands — snapping, docking, a grid.
+        /// It was non-virtual, which made overriding it silently do nothing: the pointer handlers below
+        /// are private and bind to this implementation at compile time, so a <c>new</c> in a derived
+        /// class never ran and nothing reported it.
+        /// </para>
+        /// <para>
+        /// <b>Position is expressed as <c>style.translate</c>, which is an offset from where layout put
+        /// the element.</b> That makes the values here equivalent to world coordinates only while the
+        /// panel's laid-out position is the origin — so a draggable panel wants
+        /// <c>position: absolute; left: 0; top: 0</c> and should be moved by translate alone. Mixing in
+        /// a laid-out offset (a percentage, an anchor) composes with the translate and puts the panel
+        /// at the sum of the two.
+        /// </para>
+        /// </remarks>
+        protected virtual void UpdateDragPosition(float worldX, float worldY)
         {
             var offsetWorldX = worldX - _relativeXPoint;
             var offsetWorldY = worldY - _relativeYPoint;
