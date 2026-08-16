@@ -507,8 +507,12 @@ namespace Vapor.Networking
             QueuedDirty = false;
         }
 
-        /// <summary>Writes the object's state: everything when <c>full</c>, otherwise what changed since <see cref="ClearDirty"/>.</summary>
-        internal void WriteObjectState(NetworkWriter writer, bool full)
+        /// <summary>
+        /// Writes the object's state as the replicator would: everything when <c>full</c>, otherwise what
+        /// changed since <see cref="ClearDirty"/>. Public so tools and tests can measure what an object costs
+        /// on the wire; the replicator is the only caller that should act on the bytes.
+        /// </summary>
+        public void WriteObjectState(NetworkWriter writer, bool full)
         {
             byte flags = 0;
             bool anyVariables = full ? _variables.Count > 0 : _dirtyVariables.Count > 0;
