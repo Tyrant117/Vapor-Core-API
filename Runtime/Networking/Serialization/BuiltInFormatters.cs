@@ -66,6 +66,12 @@ namespace Vapor.Networking
             NetworkFormatters.RegisterGenericFactory(typeof(Dictionary<,>), t => NetworkFormatters.Instantiate(typeof(DictionaryFormatter<,>), t.GetGenericArguments()));
             NetworkFormatters.RegisterGenericFactory(typeof(Nullable<>), t => NetworkFormatters.Instantiate(typeof(NullableFormatter<>), t.GetGenericArguments()));
             NetworkFormatters.RegisterGenericFactory(typeof(KeyValuePair<,>), t => NetworkFormatters.Instantiate(typeof(KeyValuePairFormatter<,>), t.GetGenericArguments()));
+
+            // Anything that writes itself.
+            NetworkFormatters.AddFallback(PayloadFormatter<INetworkPayload>.Resolve);
+
+            // Object references, so a formatter that carries one can resolve before any world exists.
+            NetworkFormatters.Register(new VaporNetworkObjectReference.Formatter());
         }
 
         #region - System -

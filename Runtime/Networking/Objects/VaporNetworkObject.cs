@@ -158,6 +158,17 @@ namespace Vapor.Networking
 
         protected virtual void OnNetworkTick(uint tick, double deltaTime) { }
 
+        /// <summary>
+        /// A sub-object of this one has finished spawning — on the authority right after
+        /// <see cref="NetworkWorld.Spawn"/>, on a client when the spawn arrives. This is how a parent
+        /// finds the children it did not construct itself: an actor learns of its attribute containers
+        /// and abilities here.
+        /// </summary>
+        protected virtual void OnSubObjectSpawned(VaporNetworkObject subObject) { }
+
+        /// <summary>A sub-object of this one is despawning; it is still linked and still has its id.</summary>
+        protected virtual void OnSubObjectDespawned(VaporNetworkObject subObject) { }
+
         #endregion
 
         #region - Custom state -
@@ -431,10 +442,16 @@ namespace Vapor.Networking
             }
 
             OnPostSpawn();
+
+            // The parent hears about it last, once the child is whole.
+            Parent?.OnSubObjectSpawned(this);
         }
 
         internal void DespawnInternal()
         {
+            // The parent hears about it first, while the child is still whole and still linked.
+            Parent?.OnSubObjectDespawned(this);
+
             for (int i = _components.Count - 1; i >= 0; i--)
             {
                 _components[i].DespawnInternal();

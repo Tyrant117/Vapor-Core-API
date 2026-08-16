@@ -6,6 +6,7 @@
         "Unity.Addressables",
         "Unity.ResourceManager",
         "Unity.Netcode.Runtime",
+        "vapor.core.networking",
         "vapor.core.runtime.unsafe",
         "Unity.Collections",
         "Unity.Mathematics",

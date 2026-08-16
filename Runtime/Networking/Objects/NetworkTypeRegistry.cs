@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using UnityEngine.Assemblies;
 
 namespace Vapor.Networking
 {
@@ -134,7 +135,8 @@ namespace Vapor.Networking
             s_Scanned = true;
             var objectBase = typeof(VaporNetworkObject);
             var componentBase = typeof(NetworkComponent);
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            // Unity's loaded set rather than the app domain's, which can still hand back unloaded assemblies.
+            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 if (assembly.IsDynamic) continue;
                 Type[] types;

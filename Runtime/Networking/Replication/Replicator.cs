@@ -269,7 +269,10 @@ namespace Vapor.Networking
             {
                 if (IsVisibleTo(networkObject, peer))
                 {
-                    SendSpawn(peer, networkObject);
+                    // The object and whatever it already carries: sub-objects spawned inside its own
+                    // OnSpawn arrived here before it did, were not visible then (their parent was not
+                    // known), and would otherwise wait for the next relevance pass.
+                    VisitForRelevance(peer, networkObject);
                 }
             }
         }
