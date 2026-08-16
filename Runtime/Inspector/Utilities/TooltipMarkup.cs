@@ -1,7 +1,7 @@
 using System.Text;
-using Unity.Netcode;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
+using Vapor.Networking;
 
 namespace Vapor.Inspector
 {
@@ -49,19 +49,25 @@ namespace Vapor.Inspector
         public static string Colorize(string str, Color color) => $"<color=#{ColorUtility.ToHtmlStringRGBA(color)}>{str}</color>";
         public static string BoldColorize(string str, Color color) => $"<b><color=#{ColorUtility.ToHtmlStringRGBA(color)}>{str}</color></b>";
 
+        /// <summary>The process's network role for log lines: [Host], [Server], [Client] or [Offline], from <see cref="NetworkRoles"/>.</summary>
         public static string NetworkMarkup()
         {
-            if (NetworkManager.Singleton.IsHost)
+            if (NetworkRoles.IsHost)
             {
                 return BoldColorize("[Host]", Color.coral);
             }
 
-            if (NetworkManager.Singleton.IsServer)
+            if (NetworkRoles.IsServer)
             {
                 return BoldColorize("[Server]", Color.darkCyan);
             }
 
-            return BoldColorize("[Client]", Color.darkOliveGreen);
+            if (NetworkRoles.IsClient)
+            {
+                return BoldColorize("[Client]", Color.darkOliveGreen);
+            }
+
+            return BoldColorize("[Offline]", Color.gray);
         }
 
         public static string FormatString(string tooltip)

@@ -3,9 +3,7 @@ using Newtonsoft.Json;
 using UnityEngine.Assertions;
 using Vapor.NewtonsoftConverters;
 using Vapor.Unsafe;
-#if VAPOR_NETCODE
-using Unity.Netcode;
-#endif
+using Vapor.Networking;
 
 namespace Vapor.Observables
 {
@@ -154,18 +152,14 @@ namespace Vapor.Observables
                 _value = value;
                 ValueChanged?.Invoke(this, oldValue);
                 OnDirtied();
-#if VAPOR_NETCODE
-                if(_linkedNetworkVariable != null && _linkedNetworkVariable.CanClientWrite(NetworkManager.Singleton.LocalClientId))
+                if (_linkedNetworkVariable != null && _linkedNetworkVariable.CanWrite)
                 {
                     _linkedNetworkVariable.Value = _value;
                 }
-#endif
             }
         }
-        
-        #if VAPOR_NETCODE
-        private NetworkVariable<T> _linkedNetworkVariable;
-        #endif
+
+        private VaporNetworkVariable<T> _linkedNetworkVariable;
 
         public event Action<Observable<T>, T> ValueChanged; // Value and Old Value
 
@@ -246,23 +240,23 @@ namespace Vapor.Observables
 
         #region - Networking -
 
-#if VAPOR_NETCODE
-        public void LinkClientNetworkedVariable(NetworkVariable<T> networkVariable)
+        /// <summary>Follows a replicated variable: whenever it changes, this observable takes the value (the reading side).</summary>
+        public void LinkClientNetworkedVariable(VaporNetworkVariable<T> networkVariable)
         {
             networkVariable.OnValueChanged += OnClientNetworkValueChanged;
         }
-        
-        private void OnClientNetworkValueChanged(T previous,T current)
+
+        private void OnClientNetworkValueChanged(T previous, T current)
         {
             Value = current;
         }
-        
-        public Observable<T> WithLinkedServerNetworkedVariable(NetworkVariable<T> networkVariable)
+
+        /// <summary>Drives a replicated variable: whenever this observable changes where the variable may be written, the variable takes the value.</summary>
+        public Observable<T> WithLinkedServerNetworkedVariable(VaporNetworkVariable<T> networkVariable)
         {
             _linkedNetworkVariable = networkVariable;
             return this;
         }
-#endif
 
         #endregion
 

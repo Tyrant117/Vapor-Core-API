@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Unity.Netcode;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.Keys;
+using Vapor.Networking;
 using Object = UnityEngine.Object;
 
 namespace Vapor.GameplayFramework
@@ -146,9 +146,10 @@ namespace Vapor.GameplayFramework
             }
         }
 
+        /// <summary>Triggers the event only where a client session runs (a client or a host); a dedicated server ignores it.</summary>
         public static void TriggerClientEvent([DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
-            if (!NetworkManager.Singleton.IsClient)
+            if (!NetworkRoles.IsClient)
             {
                 return;
             }
@@ -159,9 +160,10 @@ namespace Vapor.GameplayFramework
             }
         }
         
+        /// <summary>Triggers the event only where a server session runs (a server or a host); a pure client ignores it.</summary>
         public static void TriggerServerEvent([DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
-            if (!NetworkManager.Singleton.IsServer)
+            if (!NetworkRoles.IsServer)
             {
                 return;
             }

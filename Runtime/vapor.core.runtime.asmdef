@@ -5,7 +5,6 @@
         "Unity.InputSystem",
         "Unity.Addressables",
         "Unity.ResourceManager",
-        "Unity.Netcode.Runtime",
         "vapor.core.networking",
         "vapor.core.runtime.unsafe",
         "Unity.Collections",
@@ -21,12 +20,6 @@
     "defineConstraints": [
         "VAPOR"
     ],
-    "versionDefines": [
-        {
-            "name": "com.unity.netcode.gameobjects",
-            "expression": "2.0.0",
-            "define": "VAPOR_NETCODE"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

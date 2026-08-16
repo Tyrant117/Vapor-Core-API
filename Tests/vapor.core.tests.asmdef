@@ -7,7 +7,6 @@
         "vapor.core.networking",
         "vapor.core.networking.utp",
         "Unity.Localization",
-        "Unity.Netcode.Runtime",
         "Unity.Collections",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

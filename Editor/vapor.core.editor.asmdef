@@ -28,11 +28,6 @@
             "name": "com.unity.editorcoroutines",
             "expression": "1.0.0",
             "define": "UNITY_EDITOR_COROUTINES"
-        },
-        {
-            "name": "com.unity.netcode.gameobjects",
-            "expression": "2.0.0",
-            "define": "VAPOR_NETCODE"
         }
     ],
     "noEngineReferences": false

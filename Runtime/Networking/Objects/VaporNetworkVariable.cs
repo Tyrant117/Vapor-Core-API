@@ -48,7 +48,7 @@ namespace Vapor.Networking
         }
 
         /// <summary>True when this peer may write the variable: the authority, or anyone offline.</summary>
-        protected bool CanWrite => Host.CanWriteVariables;
+        public bool CanWrite => Host.CanWriteVariables;
     }
 
     /// <summary>What a variable needs from whatever hosts it. Implemented by objects and components.</summary>

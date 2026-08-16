@@ -89,7 +89,21 @@ namespace Vapor.Networking
         public INetworkClock Clock => _clock;
         public SessionConfig Config => _config;
 
-        public SessionRole Role { get; private set; }
+        private SessionRole _role;
+
+        /// <summary>What this session is. Published process-wide through <see cref="NetworkRoles"/> while it runs.</summary>
+        public SessionRole Role
+        {
+            get => _role;
+            private set
+            {
+                if (_role == value) return;
+                NetworkRoles.Retract(_role);
+                _role = value;
+                NetworkRoles.Publish(_role);
+            }
+        }
+
         public bool IsRunning => Role != SessionRole.None;
         public bool IsServer => Role == SessionRole.Server;
         public bool IsClient => Role == SessionRole.Client;

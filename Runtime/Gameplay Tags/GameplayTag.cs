@@ -1,13 +1,12 @@
 ﻿using System;
 using Unity.Burst;
-using Unity.Netcode;
 using Vapor.Inspector;
 using Vapor.Unsafe;
 
 namespace Vapor.GameplayTags
 {
     [Serializable]
-    public struct GameplayTag : IEquatable<GameplayTag>, IEquatable<uint>, INetworkSerializable
+    public struct GameplayTag : IEquatable<GameplayTag>, IEquatable<uint>
     {
         public static implicit operator GameplayTag(uint value) => new(value);
         public static implicit operator GameplayTag(string value) => new(value);
@@ -36,8 +35,6 @@ namespace Vapor.GameplayTags
         }
 
         public string GetName() => GameplayTagTree.GetName(Key);
-
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter => serializer.SerializeValue(ref Key);
 
         public bool Equals(GameplayTag other) => Key == other.Key;
 
