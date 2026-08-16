@@ -75,5 +75,10 @@ namespace Vapor
         /// editor assembly, which runtime code cannot reference. The window validates it.
         /// </remarks>
         public Type View { get; set; }
+
+        // A type that wants a whole window of its own rather than a view declares nothing here: the
+        // window marks itself with the editor-side [DataAuthoringWindow(typeof(TheData))], and the
+        // Data Types rail opens it in place of drawing the entries inline. An editor window cannot be
+        // named from a runtime assembly, which is why that side carries the link.
     }
 }

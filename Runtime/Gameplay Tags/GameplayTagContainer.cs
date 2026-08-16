@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Pool;
 
@@ -15,13 +14,11 @@ namespace Vapor.GameplayTags
     }
 
     /// <summary>
-    /// Declares <see cref="INetworkSerializable"/> so the container can cross the wire as an rpc
-    /// argument. The implementation was already here — without the interface it fell through to
-    /// <c>NetworkVariableSerialization</c>, which has no serializer for a managed type and threw on
-    /// the first send.
+    /// A set of tags with hierarchical matching. Crosses the wire through the container formatter
+    /// that <c>Vapor.Networking</c> registers (a count and the keys); nothing here knows about the wire.
     /// </summary>
     [Serializable]
-    public class GameplayTagContainer : INetworkSerializable
+    public class GameplayTagContainer
     {
         public delegate void TagsChangedHandler(GameplayTagContainer container, List<GameplayTag> tags, GameplayTagContainerChangeType changeType);
         
@@ -340,42 +337,5 @@ namespace Vapor.GameplayTags
             return false;
         }
 
-        public void Serialize(FastBufferWriter writer, bool fullPacket)
-        {
-            EnsureInitialized();
-            writer.WriteValueSafe(Tags.Count);
-            foreach (var tag in Tags)
-            {
-                writer.WriteValueSafe(tag.Key);
-            }
-        }
-
-        public void Deserialize(FastBufferReader reader, out bool fullPacket)
-        {
-            EnsureInitialized();
-            fullPacket = true;
-            _tags.Clear();
-            _exactValidTags.Clear();
-            reader.ReadValueSafe(out int count);
-            for (int i = 0; i < count; i++)
-            {
-                reader.ReadValueSafe(out uint value);
-                AddTag(new GameplayTag(value));
-            }
-        }
-
-        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
-        {
-            if (serializer.IsWriter)
-            {
-                var w = serializer.GetFastBufferWriter();
-                Serialize(w, false);
-            }
-            else
-            {
-                var r = serializer.GetFastBufferReader();
-                Deserialize(r, out _);
-            }
-        }
     }
 }

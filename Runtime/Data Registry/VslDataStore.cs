@@ -39,6 +39,14 @@ namespace Vapor
         /// <summary>Addressables label the documents are published under.</summary>
         public const string AddressableLabel = "VaporData";
 
+        /// <summary>
+        /// The member profile a data document is written and read under: templates. A member that
+        /// belongs to another profile only — the save state of a live instance — stays out of the
+        /// file and is left alone when the file is read back. Every member without a profile is in
+        /// this one, so types that never mention profiles are unaffected.
+        /// </summary>
+        public static VslContext DocumentContext => VslContext.For(VslProfiles.Template);
+
         /// <summary>Absolute path of <see cref="RelativeFolder"/>. Editor-only in practice.</summary>
         public static string AbsoluteFolder =>
             Path.Combine(Application.dataPath, RelativeFolder["Assets/".Length..]).Replace('\\', '/');
@@ -102,8 +110,12 @@ namespace Vapor
         /// </remarks>
         public static List<Type> GetConcreteTypes(Type root)
         {
+            // [IgnoreDropdown] keeps a type out of every picker, and this list feeds the pickers: it is
+            // how a test fixture or an internal subclass stays out of the authoring windows while
+            // still being a perfectly good member of the family at runtime.
             var found = VaporTypeCache.GetTypesDerivedFrom<IData>()
-                .Where(t => !t.IsInterface && !t.IsAbstract && root.IsAssignableFrom(t) && GetDocumentOwner(t) == root)
+                .Where(t => !t.IsInterface && !t.IsAbstract && root.IsAssignableFrom(t) && GetDocumentOwner(t) == root
+                            && !t.IsDefined(typeof(Vapor.Inspector.IgnoreDropdownAttribute), false))
                 .ToList();
 
             found.Sort((a, b) =>
@@ -256,7 +268,7 @@ namespace Vapor
                 return new List<IData>();
             }
 
-            var entries = Vsl.Deserialize<List<IData>>(text);
+            var entries = Vsl.Deserialize<List<IData>>(text, DocumentContext);
             if (entries == null)
             {
                 return new List<IData>();
@@ -290,7 +302,7 @@ namespace Vapor
         public static string Write(IEnumerable<IData> entries)
         {
             var list = entries as List<IData> ?? new List<IData>(entries ?? Enumerable.Empty<IData>());
-            return Vsl.Serialize(list);
+            return Vsl.Serialize(list, DocumentContext);
         }
 
         /// <summary>Reads one type's document straight off disk. Editor-time path.</summary>

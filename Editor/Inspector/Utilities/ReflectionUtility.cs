@@ -13,11 +13,83 @@ namespace VaporEditor.Inspector
     public static partial class ReflectionUtility
     {
         public static readonly Func<FieldInfo, bool> FieldSearchPredicate = f => !f.IsDefined(typeof(HideInInspector))
+                                                                                 && IsAuthored(f)
                                                                                  && (IsVslSerialized(f)
                                                                                      || (!f.IsDefined(typeof(NonSerializedAttribute))
                                                                                          && (f.IsPublic || f.IsDefined(typeof(SerializeField)))));
         public static readonly Func<MethodInfo, bool> MethodSearchPredicate = f => f.IsDefined(typeof(ButtonAttribute));
-        public static readonly Func<PropertyInfo, bool> PropertySearchPredicate = f => f.IsDefined(typeof(ShowInInspectorAttribute));
+        public static readonly Func<PropertyInfo, bool> PropertySearchPredicate = f => f.IsDefined(typeof(ShowInInspectorAttribute)) && IsAuthored(f);
+
+        /// <summary>
+        /// False for a member that <c>[VslProfile]</c> keeps out of the Template document.
+        /// </summary>
+        /// <remarks>
+        /// The inspector authors templates. A member that only belongs to a Save profile is the state
+        /// of a live instance — a current health, a position — and drawing it on a template would
+        /// offer an edit that the document never stores. Members with no profile are in every
+        /// profile, so nothing that does not use profiles is affected.
+        /// </remarks>
+        public static bool IsAuthored(MemberInfo member)
+        {
+            var profile = member.GetCustomAttribute<VslProfileAttribute>(true);
+            return profile == null || (profile.Profiles & VslProfiles.Template) != 0;
+        }
+
+        private static readonly Dictionary<Type, bool> s_ExpandableTypes = new();
+
+        /// <summary>
+        /// True for a plain type the inspector recurses into: <c>[Serializable]</c>, as Unity's
+        /// own rule has it, or authored through VSL — <c>[VslSerializable]</c> on the type, or
+        /// <c>[VslSerialize]</c> on any member of it.
+        /// </summary>
+        /// <remarks>
+        /// The members of such a type are already drawn on the same terms as public fields (see
+        /// <see cref="IsVslSerialized(FieldInfo)"/>); this is the type-level half of the same rule,
+        /// without which a VSL-authored object nested in a document drew as an empty row.
+        /// </remarks>
+        public static bool IsExpandableType(Type type)
+        {
+            if (type == null)
+            {
+                return false;
+            }
+
+            if (s_ExpandableTypes.TryGetValue(type, out var expandable))
+            {
+                return expandable;
+            }
+
+            expandable = type.IsDefined(typeof(SerializableAttribute), true)
+                         || type.IsDefined(typeof(VslSerializableAttribute), true)
+                         || DeclaresVslMember(type);
+            s_ExpandableTypes[type] = expandable;
+            return expandable;
+        }
+
+        private static bool DeclaresVslMember(Type type)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            for (var t = type; t != null && t != typeof(object); t = t.BaseType)
+            {
+                foreach (var field in t.GetFields(flags | BindingFlags.DeclaredOnly))
+                {
+                    if (field.IsDefined(typeof(VslSerializeAttribute), true))
+                    {
+                        return true;
+                    }
+                }
+
+                foreach (var property in t.GetProperties(flags | BindingFlags.DeclaredOnly))
+                {
+                    if (property.IsDefined(typeof(VslSerializeAttribute), true))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// True for a member VSL stores, whatever its access modifier.
@@ -43,6 +115,7 @@ namespace VaporEditor.Inspector
         public static bool IsVslSerialized(PropertyInfo property) =>
             property.IsDefined(typeof(VslSerializeAttribute), true)
             && !property.IsDefined(typeof(VslIgnoreAttribute), true)
+            && IsAuthored(property)
             && property.CanRead
             && property.CanWrite
             && property.GetIndexParameters().Length == 0;
@@ -72,6 +145,7 @@ namespace VaporEditor.Inspector
             s_PropertyCache.Clear();
             s_MethodCache.Clear();
             s_TypeNameMap.Clear();
+            s_ExpandableTypes.Clear();
 
             s_Assemblies = null;
             s_TypesPerAssembly = null;

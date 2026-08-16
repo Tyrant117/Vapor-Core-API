@@ -205,9 +205,18 @@ namespace Vapor.Serialization
                 return false;
             }
 
+            // Nothing is committed to the out parameters until the split is known to be good: a
+            // caller that reads mainKey after a false must get the key it handed in, whole. An
+            // empty group is part of the address, not a sub-asset.
+            var candidate = key.Substring(open + 1, key.Length - open - 2);
+            if (string.IsNullOrEmpty(candidate))
+            {
+                return false;
+            }
+
             mainKey = key[..open];
-            subKey = key.Substring(open + 1, key.Length - open - 2);
-            return !string.IsNullOrEmpty(subKey);
+            subKey = candidate;
+            return true;
         }
 
         /// <summary>Builds an <c>address[SubAsset]</c> key.</summary>

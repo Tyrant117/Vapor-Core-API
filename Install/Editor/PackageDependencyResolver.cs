@@ -26,7 +26,7 @@ namespace VaporEditorInstaller
             "com.unity.cinemachine",
             "com.unity.localization",
             "com.unity.multiplayer.playmode",
-            "com.unity.netcode.gameobjects",
+            "com.unity.transport",
         };
         
         [MenuItem("Vapor/Installation/Resolve Dependencies", priority = -10000)]

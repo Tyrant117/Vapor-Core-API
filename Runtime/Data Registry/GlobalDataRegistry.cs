@@ -6,9 +6,9 @@ using UnityEngine;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
 using Vapor.Unsafe;
+using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using UnityEditor;
-using Unity.Scripting.LifecycleManagement;
 #endif
 
 namespace Vapor

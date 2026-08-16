@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Unity.Netcode;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using Vapor.Keys;
+using Vapor.Networking;
 using Object = UnityEngine.Object;
 
 namespace Vapor.GameplayFramework
@@ -16,8 +16,9 @@ namespace Vapor.GameplayFramework
     {
         private static readonly Dictionary<uint, GameplayEvent> s_Events = new();
         private static readonly Dictionary<GameplayChannelId, GameplayEvent> s_ChannelEvents = new();
-        private static readonly Dictionary<EntityId, Dictionary<uint, GameplayEvent>> s_EntityEvents = new();
-        private static readonly Dictionary<EntityId, Dictionary<GameplayChannelId, GameplayEvent>> s_EntityChannelEvents = new();
+        // Keyed by object: a Unity object by its EntityId, anything else (an actor) by reference.
+        private static readonly Dictionary<object, Dictionary<uint, GameplayEvent>> s_EntityEvents = new();
+        private static readonly Dictionary<object, Dictionary<GameplayChannelId, GameplayEvent>> s_EntityChannelEvents = new();
 
         public static void Subscribe([DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {
@@ -47,9 +48,9 @@ namespace Vapor.GameplayFramework
         //     }
         // }
 
-        public static void SubscribeOnTarget(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
+        public static void SubscribeOnTarget(object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {
-            if (s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
+            if (s_EntityEvents.TryGetValue(KeyOf(entity), out var events))
             {
                 if (events.TryGetValue(eventId, out GameplayEvent gameplayEvent))
                 {
@@ -67,13 +68,13 @@ namespace Vapor.GameplayFramework
                 var evt = new GameplayEvent(eventId);
                 evt.OnEventRaised += callback;
                 Dictionary<uint, GameplayEvent> newEvents = new() { { eventId, evt } };
-                s_EntityEvents.Add(entity.GetEntityId(), newEvents);
+                s_EntityEvents.Add(KeyOf(entity), newEvents);
             }
         }
         
         // public static void Subscribe(Object entity, GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
         // {
-        //     if (s_EntityChannelEvents.TryGetValue(entity.GetEntityId(), out var events))
+        //     if (s_EntityChannelEvents.TryGetValue(KeyOf(entity), out var events))
         //     {
         //         if (events.TryGetValue(channelId, out GameplayEvent gameplayEvent))
         //         {
@@ -91,7 +92,7 @@ namespace Vapor.GameplayFramework
         //         var evt = new GameplayEvent(channelId.EventId);
         //         evt.OnEventRaised += callback;
         //         Dictionary<GameplayChannelId, GameplayEvent> newEvents = new() { { channelId, evt } };
-        //         s_EntityChannelEvents.Add(entity.GetEntityId(), newEvents);
+        //         s_EntityChannelEvents.Add(KeyOf(entity), newEvents);
         //     }
         // }
 
@@ -111,9 +112,9 @@ namespace Vapor.GameplayFramework
         //     }
         // }
 
-        public static void UnsubscribeFromTarget(Object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
+        public static void UnsubscribeFromTarget(object entity, [DataKey("Event")] uint eventId, Action<uint, IGameplayEventData> callback)
         {
-            if (!s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
+            if (!s_EntityEvents.TryGetValue(KeyOf(entity), out var events))
             {
                 return;
             }
@@ -126,7 +127,7 @@ namespace Vapor.GameplayFramework
         
         // public static void Unsubscribe(Object entity, GameplayChannelId channelId, Action<uint, IGameplayEventData> callback)
         // {
-        //     if (!s_EntityChannelEvents.TryGetValue(entity.GetEntityId(), out var events))
+        //     if (!s_EntityChannelEvents.TryGetValue(KeyOf(entity), out var events))
         //     {
         //         return;
         //     }
@@ -145,9 +146,10 @@ namespace Vapor.GameplayFramework
             }
         }
 
+        /// <summary>Triggers the event only where a client session runs (a client or a host); a dedicated server ignores it.</summary>
         public static void TriggerClientEvent([DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
-            if (!NetworkManager.Singleton.IsClient)
+            if (!NetworkRoles.IsClient)
             {
                 return;
             }
@@ -158,9 +160,10 @@ namespace Vapor.GameplayFramework
             }
         }
         
+        /// <summary>Triggers the event only where a server session runs (a server or a host); a pure client ignores it.</summary>
         public static void TriggerServerEvent([DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
-            if (!NetworkManager.Singleton.IsServer)
+            if (!NetworkRoles.IsServer)
             {
                 return;
             }
@@ -179,9 +182,9 @@ namespace Vapor.GameplayFramework
         //     }
         // }
 
-        public static void TriggerEventOnTarget(Object entity, [DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
+        public static void TriggerEventOnTarget(object entity, [DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
-            if (!s_EntityEvents.TryGetValue(entity.GetEntityId(), out var events))
+            if (!s_EntityEvents.TryGetValue(KeyOf(entity), out var events))
             {
                 return;
             }
@@ -194,7 +197,7 @@ namespace Vapor.GameplayFramework
         
         // public static void TriggerEvent(Object entity, GameplayChannelId channelId, IGameplayEventData gameplayEventData)
         // {
-        //     if (!s_EntityChannelEvents.TryGetValue(entity.GetEntityId(), out var events))
+        //     if (!s_EntityChannelEvents.TryGetValue(KeyOf(entity), out var events))
         //     {
         //         return;
         //     }
@@ -204,5 +207,20 @@ namespace Vapor.GameplayFramework
         //         gameplayEvent.TriggerEvent(gameplayEventData);
         //     }
         // }
+
+        /// <summary>
+        /// The table key for a target: a Unity object is keyed by its entity id, so a destroyed and
+        /// re-created object is a different target; anything else is keyed by reference. This is what
+        /// lets a plain-C# actor be a target on the same terms as a MonoBehaviour.
+        /// </summary>
+        private static object KeyOf(object entity)
+        {
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity));
+            }
+
+            return entity is Object unityObject ? unityObject.GetEntityId() : entity;
+        }
     }
 }

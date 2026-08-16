@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs both generators over a stub of the real runtime surface and compiles what comes out at
+    C# 9 (Unity 6's language version). 'dotnet run' returns non-zero when anything fails.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Vapor.Network.SourceGenerator.Tests</AssemblyName>
+    <RootNamespace>Vapor.Network.SourceGenerator.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <ProjectReference Include="..\src\VaporNetworkGenerator.csproj" />
+  </ItemGroup>
+
+</Project>

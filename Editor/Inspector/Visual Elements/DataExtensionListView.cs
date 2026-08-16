@@ -170,9 +170,10 @@ namespace VaporEditor.Inspector
 
             // The candidates are known here, so the picker is handed them rather than left to filter the
             // whole project down to them. That is what lets it show a flat, readable list.
+            var host = _property.GetParentObject() as IExtensionHostFilter;
             var provider = TypeSearchProvider.ForTypes(
                 model => Add(model.Type),
-                ReflectionUtility.GetAssignableTypesOf(_elementType).Where(candidate => IsOffered(candidate, taken)));
+                ReflectionUtility.GetAssignableTypesOf(_elementType).Where(candidate => IsOffered(candidate, taken, host)));
 
             var position = GUIUtility.GUIToScreenPoint(Event.current?.mousePosition ?? new Vector2(200, 200));
             TypeSearchWindow.Show(position, position, provider, false, true, TypeDisplayNames.GetDisplayName(_elementType));
@@ -180,12 +181,19 @@ namespace VaporEditor.Inspector
 
         /// <summary>
         /// Whether the picker should offer a type: a concrete extension of the right family, that the
-        /// filter allows, and that is not already on this entry.
+        /// filter allows, that the owning entry accepts, and that is not already on this entry.
         /// </summary>
-        private bool IsOffered(Type candidate, HashSet<Type> taken) =>
+        /// <remarks>
+        /// The owner has the last word. A family root can declare what its members may carry, but
+        /// only the entry knows what it is — a controller and a pawn share one extension type and
+        /// take different components — so an owner implementing <see cref="IExtensionHostFilter"/>
+        /// narrows the list further.
+        /// </remarks>
+        private bool IsOffered(Type candidate, HashSet<Type> taken, IExtensionHostFilter host) =>
             candidate is { IsAbstract: false, IsInterface: false, IsGenericTypeDefinition: false }
             && _elementType.IsAssignableFrom(candidate)
             && (_filter == null || _filter.Allows(candidate))
+            && (host == null || host.AcceptsExtension(candidate))
             && !taken.Contains(candidate);
 
         private void Add(Type type)

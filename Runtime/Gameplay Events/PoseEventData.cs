@@ -1,21 +1,15 @@
-﻿using Unity.Netcode;
 using UnityEngine;
+using Vapor.Networking;
 
 namespace Vapor.GameplayFramework
 {
-    public struct PoseEventData : IGameplayEventData
+    /// <summary>A pose: where something happened, or where to aim.</summary>
+    [NetworkSerializable]
+    public partial struct PoseEventData : IGameplayEventData
     {
         public Pose Pose;
-        
-        public void Serialize(FastBufferWriter writer, bool fullPacket)
-        {
-            writer.WriteValueSafe(Pose);
-        }
-        
-        public void Deserialize(FastBufferReader reader, out bool fullPacket)
-        {
-            fullPacket = true;
-            reader.ReadValueSafe(out Pose);
-        }
+
+        public PoseEventData(Pose pose) => Pose = pose;
+        public PoseEventData(Vector3 position, Quaternion rotation) => Pose = new Pose(position, rotation);
     }
 }

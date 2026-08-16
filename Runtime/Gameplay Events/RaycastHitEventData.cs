@@ -1,27 +1,26 @@
-﻿using Unity.Netcode;
 using UnityEngine;
+using Vapor.Networking;
 
 namespace Vapor.GameplayFramework
 {
-    public struct RaycastHitEventData : IGameplayEventData
+    /// <summary>
+    /// A hit: the network object that was hit (an actor, usually; unset when the hit was on
+    /// scenery), the point and the surface normal.
+    /// </summary>
+    [NetworkSerializable]
+    public partial struct RaycastHitEventData : IGameplayEventData
     {
-        public NetworkBehaviourReference ActorReference;
+        public VaporNetworkObjectReference Target;
         public Vector3 Point;
         public Vector3 Normal;
 
-        public void Serialize(FastBufferWriter writer, bool fullPacket)
+        public RaycastHitEventData(VaporNetworkObjectReference target, Vector3 point, Vector3 normal)
         {
-            writer.WriteValueSafe(ActorReference);
-            writer.WriteValueSafe(Point);
-            writer.WriteValueSafe(Normal);
+            Target = target;
+            Point = point;
+            Normal = normal;
         }
 
-        public void Deserialize(FastBufferReader reader, out bool fullPacket)
-        {
-            fullPacket = true;
-            reader.ReadValueSafe(out ActorReference);
-            reader.ReadValueSafe(out Point);
-            reader.ReadValueSafe(out Normal);
-        }
+        public bool HasTarget => !Target.IsNone;
     }
 }

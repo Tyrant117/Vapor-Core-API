@@ -22,7 +22,7 @@ namespace VaporEditor.DataRegistry
     /// schema — which is the property the format was built around.
     /// </para>
     /// </remarks>
-    internal static class DataPromptBuilder
+    public static class DataPromptBuilder
     {
         private const string SpecPath = "Assets/Vapor Core API/Runtime/Serialization Language/SPEC.md";
 
@@ -113,7 +113,7 @@ namespace VaporEditor.DataRegistry
             foreach (var path in focusedFields)
             {
                 var member = schema.Find(path.AsSpan());
-                if (member != null)
+                if (member != null && member.IsIn(VslProfiles.Template))
                 {
                     wanted.Add(member);
                 }
@@ -133,7 +133,8 @@ namespace VaporEditor.DataRegistry
         /// </remarks>
         private static string WriteMembers(IReadOnlyList<IData> entries, List<VslMember> members)
         {
-            var context = new VslContext();
+            // The document's own profile, so a nested object writes exactly what the file would.
+            var context = VslDataStore.DocumentContext;
             var writer = new VslWriter(context);
 
             try

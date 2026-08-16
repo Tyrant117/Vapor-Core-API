@@ -37,24 +37,33 @@ namespace Vapor.Vsl.SourceGenerator
                 static (node, _) => node is VariableDeclaratorSyntax or PropertyDeclarationSyntax or FieldDeclarationSyntax,
                 static (ctx, _) => ctx.TargetSymbol.ContainingType);
 
+            // [VslCloneable] on its own — a base with no serialized members of its own still needs its
+            // place in the CopyFrom chain.
+            var fromCloneable = context.SyntaxProvider.ForAttributeWithMetadataName(
+                VslModelBuilder.CloneableAttribute,
+                static (node, _) => node is TypeDeclarationSyntax,
+                static (ctx, _) => ctx.TargetSymbol as INamedTypeSymbol);
+
             var candidates = fromTypes.Collect()
                 .Combine(fromMembers.Collect())
+                .Combine(fromCloneable.Collect())
                 .Combine(context.CompilationProvider.Select(static (compilation, _) => compilation.AssemblyName));
 
             context.RegisterSourceOutput(candidates, static (spc, input) =>
-                Execute(spc, input.Left.Left, input.Left.Right, input.Right));
+                Execute(spc, input.Left.Left.Left, input.Left.Left.Right, input.Left.Right, input.Right));
         }
 
         private static void Execute(
             SourceProductionContext context,
             ImmutableArray<INamedTypeSymbol> fromTypes,
             ImmutableArray<INamedTypeSymbol> fromMembers,
+            ImmutableArray<INamedTypeSymbol> fromCloneable,
             string assemblyName)
         {
             var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
             var ordered = new List<INamedTypeSymbol>();
 
-            foreach (var type in fromTypes.Concat(fromMembers))
+            foreach (var type in fromTypes.Concat(fromMembers).Concat(fromCloneable))
             {
                 if (type != null && seen.Add(type))
                 {
@@ -73,7 +82,10 @@ namespace Vapor.Vsl.SourceGenerator
                 }
 
                 context.AddSource($"{model.HintName}.Vsl.g.cs", SourceText.From(Emit(model), Encoding.UTF8));
-                registrations.Add($"{model.TypeName}.{FormatterName}.Instance");
+                if (model.EmitFormatter)
+                {
+                    registrations.Add($"{model.TypeName}.{FormatterName}.Instance");
+                }
             }
 
             if (registrations.Count > 0)
@@ -108,11 +120,26 @@ namespace Vapor.Vsl.SourceGenerator
                 indent++;
             }
 
-            sb.AppendLine($"{Pad(indent)}partial {model.TypeKeyword} {model.SimpleName}");
+            // The root of a cloneable hierarchy takes the interface; derived levels inherit it.
+            var interfaces = model.IsCloneable && !model.BaseIsCloneable ? $" : {Ns}.IVslCloneable" : string.Empty;
+            sb.AppendLine($"{Pad(indent)}partial {model.TypeKeyword} {model.SimpleName}{interfaces}");
             sb.AppendLine($"{Pad(indent)}{{");
             indent++;
 
-            EmitFormatter(sb, model, indent);
+            if (model.EmitFormatter)
+            {
+                EmitFormatter(sb, model, indent);
+            }
+
+            if (model.IsCloneable)
+            {
+                if (model.EmitFormatter)
+                {
+                    sb.AppendLine();
+                }
+
+                EmitClone(sb, model, indent);
+            }
 
             indent--;
             sb.AppendLine($"{Pad(indent)}}}");
@@ -200,13 +227,27 @@ namespace Vapor.Vsl.SourceGenerator
 
             foreach (var member in model.Members)
             {
-                if (!string.IsNullOrEmpty(member.Comment))
+                // A member outside the active profile is not written at all — same rule as the
+                // reflection formatter, which the differential test holds this to.
+                var guard = member.IsInEveryProfile ? deep : deep + "    ";
+                if (!member.IsInEveryProfile)
                 {
-                    sb.AppendLine($"{deep}writer.WriteComment({Literal(member.Comment)});");
+                    sb.AppendLine($"{deep}if ((0x{member.ProfileMask:X}u & (uint)context.Profiles) != 0u)");
+                    sb.AppendLine($"{deep}{{");
                 }
 
-                sb.AppendLine($"{deep}writer.WriteMember({Literal(member.VslName)});");
-                sb.AppendLine($"{deep}{Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Write(ref writer, value.{member.Access}, context);");
+                if (!string.IsNullOrEmpty(member.Comment))
+                {
+                    sb.AppendLine($"{guard}writer.WriteComment({Literal(member.Comment)});");
+                }
+
+                sb.AppendLine($"{guard}writer.WriteMember({Literal(member.VslName)});");
+                sb.AppendLine($"{guard}{Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Write(ref writer, value.{member.Access}, context);");
+
+                if (!member.IsInEveryProfile)
+                {
+                    sb.AppendLine($"{deep}}}");
+                }
             }
 
             sb.AppendLine($"{deep}writer.EndObject();");
@@ -257,7 +298,23 @@ namespace Vapor.Vsl.SourceGenerator
                 first = false;
                 sb.AppendLine($"{deep}    {keyword} ({Ns}.VslNames.Matches(__name, {Literal(member.VslName)}))");
                 sb.AppendLine($"{deep}    {{");
-                sb.AppendLine($"{deep}        value.{member.Access} = {Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Read(ref reader, context);");
+                if (member.IsInEveryProfile)
+                {
+                    sb.AppendLine($"{deep}        value.{member.Access} = {Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Read(ref reader, context);");
+                }
+                else
+                {
+                    // Present in the document but outside the active profile: leave the instance alone.
+                    sb.AppendLine($"{deep}        if ((0x{member.ProfileMask:X}u & (uint)context.Profiles) != 0u)");
+                    sb.AppendLine($"{deep}        {{");
+                    sb.AppendLine($"{deep}            value.{member.Access} = {Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Read(ref reader, context);");
+                    sb.AppendLine($"{deep}        }}");
+                    sb.AppendLine($"{deep}        else");
+                    sb.AppendLine($"{deep}        {{");
+                    sb.AppendLine($"{deep}            reader.SkipValue();");
+                    sb.AppendLine($"{deep}        }}");
+                }
+
                 sb.AppendLine($"{deep}    }}");
             }
 
@@ -290,6 +347,151 @@ namespace Vapor.Vsl.SourceGenerator
             sb.AppendLine($"{inner}}}");
 
             sb.AppendLine($"{pad}}}");
+        }
+
+        /// <summary>
+        /// The [VslCloneable] members: a typed <c>Clone()</c>, the virtual <c>VslCloneObject()</c> that
+        /// makes cloning through a base-typed reference yield the runtime type, and
+        /// <c>CopyFrom(T)</c>, which copies the members this level declares and chains to the base's.
+        /// </summary>
+        private static void EmitClone(StringBuilder sb, VslTypeModel model, int indent)
+        {
+            var pad = Pad(indent);
+            var body = Pad(indent + 1);
+            var deep = Pad(indent + 2);
+            var newKeyword = model.BaseDeclaresClone ? "new " : string.Empty;
+
+            sb.AppendLine($"{pad}/// <summary>A deep copy over the VSL-serialized members. Generated from [VslCloneable].</summary>");
+            sb.AppendLine($"{pad}public {newKeyword}{model.TypeName} Clone() => ({model.TypeName})VslCloneObject();");
+            sb.AppendLine();
+
+            if (model.IsAbstract)
+            {
+                if (!model.BaseIsCloneable)
+                {
+                    // An abstract root cannot 'new' itself. It gets a virtual with a correct-but-slow
+                    // fallback (a VSL round trip on the runtime type), so a concrete subclass that forgot
+                    // [VslCloneable] still clones properly instead of failing to compile; marked
+                    // subclasses override with the generated fast path.
+                    sb.AppendLine($"{pad}/// <inheritdoc cref=\"{Ns}.IVslCloneable.VslCloneObject\"/>");
+                    sb.AppendLine($"{pad}public virtual object VslCloneObject() => {Ns}.VslClone.RoundTrip(this);");
+                    sb.AppendLine();
+                }
+                // With a cloneable base, an abstract level adds nothing but its CopyFrom.
+            }
+            else
+            {
+                // A sealed root cannot declare a virtual; it just implements the interface.
+                var modifier = model.BaseIsCloneable ? "override " : (model.IsSealedOrValueType ? string.Empty : "virtual ");
+                sb.AppendLine($"{pad}/// <inheritdoc cref=\"{Ns}.IVslCloneable.VslCloneObject\"/>");
+                sb.AppendLine($"{pad}public {modifier}object VslCloneObject()");
+                sb.AppendLine($"{pad}{{");
+                sb.AppendLine($"{body}var __copy = new {model.TypeName}();");
+                sb.AppendLine($"{body}__copy.CopyFrom(this);");
+                sb.AppendLine($"{body}return __copy;");
+                sb.AppendLine($"{pad}}}");
+                sb.AppendLine();
+            }
+
+            // The polymorphic entry: a base-typed CopyFrom would bind statically and skip derived members.
+            var copyModifier = model.BaseIsCloneable ? "override " : (model.IsSealedOrValueType ? string.Empty : "virtual ");
+            sb.AppendLine($"{pad}/// <inheritdoc cref=\"{Ns}.IVslCloneable.VslCopyFrom\"/>");
+            sb.AppendLine($"{pad}public {copyModifier}void VslCopyFrom(object source) => CopyFrom(({model.TypeName})source);");
+            sb.AppendLine();
+
+            sb.AppendLine($"{pad}/// <summary>Deep-copies the VSL-serialized members of <paramref name=\"source\"/> into this instance. Generated from [VslCloneable].</summary>");
+            sb.AppendLine($"{pad}public void CopyFrom({model.TypeName} source)");
+            sb.AppendLine($"{pad}{{");
+            sb.AppendLine($"{body}if (source is null) throw new global::System.ArgumentNullException(nameof(source));");
+            if (model.BaseIsCloneable)
+            {
+                sb.AppendLine($"{body}base.CopyFrom(source);");
+            }
+
+            foreach (var member in model.Members)
+            {
+                if (!member.DeclaredHere)
+                {
+                    continue;
+                }
+
+                sb.AppendLine($"{body}this.{member.Access} = {CloneExpression(member.Type, $"source.{member.Access}")};");
+            }
+
+            sb.AppendLine($"{pad}}}");
+        }
+
+        /// <summary>
+        /// The expression that deep-copies one member. Value types and strings by value; assets by
+        /// reference; cloneable classes through their own generated clone; collections of scalars
+        /// rebuilt inline; everything else through the runtime's <c>VslClone.DeepCopy</c>, which
+        /// falls back to a text round trip.
+        /// </summary>
+        private static string CloneExpression(ITypeSymbol type, string expr)
+        {
+            if (type == null)
+            {
+                return expr;
+            }
+
+            if (type.IsValueType || type.SpecialType == SpecialType.System_String)
+            {
+                return expr;
+            }
+
+            if (DerivesFromUnityObject(type))
+            {
+                return expr;
+            }
+
+            var typeName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+            if (type is IArrayTypeSymbol array && array.IsSZArray && IsScalar(array.ElementType))
+            {
+                return $"({typeName})({expr}?.Clone())";
+            }
+
+            if (type is INamedTypeSymbol named && named.IsGenericType && named.TypeArguments.Length == 1
+                && named.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.List<T>" && IsScalar(named.TypeArguments[0]))
+            {
+                return $"({expr} is null ? null : new {typeName}({expr}))";
+            }
+
+            if (type is INamedTypeSymbol cloneable && cloneable.TypeKind == TypeKind.Class && IsCloneable(cloneable))
+            {
+                return $"({typeName})({expr}?.VslCloneObject())";
+            }
+
+            return $"{Ns}.VslClone.DeepCopy<{typeName}>({expr})";
+        }
+
+        private static bool IsScalar(ITypeSymbol type) =>
+            type.IsValueType || type.SpecialType == SpecialType.System_String || DerivesFromUnityObject(type);
+
+        private static bool IsCloneable(INamedTypeSymbol type)
+        {
+            for (var current = type; current != null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                if (current.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == VslModelBuilder.CloneableAttribute))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool DerivesFromUnityObject(ITypeSymbol type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                if (current.ToDisplayString() == "UnityEngine.Object")
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

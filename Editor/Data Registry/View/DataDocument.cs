@@ -152,6 +152,11 @@ namespace VaporEditor.DataRegistry
             }
 
             SetName(entry, name);
+
+            // Finished the way a read entry is, so a fresh entry and a loaded one are the same kind of
+            // object to whatever draws or spawns them. The contract makes this idempotent.
+            (entry as IDataLoadCallback)?.OnDataLoaded();
+
             Entries.Add(entry);
             IsDirty = true;
             return entry;
@@ -173,7 +178,7 @@ namespace VaporEditor.DataRegistry
             }
 
             var type = source.GetType();
-            var copy = Vsl.Deserialize(Vsl.Serialize(source, type), type) as IData;
+            var copy = RoundTrip(source, type);
             if (copy == null)
             {
                 return null;
@@ -268,8 +273,8 @@ namespace VaporEditor.DataRegistry
                     continue;
                 }
 
-                var type = data.GetType();
-                if (Vsl.Deserialize(Vsl.Serialize(data, type), type) is not IData copy)
+                var copy = RoundTrip(data, data.GetType());
+                if (copy == null)
                 {
                     continue;
                 }
@@ -284,6 +289,23 @@ namespace VaporEditor.DataRegistry
             }
 
             return imported;
+        }
+
+        /// <summary>
+        /// A copy made the way the file would make it: written and read under the document profile,
+        /// then finished the way a loaded entry is. Runtime-only state does not survive, exactly as
+        /// it would not survive a save.
+        /// </summary>
+        private static IData RoundTrip(IData source, Type type)
+        {
+            var text = Vsl.Serialize(source, type, VslDataStore.DocumentContext);
+            if (Vsl.Deserialize(text, type, VslDataStore.DocumentContext) is not IData copy)
+            {
+                return null;
+            }
+
+            (copy as IDataLoadCallback)?.OnDataLoaded();
+            return copy;
         }
 
         #endregion

@@ -94,6 +94,66 @@ namespace Vapor.Serialization
     }
 
     /// <summary>
+    /// The named subsets a member can belong to. A write or read filtered to a profile touches only
+    /// the members whose profiles intersect it; a member with no <see cref="VslProfileAttribute"/> is
+    /// in every profile.
+    /// </summary>
+    /// <remarks>
+    /// The two named ones are what the actor model needs — a prefab-like <b>Template</b> document
+    /// authored in the editor and a <b>Save</b> document of a live instance, from the same class —
+    /// but the mechanism is generic: the remaining bits are yours to name.
+    /// </remarks>
+    [Flags]
+    public enum VslProfiles : uint
+    {
+        None = 0,
+        /// <summary>Authoring: what a designer or an AI writes into a template document.</summary>
+        Template = 1u << 0,
+        /// <summary>Persistence: what a live instance carries into a save document.</summary>
+        Save = 1u << 1,
+        Profile3 = 1u << 2,
+        Profile4 = 1u << 3,
+        Profile5 = 1u << 4,
+        Profile6 = 1u << 5,
+        Profile7 = 1u << 6,
+        Profile8 = 1u << 7,
+        All = uint.MaxValue,
+    }
+
+    /// <summary>
+    /// Restricts a member to the given profiles. Absent, a member belongs to every profile.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// [VslSerialize] public float MaxHealth;                            // template and save
+    /// [VslSerialize, VslProfile(VslProfiles.Save)] public float Health; // save only: absent from the template document
+    /// </code>
+    /// </example>
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true)]
+    public sealed class VslProfileAttribute : Attribute
+    {
+        public VslProfiles Profiles { get; }
+
+        public VslProfileAttribute(VslProfiles profiles) => Profiles = profiles;
+    }
+
+    /// <summary>
+    /// Asks the source generator to emit <c>Clone()</c>, <c>CopyFrom(T)</c> and
+    /// <see cref="IVslCloneable.VslCloneObject"/> for this type: a deep copy over exactly the members
+    /// VSL serializes, without a text round trip. What <c>ActorFactory</c> uses to stamp a live
+    /// instance out of a template.
+    /// </summary>
+    /// <remarks>
+    /// The type (and every containing type) must be <c>partial</c>. In a hierarchy, mark every level
+    /// that adds serialized members: each level copies the members it declares and chains to its base,
+    /// so private members stay private and a base-typed reference clones to the runtime type.
+    /// </remarks>
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+    public sealed class VslCloneableAttribute : Attribute
+    {
+    }
+
+    /// <summary>
     /// Emits a <c>#</c> comment above this member on write.
     /// </summary>
     /// <remarks>

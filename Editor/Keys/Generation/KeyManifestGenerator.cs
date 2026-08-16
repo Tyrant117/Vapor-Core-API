@@ -71,13 +71,9 @@ namespace VaporEditor.Keys
 
             GlobalDataRegistry.Initialize();
 
-            var types = GlobalDataRegistry.GetAllTypes().ToList();
-            var baseTypes = types
-                .Select(t => t.BaseType)
-                .Where(t => t != null && t != typeof(object) && typeof(IData).IsAssignableFrom(t))
-                .ToList();
-            types.AddRange(baseTypes);
-            types = types.Distinct().ToList();
+            // The same widening the key classes get: a manifest per registered type and per IData
+            // class above it, so a family's root manifest lists the whole family.
+            var types = KeyGenerator.WithKeyAncestors(GlobalDataRegistry.GetAllTypes());
 
             var index = new List<IndexEntry>();
             var tagSeen = new HashSet<string>();
