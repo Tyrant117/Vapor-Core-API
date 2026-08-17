@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 using Vapor.Networking;
 using Vapor.Networking.Utp;
+using LogType = UnityEngine.LogType;
 
 namespace Vapor.Tests.Networking
 {
@@ -154,6 +156,16 @@ namespace Vapor.Tests.Networking
             Assert.IsTrue(_client.StartClient(TransportEndpoint.LocalHost(47899)));
             Assert.IsTrue(PumpUntil(() => _clientSink.Disconnected.Count == 1), "no disconnect for a failed connect");
             Assert.AreEqual(DisconnectReason.Timeout, _clientSink.Disconnected[0].Item2);
+        }
+
+        [Test]
+        public void InvalidEndpointFailsWithoutCreatingARunningDriver()
+        {
+            LogAssert.Expect(LogType.Error,
+                "UtpTransport: invalid remote endpoint not a numeric address:7777: 'not a numeric address' is not an IP address. Resolve host names before starting the transport.");
+            Assert.IsFalse(_client.StartClient(new TransportEndpoint("not a numeric address", 7777)));
+            Assert.IsFalse(_client.IsRunning);
+            Assert.DoesNotThrow(() => _client.Dispose());
         }
 
         [Test]

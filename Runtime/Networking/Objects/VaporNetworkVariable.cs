@@ -42,7 +42,11 @@ namespace Vapor.Networking
 
         protected void MarkDirty()
         {
-            if (IsDirty) return;
+            if (IsDirty)
+            {
+                return;
+            }
+
             IsDirty = true;
             Host.OnVariableDirty(this);
         }

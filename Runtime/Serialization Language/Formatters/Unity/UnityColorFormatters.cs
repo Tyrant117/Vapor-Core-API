@@ -228,16 +228,21 @@ namespace Vapor.Serialization
             var colors = new List<GradientColorKey>();
             var alphas = new List<GradientAlphaKey>();
             var mode = GradientMode.Blend;
+            var sawMode = false;
+            var sawColors = false;
+            var sawAlphas = false;
 
             reader.ReadObjectStart();
             while (reader.TryReadMemberName(out var name))
             {
                 if (VslNames.Matches(name, "mode"))
                 {
+                    sawMode = true;
                     mode = EnumFormatter<GradientMode>.Instance.Read(ref reader, context);
                 }
                 else if (VslNames.Matches(name, "colors") || VslNames.Matches(name, "colorKeys"))
                 {
+                    sawColors = true;
                     reader.ReadSequenceStart();
                     while (reader.TryReadSequenceItem())
                     {
@@ -246,6 +251,7 @@ namespace Vapor.Serialization
                 }
                 else if (VslNames.Matches(name, "alphas") || VslNames.Matches(name, "alphaKeys"))
                 {
+                    sawAlphas = true;
                     reader.ReadSequenceStart();
                     while (reader.TryReadSequenceItem())
                     {
@@ -254,8 +260,20 @@ namespace Vapor.Serialization
                 }
                 else
                 {
+                    if (context.Options.Strict)
+                    {
+                        throw new VslException($"'{name.ToString()}' is not a Gradient member.");
+                    }
+
                     reader.SkipValue();
                 }
+            }
+
+            if (context.Options.Strict)
+            {
+                if (!sawMode) throw new VslException("'mode' is missing from the Gradient object.");
+                if (!sawColors) throw new VslException("'colors' is missing from the Gradient object.");
+                if (!sawAlphas) throw new VslException("'alphas' is missing from the Gradient object.");
             }
 
             // SetKeys before mode: assigning keys resets some gradient state.

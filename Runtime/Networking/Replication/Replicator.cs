@@ -67,6 +67,8 @@ namespace Vapor.Networking
         private readonly NetworkReader _recordReader = new();
         private readonly List<Peer> _peerScratch = new();
         private readonly List<(VaporNetworkObject obj, float due)> _snapshotCandidates = new();
+        private readonly List<ulong> _spatialCandidateIds = new();
+        private readonly List<ulong> _knownIdScratch = new();
         private readonly Dictionary<ulong, float> _ownerSnapshotDue = new();
         private int _rpcDepth;
         private bool _bound;
@@ -170,23 +172,30 @@ namespace Vapor.Networking
 
             bool inChannel = false;
             var groups = networkObject.InterestGroups;
-            for (int i = 0; i < groups.Count; i++)
+            foreach (var group in groups)
             {
-                if (peer.Subscriptions.Contains(groups[i]))
+                if (!peer.Subscriptions.Contains(group))
                 {
-                    inChannel = true;
-                    break;
+                    continue;
                 }
+
+                inChannel = true;
+                break;
             }
 
-            if (networkObject.UsesSpatialRelevance)
+            if (!networkObject.UsesSpatialRelevance)
             {
-                var spatial = Interest.Spatial;
-                if (spatial == null) return true;   // no provider yet: behave as global
-                return inChannel || spatial.IsRelevant(networkObject, peer.ClientId, peer.Known.Contains(networkObject.NetworkObjectId));
+                return groups.Count == 0 || inChannel;
             }
 
-            return groups.Count == 0 || inChannel;
+            var spatial = Interest.Spatial;
+            if (spatial == null)
+            {
+                return true;   // no provider yet: behave as global
+            }
+
+            return inChannel || spatial.IsRelevant(networkObject, peer.ClientId, peer.Known.Contains(networkObject.NetworkObjectId));
+
         }
 
         /// <summary>Visible = relevant, and every ancestor known to the client already.</summary>
@@ -201,9 +210,9 @@ namespace Vapor.Networking
         private void RelevancePass(Peer peer)
         {
             var roots = _world.Roots;
-            for (int i = 0; i < roots.Count; i++)
+            foreach (var root in roots)
             {
-                VisitForRelevance(peer, roots[i]);
+                VisitForRelevance(peer, root);
             }
         }
 
@@ -214,7 +223,10 @@ namespace Vapor.Networking
 
             if (relevant && !known)
             {
-                SendSpawn(peer, networkObject);
+                if (!SendSpawn(peer, networkObject))
+                {
+                    return;
+                }
             }
             else if (!relevant && known)
             {
@@ -222,13 +234,15 @@ namespace Vapor.Networking
                 return;   // descendants went with it
             }
 
-            if (relevant)
+            if (!relevant)
             {
-                var subs = networkObject.SubObjects;
-                for (int i = 0; i < subs.Count; i++)
-                {
-                    VisitForRelevance(peer, subs[i]);
-                }
+                return;
+            }
+
+            var subs = networkObject.SubObjects;
+            foreach (var sub in subs)
+            {
+                VisitForRelevance(peer, sub);
             }
         }
 
@@ -250,9 +264,55 @@ namespace Vapor.Networking
             if (!IsServer) return;
             _peerScratch.Clear();
             _peerScratch.AddRange(_peerList);
+            var candidates = Interest.Spatial as ISpatialRelevanceCandidates;
             foreach (var peer in _peerScratch)
             {
-                RelevancePass(peer);
+                if (candidates == null)
+                {
+                    RelevancePass(peer);
+                }
+                else
+                {
+                    RefreshSpatialRelevance(peer, candidates);
+                }
+            }
+        }
+
+        private void RefreshSpatialRelevance(Peer peer, ISpatialRelevanceCandidates candidates)
+        {
+            // First retire spatial objects that left the candidate area. Iterate a snapshot because
+            // despawning a parent also removes all of its descendants from Known.
+            _knownIdScratch.Clear();
+            _knownIdScratch.AddRange(peer.Known);
+            foreach (var id in _knownIdScratch)
+            {
+                if (!peer.Known.Contains(id) || !_world.TryGet(id, out var networkObject)
+                    || !networkObject.UsesSpatialRelevance || IsRelevantTo(networkObject, peer))
+                {
+                    continue;
+                }
+
+                SendDespawn(peer, networkObject);
+            }
+
+            // Then discover only objects in nearby cells. The final point query applies subscriptions,
+            // owner-only scope, and the smaller non-hysteresis radius for newly observed objects.
+            _spatialCandidateIds.Clear();
+            candidates.CollectPotentiallyRelevant(peer.ClientId, _spatialCandidateIds);
+            foreach (var id in _spatialCandidateIds)
+            {
+                if (!_world.TryGet(id, out var networkObject) || !networkObject.UsesSpatialRelevance)
+                {
+                    continue;
+                }
+
+                var parent = networkObject.Parent;
+                if (parent != null && !peer.Known.Contains(parent.NetworkObjectId))
+                {
+                    continue;
+                }
+
+                VisitForRelevance(peer, networkObject);
             }
         }
 
@@ -321,21 +381,39 @@ namespace Vapor.Networking
 
         #region - Spawn / despawn records -
 
-        private void SendSpawn(Peer peer, VaporNetworkObject networkObject)
+        private bool SendSpawn(Peer peer, VaporNetworkObject networkObject)
         {
+            try
+            {
+                _stateScratch.Reset();
+                _stateScratch.WriteVarUInt64(networkObject.NetworkObjectId);
+                _stateScratch.WriteVarUInt32(NetworkTypeRegistry.TagOf(networkObject.GetType()));
+                _stateScratch.WriteVarUInt64(networkObject.OwnerClientId);
+                byte flags = 0;
+                if (networkObject.SpawnedOnlyOnOwner) flags |= 1;
+                if (networkObject.IsPlayerObject) flags |= 2;
+                _stateScratch.WriteByte(flags);
+                _stateScratch.WriteVarUInt64(networkObject.ParentNetworkObjectId);
+                networkObject.WriteSpawnDataInternal(_stateScratch);
+                networkObject.WriteObjectState(_stateScratch, full: true);
+            }
+            catch (NetworkSerializationException e)
+            {
+                Debug.LogError($"Could not serialize the spawn for {networkObject}: {e.Message}");
+                _session.DisconnectClient(peer.ClientId, SessionDisconnectReason.TransportError);
+                return false;
+            }
+
+            if (!AppendRecord(peer.Reliable, MessageType.Spawn, _stateScratch.WrittenSpan))
+            {
+                // This peer can never become consistent without the spawn. Fail it explicitly instead
+                // of claiming it knows the object and silently dropping all future state for it.
+                _session.DisconnectClient(peer.ClientId, SessionDisconnectReason.TransportError);
+                return false;
+            }
+
             peer.Known.Add(networkObject.NetworkObjectId);
-            _stateScratch.Reset();
-            _stateScratch.WriteVarUInt64(networkObject.NetworkObjectId);
-            _stateScratch.WriteVarUInt32(NetworkTypeRegistry.TagOf(networkObject.GetType()));
-            _stateScratch.WriteVarUInt64(networkObject.OwnerClientId);
-            byte flags = 0;
-            if (networkObject.SpawnedOnlyOnOwner) flags |= 1;
-            if (networkObject.IsPlayerObject) flags |= 2;
-            _stateScratch.WriteByte(flags);
-            _stateScratch.WriteVarUInt64(networkObject.ParentNetworkObjectId);
-            networkObject.WriteSpawnDataInternal(_stateScratch);
-            networkObject.WriteObjectState(_stateScratch, full: true);
-            AppendRecord(peer.Reliable, MessageType.Spawn, _stateScratch.WrittenSpan);
+            return true;
         }
 
         private void SendDespawn(Peer peer, VaporNetworkObject networkObject)
@@ -351,9 +429,9 @@ namespace Vapor.Networking
             peer.Known.Remove(networkObject.NetworkObjectId);
             peer.SnapshotDue.Remove(networkObject.NetworkObjectId);
             var subs = networkObject.SubObjects;
-            for (int i = 0; i < subs.Count; i++)
+            foreach (var sub in subs)
             {
-                ForgetRecursive(peer, subs[i]);
+                ForgetRecursive(peer, sub);
             }
         }
 
@@ -442,10 +520,12 @@ namespace Vapor.Networking
         {
             ulong me = _session.LocalClientId;
             var objects = _world.Objects;
-            for (int i = 0; i < objects.Count; i++)
+            foreach (var networkObject in objects)
             {
-                var networkObject = objects[i];
-                if (!networkObject.HasSnapshotChannel || !networkObject.OwnerWritesSnapshots || networkObject.OwnerClientId != me) continue;
+                if (!networkObject.HasSnapshotChannel || !networkObject.OwnerWritesSnapshots || networkObject.OwnerClientId != me)
+                {
+                    continue;
+                }
 
                 _ownerSnapshotDue.TryGetValue(networkObject.NetworkObjectId, out float owed);
                 owed += (float)(networkObject.SnapshotRateHz * dt);
@@ -469,9 +549,8 @@ namespace Vapor.Networking
             var dirty = _world.DirtyObjects;
             if (dirty.Count == 0) return;
 
-            for (int i = 0; i < dirty.Count; i++)
+            foreach (var networkObject in dirty)
             {
-                var networkObject = dirty[i];
                 if (!networkObject.IsSpawned)
                 {
                     continue;
@@ -507,7 +586,7 @@ namespace Vapor.Networking
         {
             if (_rpcDepth >= _rpcWriters.Count)
             {
-                _rpcWriters.Add(new NetworkWriter(512, 1 << 20));
+                _rpcWriters.Add(new NetworkWriter(512));
             }
 
             writer = _rpcWriters[_rpcDepth++];
@@ -561,7 +640,6 @@ namespace Vapor.Networking
         {
             ulong id = networkObject.NetworkObjectId;
             ulong owner = networkObject.OwnerClientId;
-            bool runLocally;
 
             switch (target)
             {
@@ -580,7 +658,7 @@ namespace Vapor.Networking
                     return false;
 
                 case RpcTarget.NotOwner:
-                    runLocally = !ownerIsServer;
+                    var runLocally = !ownerIsServer;
                     foreach (var peer in _peerList)
                     {
                         if (peer.ClientId == owner || peer.ClientId == excludeClient || !peer.Known.Contains(id)) continue;
@@ -615,19 +693,36 @@ namespace Vapor.Networking
 
         #region - Records and batching -
 
-        private void AppendRecord(OutboundBatch batch, MessageType type, ReadOnlySpan<byte> payload)
+        private bool AppendRecord(OutboundBatch batch, MessageType type, ReadOnlySpan<byte> payload)
         {
             if (payload.Length > k_MaxRecordPayload)
             {
                 Debug.LogError($"A {type} record of {payload.Length} bytes exceeds the {k_MaxRecordPayload}-byte record limit and was dropped.");
-                return;
+                return false;
+            }
+
+            int recordSize = payload.Length + k_RecordHeader;
+            int maxPayload = _session.MaxPayload(batch.Delivery);
+            if (recordSize > maxPayload)
+            {
+                Debug.LogError($"A {recordSize}-byte {type} record exceeds the {maxPayload}-byte payload limit for {batch.Delivery} and was dropped.");
+                return false;
             }
 
             var w = batch.Writer;
+            if (!batch.Delivery.IsReliable() && recordSize > w.MaxCapacity - w.Length)
+            {
+                // Unreliable data has no ordering guarantee to preserve. Drop stale queued records
+                // rather than growing until the writer throws on a later tick.
+                w.Reset();
+                batch.RecordEnds.Clear();
+            }
+
             w.WriteUInt16((ushort)(payload.Length + 1));
             w.WriteByte((byte)type);
             w.WriteBytes(payload);
             batch.RecordEnds.Add(w.Length);
+            return true;
         }
 
         private void Flush(Peer peer)
@@ -683,7 +778,16 @@ namespace Vapor.Networking
 
                 if (result == SendResult.QueueFull)
                 {
-                    break;   // keep the rest for the next tick, in order
+                    if (batch.Delivery.IsReliable())
+                    {
+                        break;   // reliable records must stay queued, in order
+                    }
+
+                    // Unreliable and latest-wins traffic is allowed to disappear. Retaining it would
+                    // replay stale snapshots and grow the per-peer buffer under sustained pressure.
+                    sentUpTo = w.Length;
+                    i = ends.Count;
+                    break;
                 }
 
                 // Disconnected / not started: the peer is gone; nothing more will ever be sent.
@@ -800,7 +904,7 @@ namespace Vapor.Networking
                 {
                     _ = record.ReadByte();   // target: informational on the receiving side
                     ulong id = record.ReadVarUInt64();
-                    ushort componentId = checked((ushort)record.ReadVarUInt32());
+                    ushort componentId = record.ReadVarUInt16();
                     uint hash = record.ReadUInt32();
                     _world.DispatchRpc(id, componentId, hash, record);
                     break;
@@ -826,7 +930,7 @@ namespace Vapor.Networking
             int recordStart = record.Position;
             var target = (RpcTarget)record.ReadByte();
             ulong id = record.ReadVarUInt64();
-            ushort componentId = checked((ushort)record.ReadVarUInt32());
+            ushort componentId = record.ReadVarUInt16();
             uint hash = record.ReadUInt32();
 
             if (!sender.Known.Contains(id) || !_world.TryGet(id, out var networkObject))

@@ -88,7 +88,27 @@ namespace Vapor.Serialization
             }
 
             Advance();
-            return int.TryParse(_lexer.Text(version), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : 0;
+            if (!int.TryParse(_lexer.Text(version), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+            {
+                throw Error("The VSL version is not a valid integer.", version);
+            }
+
+            if (v != Vsl.Version)
+            {
+                throw Error($"VSL version {v} is not supported by this build; expected version {Vsl.Version}.", version);
+            }
+
+            return v;
+        }
+
+        /// <summary>Requires that the root value was the last value in the document.</summary>
+        public void ReadDocumentEnd()
+        {
+            var token = _lexer.Peek();
+            if (token.Kind != VslTokenKind.EndOfFile)
+            {
+                throw Error($"Expected the end of the document but found {Describe(token)}.", token);
+            }
         }
 
         #endregion
@@ -208,11 +228,16 @@ namespace Vapor.Serialization
         public bool TryReadMemberName(out ReadOnlySpan<char> name)
         {
             var token = Advance();
-            if (token.Kind == VslTokenKind.ObjectEnd || token.Kind == VslTokenKind.EndOfFile)
+            if (token.Kind == VslTokenKind.ObjectEnd)
             {
                 name = default;
                 _closed = true;
                 return false;
+            }
+
+            if (token.Kind == VslTokenKind.EndOfFile)
+            {
+                throw Error("Expected '}' but reached the end of the document.", token);
             }
 
             _closed = false;

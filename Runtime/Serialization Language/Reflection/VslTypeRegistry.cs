@@ -36,9 +36,11 @@ namespace Vapor.Serialization
         /// <summary>Registers the tag for a type, overriding any <see cref="VslTypeAttribute"/>.</summary>
         public static void Register(string tag, Type type)
         {
-            if (string.IsNullOrEmpty(tag))
+            if (!IsValidTag(tag))
             {
-                throw new ArgumentException("A type tag cannot be empty.", nameof(tag));
+                throw new ArgumentException(
+                    "A type tag must be a VSL identifier: a letter or underscore followed by letters, digits, underscores, or dots.",
+                    nameof(tag));
             }
 
             if (type == null)
@@ -73,18 +75,48 @@ namespace Vapor.Serialization
                 });
         }
 
-        /// <summary>The tag written for a type: its <see cref="VslTypeAttribute"/> or its short name.</summary>
-        public static string GetTag(Type type)
+        /// <summary>The shortest unambiguous tag written for a type.</summary>
+        public static string GetTag(Type type) => GetTag(type, null);
+
+        /// <summary>
+        /// The shortest tag that resolves uniquely to <paramref name="type"/> in a slot declared as
+        /// <paramref name="expectedBase"/>.
+        /// </summary>
+        public static string GetTag(Type type, Type expectedBase)
         {
+            if (type == null)
+            {
+                throw new ArgumentNullException(nameof(type));
+            }
+
+            EnsureScanned();
+
             if (s_TagsByType.TryGetValue(type, out var tag))
+            {
+                if (!IsValidTag(tag))
+                {
+                    throw new VslException(
+                        $"'{tag}' is not a valid VSL type tag for {type}. Use letters, digits, underscores, and dots only.");
+                }
+
+                EnsureRegisteredTagIsUnique(tag, type, expectedBase);
+                return tag;
+            }
+
+            tag = type.Name;
+            if (IsValidTag(tag) && IsShortNameUnique(type, expectedBase))
             {
                 return tag;
             }
 
-            var attribute = type.GetCustomAttribute<VslTypeAttribute>(false);
-            tag = attribute != null && !string.IsNullOrEmpty(attribute.Tag) ? attribute.Tag : type.Name;
-            s_TagsByType[type] = tag;
-            return tag;
+            tag = type.FullName;
+            if (IsValidTag(tag))
+            {
+                return tag;
+            }
+
+            throw new VslException(
+                $"{type} needs a unique [VslType] tag because its short name is ambiguous and its full name is not a legal VSL identifier.");
         }
 
         /// <summary>
@@ -115,12 +147,24 @@ namespace Vapor.Serialization
 
             if (s_TypesByTag.TryGetValue(name, out var registered))
             {
+                Type match = null;
                 foreach (var candidate in registered)
                 {
                     if (IsCompatible(candidate, expectedBase))
                     {
-                        return candidate;
+                        if (match != null && match != candidate)
+                        {
+                            throw new VslException(
+                                $"'!{name}' is ambiguous for {expectedBase?.Name ?? "object"}; both {match} and {candidate} register it.");
+                        }
+
+                        match = candidate;
                     }
+                }
+
+                if (match != null)
+                {
+                    return match;
                 }
             }
 
@@ -132,6 +176,7 @@ namespace Vapor.Serialization
             }
 
             // Otherwise search for a concrete type with this short name that fits the slot.
+            Type shortMatch = null;
             Type fallback = null;
             foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
@@ -144,7 +189,13 @@ namespace Vapor.Serialization
 
                     if (string.Equals(type.Name, name, StringComparison.OrdinalIgnoreCase))
                     {
-                        return type;
+                        if (shortMatch != null && shortMatch != type)
+                        {
+                            throw new VslException(
+                                $"'!{name}' is ambiguous for {expectedBase?.Name ?? "object"}; use a [VslType] tag or a full type name.");
+                        }
+
+                        shortMatch = type;
                     }
 
                     if (fallback == null && string.Equals(type.FullName, name, StringComparison.OrdinalIgnoreCase))
@@ -154,7 +205,89 @@ namespace Vapor.Serialization
                 }
             }
 
-            return fallback;
+            return shortMatch ?? fallback;
+        }
+
+        private static void EnsureRegisteredTagIsUnique(string tag, Type type, Type expectedBase)
+        {
+            if (!s_TypesByTag.TryGetValue(tag, out var candidates))
+            {
+                return;
+            }
+
+            Type match = null;
+            foreach (var candidate in candidates)
+            {
+                if (!IsCompatible(candidate, expectedBase))
+                {
+                    continue;
+                }
+
+                if (match != null && match != candidate)
+                {
+                    throw new VslException(
+                        $"The VSL tag '!{tag}' is registered by both {match} and {candidate} for the same polymorphic slot.");
+                }
+
+                match = candidate;
+            }
+
+            if (match != null && match != type)
+            {
+                throw new VslException(
+                    $"The VSL tag '!{tag}' resolves to {match}, not {type}.");
+            }
+        }
+
+        private static bool IsShortNameUnique(Type type, Type expectedBase)
+        {
+            Type match = null;
+            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
+            {
+                foreach (var candidate in SafeGetTypes(assembly))
+                {
+                    if (!IsCompatible(candidate, expectedBase) ||
+                        !string.Equals(candidate.Name, type.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (match != null && match != candidate)
+                    {
+                        return false;
+                    }
+
+                    match = candidate;
+                }
+            }
+
+            return match == type;
+        }
+
+        private static bool IsValidTag(string tag)
+        {
+            if (string.IsNullOrEmpty(tag))
+            {
+                return false;
+            }
+
+            var first = tag[0];
+            if (!((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') || first == '_'))
+            {
+                return false;
+            }
+
+            for (var i = 1; i < tag.Length; i++)
+            {
+                var c = tag[i];
+                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                      (c >= '0' && c <= '9') || c == '_' || c == '.'))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static bool IsCompatible(Type type, Type expectedBase)
@@ -197,7 +330,8 @@ namespace Vapor.Serialization
                         }
 
                         AddCandidate(attribute.Tag, type);
-                        s_TagsByType[type] = attribute.Tag;
+                        // A manual Register call made before the first scan overrides the attribute.
+                        s_TagsByType.TryAdd(type, attribute.Tag);
                     }
                 }
 

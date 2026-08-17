@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Settings;
+using UnityEngine;
 using Vapor;
 using Vapor.Serialization;
 
@@ -52,7 +55,36 @@ namespace VaporEditor.Serialization
                 return;
             }
 
-            ScriptableObjectAddressableHandler.AddToAddressableAssets(assetPath, VslDataStore.AddressableLabel);
+            var settings = AddressableAssetSettingsDefaultObject.GetSettings(false);
+            if (settings == null)
+            {
+                return;
+            }
+
+            var guid = AssetDatabase.AssetPathToGUID(assetPath);
+            if (string.IsNullOrEmpty(guid))
+            {
+                return;
+            }
+
+            // Preserve an entry's existing group. Reimporting a document must not move deliberately
+            // remote or otherwise specially configured content into the default group just to add a
+            // registry label.
+            var entry = settings.FindAssetEntry(guid);
+            if (entry == null)
+            {
+                if (settings.DefaultGroup == null)
+                {
+                    Debug.LogError("A default addressable group must exist before a VSL data document can be published.");
+                    return;
+                }
+
+                entry = settings.CreateOrMoveEntry(guid, settings.DefaultGroup, false, false);
+                entry.address = Path.GetFileNameWithoutExtension(assetPath);
+            }
+
+            entry.SetLabel(VslDataStore.AddressableLabel, true, true, false);
+            settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryModified, entry, true, false);
         }
 
         private static bool IsDataDocument(string assetPath) =>

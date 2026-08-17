@@ -96,7 +96,9 @@ namespace Vapor.Serialization
 
             var reader = new VslReader(text.AsSpan(), context);
             reader.ReadHeader();
-            return VslFormatterRegistry.Get<T>().Read(ref reader, context);
+            var value = VslFormatterRegistry.Get<T>().Read(ref reader, context);
+            reader.ReadDocumentEnd();
+            return value;
         }
 
         public static object Deserialize(string text, Type type, VslContext context = null)
@@ -111,7 +113,9 @@ namespace Vapor.Serialization
 
             var reader = new VslReader(text.AsSpan(), context);
             reader.ReadHeader();
-            return VslFormatterRegistry.Get(type).ReadObject(ref reader, context);
+            var value = VslFormatterRegistry.Get(type).ReadObject(ref reader, context);
+            reader.ReadDocumentEnd();
+            return value;
         }
 
         /// <summary>
@@ -146,6 +150,7 @@ namespace Vapor.Serialization
             }
 
             VslReflection.Populate(ref reader, target, context);
+            reader.ReadDocumentEnd();
         }
 
         #endregion

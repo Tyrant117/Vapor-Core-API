@@ -283,4 +283,29 @@ namespace Vapor.Tests.Serialization
         public ScriptableObject Missing;
         public List<ScriptableObject> Assets = new List<ScriptableObject>();
     }
+
+    [VslSerializable]
+    public class AmbiguousMemberFixture
+    {
+        public int Health;
+        [SerializeField] private int _health;
+    }
+}
+
+namespace Vapor.Tests.Serialization.AmbiguousA
+{
+    [VslSerializable]
+    public partial class TwinAbility : Ability
+    {
+        public int First;
+    }
+}
+
+namespace Vapor.Tests.Serialization.AmbiguousB
+{
+    [VslSerializable]
+    public partial class TwinAbility : Ability
+    {
+        public int Second;
+    }
 }

@@ -88,9 +88,21 @@ namespace Vapor.Serialization
             {
                 // Indexed by the normalised name so '_hp', 'hp' and 'm_Hp' all find the same member.
                 var key = VslNames.Normalize(member.Name.AsSpan()).ToString();
-                _byName[key] = member;
-                _byName[member.Name] = member;
+                AddName(key, member);
+                AddName(member.Name, member);
             }
+        }
+
+        private void AddName(string name, VslMember member)
+        {
+            if (_byName.TryGetValue(name, out var existing) && existing != member)
+            {
+                throw new VslException(
+                    $"{Type.Name} has ambiguous VSL members '{existing.Name}' and '{member.Name}'. " +
+                    "Give one of them a distinct [VslName].");
+            }
+
+            _byName[name] = member;
         }
 
         // Not [AutoStaticsCleanup]: that guarantees Clear() only for the collection types it names, and

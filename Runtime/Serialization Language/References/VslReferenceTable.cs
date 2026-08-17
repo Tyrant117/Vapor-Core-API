@@ -30,9 +30,24 @@ namespace Vapor.Serialization
         /// <summary>Registers an object under an explicit id.</summary>
         public void Register(ulong id, Object obj)
         {
+            if (id == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(id), "Reference id 0 is reserved for null.");
+            }
+
             if (obj == null)
             {
                 throw new ArgumentNullException(nameof(obj));
+            }
+
+            if (_byId.TryGetValue(id, out var objectForId) && objectForId != obj)
+            {
+                throw new ArgumentException($"Reference id {id} is already registered to '{objectForId.name}'.", nameof(id));
+            }
+
+            if (_byObject.TryGetValue(obj, out var idForObject) && idForObject != id)
+            {
+                throw new ArgumentException($"Object '{obj.name}' is already registered with reference id {idForObject}.", nameof(obj));
             }
 
             _byId[id] = obj;
@@ -52,7 +67,23 @@ namespace Vapor.Serialization
                 return existing;
             }
 
-            var id = _nextAutoId++;
+            if (_nextAutoId == 0)
+            {
+                throw new InvalidOperationException("No VSL reference ids remain available.");
+            }
+
+            while (_byId.ContainsKey(_nextAutoId))
+            {
+                if (_nextAutoId == ulong.MaxValue)
+                {
+                    throw new InvalidOperationException("No VSL reference ids remain available.");
+                }
+
+                _nextAutoId++;
+            }
+
+            var id = _nextAutoId;
+            _nextAutoId = id == ulong.MaxValue ? 0 : id + 1;
             Register(id, obj);
             return id;
         }

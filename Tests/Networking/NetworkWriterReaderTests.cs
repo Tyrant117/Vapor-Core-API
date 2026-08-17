@@ -148,6 +148,24 @@ namespace Vapor.Tests.Networking
             Assert.Throws<NetworkSerializationException>(() => r.ReadVarUInt32());
         }
 
+        [Test]
+        public void WireLengthsThatDoNotFitAnIntAreSerializationErrors()
+        {
+            var r = new NetworkReader(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0x0F });
+            Assert.Throws<NetworkSerializationException>(() => r.ReadBytesWithLength());
+
+            r.SetSource(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0x0F }, 0, 5);
+            Assert.Throws<NetworkSerializationException>(() => r.ReadString());
+        }
+
+        [Test]
+        public void OversizedVarUInt16IsASerializationError()
+        {
+            var w = new NetworkWriter();
+            w.WriteVarUInt32(ushort.MaxValue + 1u);
+            Assert.Throws<NetworkSerializationException>(() => ReaderOver(w).ReadVarUInt16());
+        }
+
         #endregion
 
         #region - Strings and bytes -

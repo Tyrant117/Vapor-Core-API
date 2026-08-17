@@ -45,6 +45,7 @@ reproduce.
 | VSL002 | Warning | A `[VslSerialize]` property is missing a getter or a setter. |
 | VSL003 | Warning | The type has no accessible parameterless constructor, so it cannot be deserialized. |
 | VSL004 | Info | A `private` field on a base type is out of reach from the derived type's nested formatter. Falls back to reflection. |
+| VSL005 | Error | Two serialized members match after VSL's case/prefix normalization. Give one a distinct `[VslName]`. |
 
 ## What it skips, and why that is fine
 

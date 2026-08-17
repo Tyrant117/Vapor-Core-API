@@ -70,12 +70,12 @@ namespace Vapor.Networking
 
         public bool IsSpawned => World != null && NetworkObjectId != 0;
         public bool IsOffline => World == null || World.IsOffline;
-        public bool IsServer => World != null && World.IsServer;
-        public bool IsClient => World != null && World.IsClient;
-        public bool IsHost => World != null && World.IsHost;
+        public bool IsServer => World is { IsServer: true };
+        public bool IsClient => World is { IsClient: true };
+        public bool IsHost => World is { IsHost: true };
 
         /// <summary>True when this peer may mutate replicated state: the server, or anyone offline.</summary>
-        public bool IsAuthority => World != null && World.IsAuthority;
+        public bool IsAuthority => World is { IsAuthority: true };
 
         public bool IsOwner => World != null && (World.IsOffline || OwnerClientId == World.LocalClientId);
         public bool IsOwnedByServer => OwnerClientId == NetworkSession.ServerClientId;
@@ -323,9 +323,12 @@ namespace Vapor.Networking
 
         public NetworkComponent GetComponentById(ushort componentId)
         {
-            for (int i = 0; i < _components.Count; i++)
+            foreach (var t in _components)
             {
-                if (_components[i].ComponentId == componentId) return _components[i];
+                if (t.ComponentId == componentId)
+                {
+                    return t;
+                }
             }
 
             return null;
@@ -436,9 +439,9 @@ namespace Vapor.Networking
         {
             _spawnCompleted = true;
             OnSpawn();
-            for (int i = 0; i < _components.Count; i++)
+            foreach (var component in _components)
             {
-                _components[i].SpawnInternal();
+                component.SpawnInternal();
             }
 
             OnPostSpawn();
@@ -476,19 +479,18 @@ namespace Vapor.Networking
             if (previous == newOwner) return;
             OwnerClientId = newOwner;
             OnOwnershipChanged(previous, newOwner);
-            for (int i = 0; i < _components.Count; i++)
+            foreach (var component in _components)
             {
-                _components[i].OwnershipChangedInternal(previous, newOwner);
+                component.OwnershipChangedInternal(previous, newOwner);
             }
         }
 
         internal void TickInternal(uint tick, double dt)
         {
             if (WantsNetworkTick) OnNetworkTick(tick, dt);
-            for (int i = 0; i < _components.Count; i++)
+            foreach (var component in _components)
             {
-                var c = _components[i];
-                if (c.WantsNetworkTick) c.TickInternal(tick, dt);
+                if (component.WantsNetworkTick) component.TickInternal(tick, dt);
             }
         }
 
@@ -654,7 +656,7 @@ namespace Vapor.Networking
                 for (int i = 0; i < count; i++)
                 {
                     byte op = reader.ReadByte();
-                    ushort id = checked((ushort)reader.ReadVarUInt32());
+                    ushort id = reader.ReadVarUInt16();
                     switch (op)
                     {
                         case k_OpAdd:

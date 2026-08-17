@@ -306,6 +306,24 @@ namespace Vapor.Tests.Networking
         }
 
         [Test]
+        public void DisconnectReasonCannotBeOvertakenByJitter()
+        {
+            Connect();
+            // With seed 3, consuming two samples makes the reason's jitter later than the following
+            // disconnect's jitter. The disconnect must still behave as a reliable-data barrier.
+            _network.Random.NextDouble();
+            _network.Random.NextDouble();
+            _serverTransport.Conditions.LatencySeconds = 0.1;
+            _serverTransport.Conditions.JitterSeconds = 0.05;
+
+            _server.DisconnectClient(1, SessionDisconnectReason.Rejected);
+            Step(0.2);
+            Step(0.2);
+
+            CollectionAssert.AreEqual(new[] { SessionDisconnectReason.Rejected }, _clientDisconnected);
+        }
+
+        [Test]
         public void ServerShutdownTellsEveryClient()
         {
             Connect();

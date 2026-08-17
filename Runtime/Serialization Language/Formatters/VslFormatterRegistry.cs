@@ -210,6 +210,7 @@ namespace Vapor.Serialization
             Register(GuidFormatter.Instance);
             Register(UriFormatter.Instance);
             Register(VersionFormatter.Instance);
+            Register(SystemTypeFormatter.Instance);
 
             Register(Vector2Formatter.Instance);
             Register(Vector3Formatter.Instance);

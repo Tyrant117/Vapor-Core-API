@@ -1,6 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using UnityEngine;
 
 namespace Vapor.Networking
 {
@@ -31,12 +31,12 @@ namespace Vapor.Networking
         public ushort ComponentId { get; internal set; }
 
         public bool IsAttached => Owner != null;
-        public bool IsSpawned => _spawned && Owner != null && Owner.IsSpawned;
+        public bool IsSpawned => _spawned && Owner is { IsSpawned: true };
         public NetworkWorld World => Owner?.World;
-        public bool IsServer => Owner != null && Owner.IsServer;
-        public bool IsClient => Owner != null && Owner.IsClient;
-        public bool IsOwner => Owner != null && Owner.IsOwner;
-        public bool IsAuthority => Owner != null && Owner.IsAuthority;
+        public bool IsServer => Owner is { IsServer: true };
+        public bool IsClient => Owner is { IsClient: true };
+        public bool IsOwner => Owner is { IsOwner: true };
+        public bool IsAuthority => Owner is { IsAuthority: true };
         public bool IsOffline => Owner == null || Owner.IsOffline;
         public ulong OwnerClientId => Owner?.OwnerClientId ?? NetworkSession.ServerClientId;
 
@@ -128,7 +128,7 @@ namespace Vapor.Networking
         {
             if (Owner == null || !Owner.IsSpawned)
             {
-                UnityEngine.Debug.LogError($"Rpc [{hash:X8}] called on {GetType().Name} before its object was spawned.");
+                Debug.LogError($"Rpc [{hash:X8}] called on {GetType().Name} before its object was spawned.");
                 writer = null;
                 return false;
             }

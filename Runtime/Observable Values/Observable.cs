@@ -1,9 +1,9 @@
 using System;
-using Newtonsoft.Json;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine.Assertions;
-using Vapor.NewtonsoftConverters;
-using Vapor.Unsafe;
 using Vapor.Networking;
+using Vapor.Serialization;
+using Vapor.Unsafe;
 
 namespace Vapor.Observables
 {
@@ -91,12 +91,12 @@ namespace Vapor.Observables
 
         #region - Saving and Loading -
 
-        public abstract string SaveAsJson();
+        public abstract string SaveAsVsl();
         public abstract SavedObservable Save();
 
-        public static Observable Load(string json)
+        public static Observable Load(string vsl)
         {
-            var saveData = JsonConvert.DeserializeObject<SavedObservable>(json, NewtonsoftUtility.SerializerSettings);
+            var saveData = Vsl.Deserialize<SavedObservable>(vsl);
             var convertedValue = TypeUtility.SafeCastToType(saveData.Value, saveData.Type);
             Type loadType = typeof(Observable<>).MakeGenericType(saveData.Type);
             var result = (Observable)Activator.CreateInstance(loadType, saveData.Name, true);
@@ -225,10 +225,9 @@ namespace Vapor.Observables
 
         #region - Saving and Loading -
 
-        public override string SaveAsJson()
+        public override string SaveAsVsl()
         {
-            var save = new SavedObservable(Name, typeof(T), Value);
-            return JsonConvert.SerializeObject(save, NewtonsoftUtility.SerializerSettings);
+            return Vsl.Serialize(Save());
         }
 
         public override SavedObservable Save()
@@ -288,5 +287,62 @@ namespace Vapor.Observables
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Stores the observable's declared value type beside its value so the value can be read without
+    /// relying on JSON's untyped token model.
+    /// </summary>
+    [NoAutoStaticsCleanup]
+    public sealed class SavedObservableFormatter : VslFormatter<SavedObservable>
+    {
+        public static readonly SavedObservableFormatter Instance = new SavedObservableFormatter();
+
+        public override void Write(ref VslWriter writer, in SavedObservable value, VslContext context)
+        {
+            writer.BeginTuple();
+            writer.WriteString(value.Name);
+            SystemTypeFormatter.Instance.Write(ref writer, value.Type, context);
+            if (value.Type == null)
+            {
+                writer.WriteNull();
+            }
+            else
+            {
+                VslFormatterRegistry.Get(value.Type).WriteObject(ref writer, value.Value, context);
+            }
+            writer.EndTuple();
+        }
+
+        public override SavedObservable Read(ref VslReader reader, VslContext context)
+        {
+            reader.ReadTupleStart();
+            var name = reader.ReadString();
+            var type = SystemTypeFormatter.Instance.Read(ref reader, context);
+            var value = type == null
+                ? ReadNullValue(ref reader)
+                : VslFormatterRegistry.Get(type).ReadObject(ref reader, context);
+            reader.ReadTupleEnd();
+            return new SavedObservable(name, type, value);
+        }
+
+        private static object ReadNullValue(ref VslReader reader)
+        {
+            if (reader.TryReadNull())
+            {
+                return null;
+            }
+
+            throw new VslException("A saved observable with no runtime type must have a null value.");
+        }
+    }
+
+    internal static partial class ObservableVslFormatters
+    {
+        [OnCodeInitializing]
+        private static void Register()
+        {
+            VslFormatterRegistry.Register(SavedObservableFormatter.Instance);
+        }
     }
 }

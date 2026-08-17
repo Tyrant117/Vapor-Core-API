@@ -106,6 +106,21 @@ namespace Vapor.Tests.Networking
         }
 
         [Test]
+        public void CollectionCountsAreValidatedBeforeAllocation()
+        {
+            var w = new NetworkWriter();
+            w.WriteVarUInt32(1_000_001); // nullable prefix: one million elements, no element bytes
+            var reader = new NetworkReader(w.ToArray());
+            Assert.Throws<NetworkSerializationException>(() => reader.Read<int[]>());
+
+            reader.SetSource(w.Buffer, 0, w.Length);
+            Assert.Throws<NetworkSerializationException>(() => reader.Read<List<int>>());
+
+            reader.SetSource(w.Buffer, 0, w.Length);
+            Assert.Throws<NetworkSerializationException>(() => reader.Read<Dictionary<int, int>>());
+        }
+
+        [Test]
         public void NullCollectionsRoundTripAsNull()
         {
             Assert.IsNull(RoundTrip<int[]>(null));

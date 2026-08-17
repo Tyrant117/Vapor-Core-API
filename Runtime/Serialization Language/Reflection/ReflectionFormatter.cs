@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Vapor.Serialization
 {
@@ -35,7 +36,7 @@ namespace Vapor.Serialization
                 var runtimeType = value.GetType();
                 if (runtimeType != typeof(T))
                 {
-                    writer.WriteTypeTag(VslTypeRegistry.GetTag(runtimeType));
+                    writer.WriteTypeTag(VslTypeRegistry.GetTag(runtimeType, typeof(T)));
                     VslFormatterRegistry.Get(runtimeType).WriteObject(ref writer, value, context);
                     return;
                 }
@@ -155,6 +156,7 @@ namespace Vapor.Serialization
             }
 
             var schema = VslTypeSchema.Get(target.GetType());
+            HashSet<VslMember> seen = context.Options.Strict ? new HashSet<VslMember>() : null;
             context.EnterDepth();
             try
             {
@@ -182,7 +184,20 @@ namespace Vapor.Serialization
                         continue;
                     }
 
+                    seen?.Add(member);
                     member.SetValue(target, member.Formatter.ReadObject(ref reader, context));
+                }
+
+                if (seen != null)
+                {
+                    foreach (var member in schema.Members)
+                    {
+                        if (member.IsIn(context.Profiles) && !seen.Contains(member))
+                        {
+                            throw new VslException(
+                                $"'{member.Name}' is missing from the {schema.Type.Name} object.");
+                        }
+                    }
                 }
             }
             finally

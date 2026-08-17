@@ -1,4 +1,4 @@
-using System;
+using System.Collections.Generic;
 
 namespace Vapor.Networking
 {
@@ -8,8 +8,19 @@ namespace Vapor.Networking
     /// </summary>
     public interface ISpatialRelevance
     {
+        /// <param name="networkObject"></param>
+        /// <param name="clientId"></param>
         /// <param name="currentlyObserving">Whether the client already holds the object — lets a provider apply hysteresis so objects at the edge do not flicker.</param>
         bool IsRelevant(VaporNetworkObject networkObject, ulong clientId, bool currentlyObserving);
+    }
+
+    /// <summary>
+    /// Optional acceleration for spatial providers that can enumerate nearby object ids. Providers
+    /// should include the hysteresis fringe; the replicator applies the final relevance test.
+    /// </summary>
+    public interface ISpatialRelevanceCandidates
+    {
+        void CollectPotentiallyRelevant(ulong clientId, List<ulong> results);
     }
 
     /// <summary>

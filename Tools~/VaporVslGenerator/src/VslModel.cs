@@ -206,6 +206,15 @@ namespace Vapor.Vsl.SourceGenerator
                             }
 
                             var member = CreateMember(field.Name, field.Type, field, claimed);
+                            if (TryFindNameConflict(members, member, out var conflict))
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(
+                                    VslDiagnostics.AmbiguousMemberName,
+                                    Location(field),
+                                    type.ToDisplayString(), conflict.Access, member.Access));
+                                return null;
+                            }
+
                             member.DeclaredHere = !isBase;
                             members.Add(member);
                             break;
@@ -224,6 +233,15 @@ namespace Vapor.Vsl.SourceGenerator
                             }
 
                             var member = CreateMember(property.Name, property.Type, property, claimed);
+                            if (TryFindNameConflict(members, member, out var conflict))
+                            {
+                                context.ReportDiagnostic(Diagnostic.Create(
+                                    VslDiagnostics.AmbiguousMemberName,
+                                    Location(property),
+                                    type.ToDisplayString(), conflict.Access, member.Access));
+                                return null;
+                            }
+
                             member.DeclaredHere = !isBase;
                             members.Add(member);
                             break;
@@ -234,6 +252,26 @@ namespace Vapor.Vsl.SourceGenerator
 
             return members;
         }
+
+        private static bool TryFindNameConflict(
+            List<VslMemberModel> members, VslMemberModel candidate, out VslMemberModel conflict)
+        {
+            foreach (var member in members)
+            {
+                if (NamesMatch(member.VslName, candidate.VslName))
+                {
+                    conflict = member;
+                    return true;
+                }
+            }
+
+            conflict = null;
+            return false;
+        }
+
+        private static bool NamesMatch(string left, string right) =>
+            string.Equals(left, right, System.StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(StripPrefix(left), StripPrefix(right), System.StringComparison.OrdinalIgnoreCase);
 
         private static bool ShouldSerialize(IFieldSymbol field, bool unityRules)
         {

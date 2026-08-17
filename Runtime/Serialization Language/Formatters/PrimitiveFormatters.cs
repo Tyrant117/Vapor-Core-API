@@ -249,6 +249,42 @@ namespace Vapor.Serialization
         }
     }
 
+    /// <summary>Writes a runtime type by its assembly-qualified name.</summary>
+    [NoAutoStaticsCleanup]
+    public sealed class SystemTypeFormatter : VslFormatter<Type>
+    {
+        public static readonly SystemTypeFormatter Instance = new SystemTypeFormatter();
+        public override bool IsScalar => true;
+
+        public override void Write(ref VslWriter writer, in Type value, VslContext context)
+        {
+            if (value == null)
+            {
+                writer.WriteNull();
+                return;
+            }
+
+            writer.WriteString(value.AssemblyQualifiedName);
+        }
+
+        public override Type Read(ref VslReader reader, VslContext context)
+        {
+            if (reader.TryReadNull())
+            {
+                return null;
+            }
+
+            var typeName = reader.ReadString();
+            var type = Type.GetType(typeName, false);
+            if (type != null || !context.Options.Strict)
+            {
+                return type;
+            }
+
+            throw new VslException($"VSL could not resolve runtime type '{typeName}'.");
+        }
+    }
+
     /// <summary>
     /// Wraps a value-type formatter so the member can also be null.
     /// </summary>

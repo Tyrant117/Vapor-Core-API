@@ -39,7 +39,7 @@ namespace Vapor.Networking
     public static class RpcArguments
     {
         public static void WriteObject(NetworkWriter writer, VaporNetworkObject value) =>
-            writer.WriteVarUInt64(value != null && value.IsSpawned ? value.NetworkObjectId : 0);
+            writer.WriteVarUInt64(value is { IsSpawned: true } ? value.NetworkObjectId : 0);
 
         /// <summary>Resolves against the receiving host's world; null when the object is gone or the id was 0.</summary>
         public static VaporNetworkObject ReadObject(IRpcHost host, NetworkReader reader)
@@ -52,14 +52,14 @@ namespace Vapor.Networking
         public static void WriteComponent(NetworkWriter writer, NetworkComponent value)
         {
             var owner = value?.Owner;
-            writer.WriteVarUInt64(owner != null && owner.IsSpawned ? owner.NetworkObjectId : 0);
+            writer.WriteVarUInt64(owner is { IsSpawned: true } ? owner.NetworkObjectId : 0);
             writer.WriteVarUInt32(value?.ComponentId ?? 0);
         }
 
         public static NetworkComponent ReadComponent(IRpcHost host, NetworkReader reader)
         {
             ulong id = reader.ReadVarUInt64();
-            ushort componentId = checked((ushort)reader.ReadVarUInt32());
+            ushort componentId = reader.ReadVarUInt16();
             var world = host?.RpcObject?.World ?? NetworkWorld.Current;
             if (id == 0 || world == null || !world.TryGet(id, out var found)) return null;
             return found.GetComponentById(componentId);

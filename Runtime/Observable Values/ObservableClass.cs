@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json;
 using UnityEngine;
-using Vapor.NewtonsoftConverters;
+using Vapor.Serialization;
 using Vapor.Unsafe;
 
 namespace Vapor.Observables
@@ -10,11 +9,11 @@ namespace Vapor.Observables
     /// <summary>
     /// Container for a collection of saved fields.
     /// </summary>
-    [Serializable]
+    [Serializable, VslSerializable]
     public struct SavedObservableClass
     {
         public string Name;
-        public Type ClassType;
+        [VslSerialize, NonSerialized] public Type ClassType;
         public SavedObservable[] SavedFields;
 
         public SavedObservableClass(string name, Type type, List<SavedObservable> fields)
@@ -33,7 +32,7 @@ namespace Vapor.Observables
     /// <summary>
     /// An abstract implementation of an observable class that can keep track of a collection of Observables.
     /// When a value is changed inside the monitored collection the entire class will be marked dirty.
-    /// This class also facillitates serializing and deserializing the class into a json format.
+    /// This class also facilitates serializing and deserializing the class in VSL format.
     /// The one requirement of this class is it must implement a constructor that only implements the default string named arguments.
     /// <code>
     /// public class ChildObservableClass
@@ -192,10 +191,9 @@ namespace Vapor.Observables
         #endregion
 
         #region - Saving and Loading -
-        public string SaveAsJson()
+        public string SaveAsVsl()
         {
-            var save = Save();
-            return JsonConvert.SerializeObject(save, NewtonsoftUtility.SerializerSettings);
+            return Vsl.Serialize(Save());
         }
 
         public SavedObservableClass Save()
@@ -214,9 +212,9 @@ namespace Vapor.Observables
             return new SavedObservableClass(Name, GetType(), holder);
         }
 
-        public static SavedObservableClass Load(string json)
+        public static SavedObservableClass Load(string vsl)
         {
-            return JsonConvert.DeserializeObject<SavedObservableClass>(json, NewtonsoftUtility.SerializerSettings);
+            return Vsl.Deserialize<SavedObservableClass>(vsl);
         }
 
         public void Load(SavedObservableClass load)

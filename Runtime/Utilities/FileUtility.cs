@@ -4,7 +4,6 @@ using UnityEditor;
 using System;
 using System.IO;
 using System.Reflection;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -22,6 +21,11 @@ namespace Vapor
         }
 
 #if UNITY_EDITOR
+        [Serializable]
+        private sealed class AssemblyDefinitionInfo
+        {
+            public string rootNamespace;
+        }
         
         public static string FullGameConfigPath => Application.dataPath + "/Vapor/Resources/Game Config";
         public static string FullConfigPath => Application.dataPath + "/Vapor/Keys/Config";
@@ -84,8 +88,8 @@ namespace Vapor
                     {
                         // Return the default namespace
                         string json = assemblyDefinition.text;
-                        JObject jsonObject = JObject.Parse(json);
-                        return jsonObject["rootNamespace"]?.ToString();
+                        var definition = JsonUtility.FromJson<AssemblyDefinitionInfo>(json);
+                        return definition?.rootNamespace;
                     }
                     else
                     {

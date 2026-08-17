@@ -267,10 +267,22 @@ namespace Vapor.Networking
 
             if (peer.Remote._peers.TryGetValue(peer.RemoteId.Value, out var farPeer) && !farPeer.Closing)
             {
+                double deliverAt = _network.Clock.Now + Delay(Conditions, Delivery.ReliableSequenced);
+                // A disconnect is a barrier after all reliable data already accepted on this link.
+                // Without this, independent jitter can overtake the session's final reason packet.
+                for (int i = 0; i < farPeer.Inbox.Count; i++)
+                {
+                    var queued = farPeer.Inbox[i];
+                    if (queued.Kind == PacketKind.Data && queued.Delivery.IsReliable() && queued.DeliverAt > deliverAt)
+                    {
+                        deliverAt = queued.DeliverAt;
+                    }
+                }
+
                 farPeer.Inbox.Add(new Packet
                 {
                     Kind = PacketKind.Disconnect,
-                    DeliverAt = _network.Clock.Now + Delay(Conditions, Delivery.ReliableSequenced),
+                    DeliverAt = deliverAt,
                     Stamp = _network.NextStamp(),
                 });
             }

@@ -262,6 +262,82 @@ namespace Vapor.Tests.Serialization
             Assert.AreEqual(2, table.Count);
         }
 
+        [Test]
+        public void ReferenceTableRejectsNullAndConflictingIds()
+        {
+            var table = new VslReferenceTable();
+            var first = NewAsset("A");
+            var second = NewAsset("B");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => table.Register(0, first));
+            table.Register(1, first);
+            Assert.Throws<ArgumentException>(() => table.Register(1, second));
+            Assert.Throws<ArgumentException>(() => table.Register(2, first));
+        }
+
+        [Test]
+        public void AutoAssignedIdsSkipExplicitRegistrations()
+        {
+            var table = new VslReferenceTable();
+            table.Register(1, NewAsset("Explicit"));
+
+            Assert.AreEqual(2UL, table.Register(NewAsset("Automatic")));
+        }
+
+        [Test]
+        public void LoadedComponentKeepsItsDurableLocatorWhenWrittenAgain()
+        {
+            var gameObject = new GameObject("ReferencedPrefab");
+            _created.Add(gameObject);
+            var key = "component-" + Guid.NewGuid().ToString("N");
+            var previousProvider = VslAssetLocator.Provider;
+
+            try
+            {
+                VslAssetLocator.Provider = new ComponentLocator(gameObject, key);
+                var reference = new VslObjectReference(VslAssetSource.Addressable, key);
+
+                Assert.IsTrue(VslObjectReferenceResolver.Instance.TryResolve(
+                    reference, typeof(Transform), out var resolved));
+                Assert.AreSame(gameObject.transform, resolved);
+
+                // A player has no editor provider. The narrowed component must have been remembered.
+                VslAssetLocator.Provider = null;
+                Assert.IsTrue(VslObjectReferenceResolver.Instance.TryGetReference(resolved, out var written));
+                Assert.AreEqual(VslAssetSource.Addressable, written.Source);
+                Assert.AreEqual(key, written.Key);
+            }
+            finally
+            {
+                VslAssetLocator.Provider = previousProvider;
+            }
+        }
+
+        private sealed class ComponentLocator : IVslAssetLocator
+        {
+            private readonly GameObject _gameObject;
+            private readonly string _key;
+
+            public ComponentLocator(GameObject gameObject, string key)
+            {
+                _gameObject = gameObject;
+                _key = key;
+            }
+
+            public bool TryGetKey(Object obj, out VslAssetSource source, out string key)
+            {
+                source = VslAssetSource.None;
+                key = null;
+                return false;
+            }
+
+            public bool TryLoad(VslAssetSource source, string key, Type expectedType, out Object obj)
+            {
+                obj = source == VslAssetSource.Addressable && key == _key ? _gameObject : null;
+                return obj != null;
+            }
+        }
+
         #endregion
     }
 }

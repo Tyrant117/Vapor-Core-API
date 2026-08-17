@@ -45,5 +45,13 @@ namespace Vapor.Vsl.SourceGenerator
             Category,
             DiagnosticSeverity.Info,
             isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor AmbiguousMemberName = new DiagnosticDescriptor(
+            "VSL005",
+            "VSL member names are ambiguous",
+            "'{0}' has VSL members '{1}' and '{2}' whose names match after case and backing-field-prefix normalization. Give one a distinct [VslName].",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
     }
 }

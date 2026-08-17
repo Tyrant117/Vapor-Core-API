@@ -16,7 +16,7 @@ namespace Vapor.Networking
     /// player pacing along a boundary does not spawn and despawn the same things every tick. Distance
     /// for LOD is Euclidean and exact.
     /// </remarks>
-    public sealed class SpatialInterestGrid : ISpatialRelevance, INetworkLod
+    public sealed class SpatialInterestGrid : ISpatialRelevance, ISpatialRelevanceCandidates, INetworkLod
     {
         private struct Entry
         {
@@ -27,7 +27,7 @@ namespace Vapor.Networking
         private readonly Dictionary<ulong, Entry> _objects = new();
         private readonly Dictionary<long, HashSet<ulong>> _cells = new();
         private readonly Dictionary<ulong, List<Vector3>> _focus = new();
-        private readonly List<ulong> _idScratch = new();
+        private readonly HashSet<ulong> _idScratch = new();
 
         public SpatialInterestGrid(float cellSize = 32f, int radiusCells = 3, int hysteresisCells = 1)
         {
@@ -152,6 +152,7 @@ namespace Vapor.Networking
         /// <summary>Every object within <paramref name="radiusCells"/> cells of any of the client's focus points.</summary>
         public void CollectNear(ulong clientId, int radiusCells, List<ulong> results)
         {
+            if (results == null) throw new ArgumentNullException(nameof(results));
             if (!_focus.TryGetValue(clientId, out var focus)) return;
             _idScratch.Clear();
             foreach (var point in focus)
@@ -164,9 +165,8 @@ namespace Vapor.Networking
                     {
                         foreach (var id in set)
                         {
-                            if (!_idScratch.Contains(id))
+                            if (_idScratch.Add(id))
                             {
-                                _idScratch.Add(id);
                                 results.Add(id);
                             }
                         }
@@ -174,6 +174,9 @@ namespace Vapor.Networking
                 }
             }
         }
+
+        void ISpatialRelevanceCandidates.CollectPotentiallyRelevant(ulong clientId, List<ulong> results) =>
+            CollectNear(clientId, Math.Max(0, RadiusCells) + Math.Max(0, HysteresisCells), results);
 
         bool ISpatialRelevance.IsRelevant(VaporNetworkObject networkObject, ulong clientId, bool currentlyObserving)
         {

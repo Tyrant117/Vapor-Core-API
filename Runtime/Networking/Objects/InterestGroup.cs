@@ -1,4 +1,5 @@
 using System;
+using Unity.Burst;
 using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Networking
@@ -29,6 +30,7 @@ namespace Vapor.Networking
         public bool IsNone => Key == 0u;
 
         public bool Equals(InterestGroup other) => Key == other.Key;
+        [BurstDiscard]
         public override bool Equals(object obj) => obj is InterestGroup other && Equals(other);
         public override int GetHashCode() => unchecked((int)Key);
         public override string ToString() => $"InterestGroup[{Key:X8}]";

@@ -82,6 +82,7 @@ namespace VaporEditor.Serialization
                 var reader = new VslReader(text.AsSpan(), VslContext.Default);
                 reader.ReadHeader();
                 reader.SkipValue();
+                reader.ReadDocumentEnd();
             }
             catch (VslException e)
             {

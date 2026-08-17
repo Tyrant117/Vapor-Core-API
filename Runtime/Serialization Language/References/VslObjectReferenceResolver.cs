@@ -1,6 +1,8 @@
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using System;
 using Unity.Scripting.LifecycleManagement;
-using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -56,6 +58,11 @@ namespace Vapor.Serialization
 
             if (reference.HasEntityId && TryResolveEntityId(reference.EntityId, expectedType, out obj))
             {
+                if (reference.HasAssetKey)
+                {
+                    VslAssetLocator.Remember(obj, reference.Source, reference.Key);
+                }
+
                 return true;
             }
 
@@ -67,6 +74,7 @@ namespace Vapor.Serialization
                 obj = VslAssetLocator.Narrow(loaded, expectedType);
                 if (obj != null)
                 {
+                    VslAssetLocator.Remember(obj, reference.Source, reference.Key);
                     return true;
                 }
             }

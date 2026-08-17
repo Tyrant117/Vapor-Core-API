@@ -1,12 +1,19 @@
 using System;
-using Newtonsoft.Json.Linq;
-using UnityEngine;
-using Vapor.NewtonsoftConverters;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor
 {
+    [NoAutoStaticsCleanup]
     public static class TypeUtility
     {
+        public delegate bool TryCustomCast(object value, Type targetType, out object result);
+
+        /// <summary>
+        /// Optional package-level conversion hook for foreign token models. Core deliberately does
+        /// not depend on any particular JSON implementation.
+        /// </summary>
+        public static TryCustomCast CustomCaster { get; set; }
+
         public static object CastToType(object obj, Type targetType)
         {
             if (obj == null)
@@ -36,9 +43,9 @@ namespace Vapor
                 return Enum.ToObject(targetType, (long)obj);
             }
 
-            if (obj is JObject jObject)
+            if (CustomCaster != null && CustomCaster(obj, targetType, out var customResult))
             {
-                return jObject.ToObject(targetType, NewtonsoftUtility.JsonSerializer);
+                return customResult;
             }
 
             // The else covers structs
@@ -69,9 +76,9 @@ namespace Vapor
                 return Enum.ToObject(targetType, (long)obj);
             }
 
-            if (obj is JObject jObject)
+            if (CustomCaster != null && CustomCaster(obj, targetType, out var customResult))
             {
-                return jObject.ToObject(targetType, NewtonsoftUtility.JsonSerializer);
+                return customResult;
             }
 
             // The else covers structs

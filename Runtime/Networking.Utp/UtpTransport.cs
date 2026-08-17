@@ -85,9 +85,19 @@ namespace Vapor.Networking.Utp
         public bool StartServer(TransportEndpoint bind)
         {
             if (IsRunning) return false;
+            NetworkEndpoint endpoint;
+            try
+            {
+                endpoint = ToUtp(bind, anyForServer: true);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"UtpTransport: invalid bind endpoint {bind}: {e.Message}");
+                return false;
+            }
+
             if (!TryCreateDriver()) return false;
 
-            var endpoint = ToUtp(bind, anyForServer: true);
             if (_driver.Bind(endpoint) != 0)
             {
                 Debug.LogError($"UtpTransport: failed to bind {bind}.");
@@ -110,9 +120,19 @@ namespace Vapor.Networking.Utp
         public bool StartClient(TransportEndpoint remote)
         {
             if (IsRunning) return false;
+            NetworkEndpoint endpoint;
+            try
+            {
+                endpoint = ToUtp(remote, anyForServer: false);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"UtpTransport: invalid remote endpoint {remote}: {e.Message}");
+                return false;
+            }
+
             if (!TryCreateDriver()) return false;
 
-            var endpoint = ToUtp(remote, anyForServer: false);
             var connection = _driver.Connect(endpoint);
             if (!connection.IsCreated)
             {
@@ -131,6 +151,13 @@ namespace Vapor.Networking.Utp
         {
             if (!IsRunning) return;
 
+            // Let final session-control frames enter the socket before Disconnect changes connection
+            // state. A second flush below sends the disconnect notifications themselves.
+            if (_driver.IsCreated)
+            {
+                _driver.ScheduleFlushSend(default).Complete();
+            }
+
             foreach (var pair in new List<KeyValuePair<int, NetworkConnection>>(_connectionsById))
             {
                 Disconnect(new ConnectionId(pair.Key));
@@ -146,7 +173,17 @@ namespace Vapor.Networking.Utp
             ServerConnection = ConnectionId.Invalid;
         }
 
-        public void Dispose() => Shutdown();
+        public void Dispose()
+        {
+            if (IsRunning)
+            {
+                Shutdown();
+            }
+            else
+            {
+                DisposeDriver();
+            }
+        }
 
         private bool TryCreateDriver()
         {

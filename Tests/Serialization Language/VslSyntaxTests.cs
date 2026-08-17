@@ -174,6 +174,7 @@ namespace Vapor.Tests.Serialization
         [TestCase("{ a: \"oops\n\" }", TestName = "newline in a plain string")]
         [TestCase("\"\"\"never closed", TestName = "unterminated raw string")]
         [TestCase("{ a: [ 1 2 } ]", TestName = "mismatched closer")]
+        [TestCase("{ a: 1", TestName = "unterminated object")]
         public void RejectsMalformedInput(string source)
         {
             Assert.Throws<VslException>(() => Drain(source));
@@ -184,6 +185,20 @@ namespace Vapor.Tests.Serialization
         {
             var exception = Assert.Throws<VslException>(() => Drain("{\n  a: 1\n  b: @\n}"));
             Assert.AreEqual(3, exception.Line, "the bad token is on line 3");
+        }
+
+        [Test]
+        public void DeserializeRejectsTrailingRootValues()
+        {
+            Assert.Throws<VslException>(() =>
+                Vsl.Deserialize<OptInFixture>("{ included: 1 } { included: 2 }"));
+        }
+
+        [Test]
+        public void DeserializeRejectsUnsupportedAndInvalidVersions()
+        {
+            Assert.Throws<VslException>(() => Vsl.Deserialize<OptInFixture>("@vsl 2\n{}"));
+            Assert.Throws<VslException>(() => Vsl.Deserialize<OptInFixture>("@vsl 999999999999999999999\n{}"));
         }
 
         #endregion

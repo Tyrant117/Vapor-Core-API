@@ -25,6 +25,8 @@ namespace Vapor.Networking
     [NoAutoStaticsCleanup]
     public sealed class NetworkReader
     {
+        public const int DefaultMaxCollectionElements = 16 * 1024;
+
         private static readonly byte[] s_Empty = Array.Empty<byte>();
 
         private byte[] _buffer = s_Empty;
@@ -48,7 +50,7 @@ namespace Vapor.Networking
         public void SetSource(byte[] buffer, int offset, int length)
         {
             buffer ??= s_Empty;
-            if (offset < 0 || length < 0 || offset + length > buffer.Length) throw new ArgumentOutOfRangeException(nameof(length));
+            if (offset < 0 || length < 0 || offset > buffer.Length - length) throw new ArgumentOutOfRangeException(nameof(length));
             _buffer = buffer;
             _start = offset;
             _end = offset + length;
@@ -74,6 +76,12 @@ namespace Vapor.Networking
         public byte[] Buffer => _buffer;
 
         public int Offset => _start;
+
+        /// <summary>
+        /// Maximum number of elements a built-in collection formatter may allocate from this reader.
+        /// Increase this explicitly for protocols that intentionally carry larger collections.
+        /// </summary>
+        public int MaxCollectionElements { get; set; } = DefaultMaxCollectionElements;
 
         /// <summary>The unread remainder as a span. Aligns bits first.</summary>
         public ReadOnlySpan<byte> RemainingSpan
@@ -107,10 +115,31 @@ namespace Vapor.Networking
 
         private void Require(int bytes)
         {
-            if (_position + bytes > _end)
+            if (bytes < 0)
+            {
+                throw new NetworkSerializationException($"A negative byte count ({bytes}) was read from the wire.");
+            }
+
+            if (bytes > _end - _position)
             {
                 throw new EndOfBufferException(bytes, _end - _position);
             }
+        }
+
+        internal int ValidateCollectionCount(uint encodedCount)
+        {
+            if (encodedCount > int.MaxValue)
+            {
+                throw new NetworkSerializationException($"Collection count {encodedCount} exceeds the supported range.");
+            }
+
+            int count = (int)encodedCount;
+            if (count > MaxCollectionElements)
+            {
+                throw new NetworkSerializationException($"Collection count {count} exceeds the configured limit of {MaxCollectionElements}.");
+            }
+
+            return count;
         }
 
         #endregion
@@ -262,6 +291,17 @@ namespace Vapor.Networking
             }
         }
 
+        public ushort ReadVarUInt16()
+        {
+            uint value = ReadVarUInt32();
+            if (value > ushort.MaxValue)
+            {
+                throw new NetworkSerializationException($"Value {value} does not fit in a UInt16.");
+            }
+
+            return (ushort)value;
+        }
+
         public ulong ReadVarUInt64()
         {
             AlignBits();
@@ -309,7 +349,13 @@ namespace Vapor.Networking
                 return null;
             }
 
-            int byteCount = checked((int)(prefix - 1));
+            uint encodedByteCount = prefix - 1;
+            if (encodedByteCount > int.MaxValue)
+            {
+                throw new NetworkSerializationException($"String byte count {encodedByteCount} exceeds the supported range.");
+            }
+
+            int byteCount = (int)encodedByteCount;
             if (byteCount == 0)
             {
                 return string.Empty;
@@ -339,7 +385,13 @@ namespace Vapor.Networking
         /// <summary>Reads bytes written by <see cref="NetworkWriter.WriteBytesWithLength"/>.</summary>
         public ReadOnlySpan<byte> ReadBytesWithLength()
         {
-            int count = checked((int)ReadVarUInt32());
+            uint encodedCount = ReadVarUInt32();
+            if (encodedCount > int.MaxValue)
+            {
+                throw new NetworkSerializationException($"Byte count {encodedCount} exceeds the supported range.");
+            }
+
+            int count = (int)encodedCount;
             return ReadBytes(count);
         }
 

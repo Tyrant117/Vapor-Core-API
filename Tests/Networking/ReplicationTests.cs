@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 using Vapor.Networking;
+using LogType = UnityEngine.LogType;
 
 namespace Vapor.Tests.Networking
 {
@@ -86,6 +90,20 @@ namespace Vapor.Tests.Networking
         }
 
         private sealed class SubProbe : VaporNetworkObject { }
+
+        private sealed class OversizedSpawnProbe : VaporNetworkObject
+        {
+            private static readonly byte[] s_Payload = new byte[70_000];
+            protected override void WriteSpawnData(NetworkWriter writer) => writer.WriteBytes(s_Payload);
+        }
+
+        private sealed class LargeSnapshotProbe : VaporNetworkObject
+        {
+            private static readonly byte[] s_Payload = new byte[60_000];
+            public override bool HasSnapshotChannel => true;
+            protected override void WriteSnapshot(NetworkWriter writer, uint tick, ulong forClientId) => writer.WriteBytes(s_Payload);
+            protected override void ReadSnapshot(NetworkReader reader, uint tick, ulong fromClientId) => reader.Skip(s_Payload.Length);
+        }
 
         #endregion
 
@@ -486,7 +504,7 @@ namespace Vapor.Tests.Networking
         public void AnRpcOnAnUnspawnedObjectIsRefused()
         {
             var probe = new Probe();
-            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error, new System.Text.RegularExpressions.Regex("before it was spawned"));
+            LogAssert.Expect(LogType.Error, new Regex("before it was spawned"));
             probe.PingRpc(1, RpcTarget.Everyone);
             Assert.IsEmpty(probe.Pings);
         }
@@ -552,6 +570,47 @@ namespace Vapor.Tests.Networking
             public bool IsRelevant(VaporNetworkObject networkObject, ulong clientId, bool currentlyObserving) => Relevant.Contains(networkObject.NetworkObjectId);
         }
 
+        private sealed class CandidateRelevance : ISpatialRelevance, ISpatialRelevanceCandidates
+        {
+            public readonly HashSet<ulong> Relevant = new();
+            public int Checks;
+
+            public bool IsRelevant(VaporNetworkObject networkObject, ulong clientId, bool currentlyObserving)
+            {
+                Checks++;
+                return Relevant.Contains(networkObject.NetworkObjectId);
+            }
+
+            public void CollectPotentiallyRelevant(ulong clientId, List<ulong> results)
+            {
+                foreach (var id in Relevant) results.Add(id);
+            }
+        }
+
+        [Test]
+        public void CandidateSpatialProviderAvoidsAFullWorldScan()
+        {
+            var client = AddClient();
+            var provider = new CandidateRelevance();
+            _server.Interest.Spatial = provider;
+
+            Probe near = null;
+            for (int i = 0; i < 500; i++)
+            {
+                var probe = new Probe { UsesSpatialRelevance = true };
+                _server.Spawn(probe);
+                near ??= probe;
+            }
+
+            provider.Relevant.Add(near.NetworkObjectId);
+            provider.Checks = 0;
+            _server.Interest.RefreshSpatial();
+            Steps(2);
+
+            Assert.Less(provider.Checks, 10, "candidate refresh fell back to scanning the world");
+            Assert.AreEqual(1, client.World.Count);
+        }
+
         [Test]
         public void TheGridSpawnsAndDespawnsAsFocusMoves()
         {
@@ -563,29 +622,29 @@ namespace Vapor.Tests.Networking
             var far = new Probe { UsesSpatialRelevance = true, CustomValue = 2 };
             _server.Spawn(near);
             _server.Spawn(far);
-            grid.SetPosition(near.NetworkObjectId, new UnityEngine.Vector3(5, 0, 5));
-            grid.SetPosition(far.NetworkObjectId, new UnityEngine.Vector3(95, 0, 5));
-            grid.SetFocus(client.ClientId, new UnityEngine.Vector3(0, 0, 0));
+            grid.SetPosition(near.NetworkObjectId, new Vector3(5, 0, 5));
+            grid.SetPosition(far.NetworkObjectId, new Vector3(95, 0, 5));
+            grid.SetFocus(client.ClientId, new Vector3(0, 0, 0));
             _server.Interest.RefreshSpatial();
             Steps(2);
             Assert.AreEqual(1, client.World.Count);
             Assert.AreEqual(1, Only<Probe>(client.World).CustomValue);
 
             // Walk towards the far one: at x=75 the far object (cell 9) is 2 cells from focus cell 7 -> discovered.
-            grid.SetFocus(client.ClientId, new UnityEngine.Vector3(75, 0, 0));
+            grid.SetFocus(client.ClientId, new Vector3(75, 0, 0));
             _server.Interest.RefreshSpatial();
             Steps(2);
             Assert.AreEqual(1, client.World.Count);
             Assert.AreEqual(2, Only<Probe>(client.World).CustomValue);
 
             // Step back one cell: 3 cells away, inside the hysteresis ring -> still observed.
-            grid.SetFocus(client.ClientId, new UnityEngine.Vector3(65, 0, 0));
+            grid.SetFocus(client.ClientId, new Vector3(65, 0, 0));
             _server.Interest.RefreshSpatial();
             Steps(2);
             Assert.AreEqual(1, client.World.Count);
 
             // Another cell back: 4 away -> gone.
-            grid.SetFocus(client.ClientId, new UnityEngine.Vector3(55, 0, 0));
+            grid.SetFocus(client.ClientId, new Vector3(55, 0, 0));
             _server.Interest.RefreshSpatial();
             Steps(2);
             Assert.AreEqual(0, client.World.Count);
@@ -595,9 +654,9 @@ namespace Vapor.Tests.Networking
         public void TheGridComputesDistanceAndLodTiers()
         {
             var grid = new SpatialInterestGrid(cellSize: 32f);
-            grid.SetPosition(1, new UnityEngine.Vector3(0, 0, 0));
-            grid.SetPosition(2, new UnityEngine.Vector3(100, 0, 0));
-            grid.SetFocus(7, new UnityEngine.Vector3(0, 0, 10));
+            grid.SetPosition(1, new Vector3(0, 0, 0));
+            grid.SetPosition(2, new Vector3(100, 0, 0));
+            grid.SetFocus(7, new Vector3(0, 0, 10));
             Assert.AreEqual(10f, grid.Distance(1, 7), 1e-4f);
             Assert.AreEqual(float.PositiveInfinity, grid.Distance(3, 7));
             Assert.AreEqual(float.PositiveInfinity, grid.Distance(1, 8));
@@ -621,8 +680,8 @@ namespace Vapor.Tests.Networking
 
         private sealed class Mover : VaporNetworkObject
         {
-            public UnityEngine.Vector3 Position;
-            public readonly List<(uint tick, ulong from, UnityEngine.Vector3 pos)> Received = new();
+            public Vector3 Position;
+            public readonly List<(uint tick, ulong from, Vector3 pos)> Received = new();
             public int Written;
             public bool OwnerDriven;
 
@@ -656,7 +715,7 @@ namespace Vapor.Tests.Networking
 
             for (int i = 0; i < 30; i++)
             {
-                mover.Position = new UnityEngine.Vector3(i, 0, 0);
+                mover.Position = new Vector3(i, 0, 0);
                 Step();
             }
 
@@ -681,9 +740,9 @@ namespace Vapor.Tests.Networking
 
             var mover = new Mover { SnapshotRateHz = 30f, UsesSpatialRelevance = true };
             _server.Spawn(mover);
-            grid.SetPosition(mover.NetworkObjectId, UnityEngine.Vector3.zero);
-            grid.SetFocus(near.ClientId, new UnityEngine.Vector3(5, 0, 0));      // tier 1.0
-            grid.SetFocus(far.ClientId, new UnityEngine.Vector3(100, 0, 0));     // tier 0.25
+            grid.SetPosition(mover.NetworkObjectId, Vector3.zero);
+            grid.SetFocus(near.ClientId, new Vector3(5, 0, 0));      // tier 1.0
+            grid.SetFocus(far.ClientId, new Vector3(100, 0, 0));     // tier 0.25
             _server.Interest.RefreshSpatial();
             Steps(2);
             var onNear = Only<Mover>(near.World);
@@ -712,7 +771,7 @@ namespace Vapor.Tests.Networking
 
             for (int i = 1; i <= 20; i++)
             {
-                onOwner.Position = new UnityEngine.Vector3(0, 0, i);
+                onOwner.Position = new Vector3(0, 0, i);
                 Step();
             }
 
@@ -739,7 +798,7 @@ namespace Vapor.Tests.Networking
             Steps(2);
             var onOther = Only<Mover>(other.World);
             // 'other' is not the owner, so its world never writes owner snapshots; only the owner's arrive.
-            onOther.Position = new UnityEngine.Vector3(99, 99, 99);
+            onOther.Position = new Vector3(99, 99, 99);
             Steps(5);
             Assert.Greater(mover.Received.Count, 0);
             foreach (var (_, from, pos) in mover.Received)
@@ -836,6 +895,35 @@ namespace Vapor.Tests.Networking
             }
 
             CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }, seen);
+        }
+
+        [Test]
+        public void AnUnsendableSpawnNeverMarksThePeerAsObserving()
+        {
+            var client = AddClient();
+            var oversized = new OversizedSpawnProbe();
+
+            LogAssert.Expect(LogType.Error, "A Spawn record of 70012 bytes exceeds the 65534-byte record limit and was dropped.");
+            Assert.DoesNotThrow(() => _server.Spawn(oversized));
+            Assert.IsFalse(_server.Interest.IsObserving(client.ClientId, oversized));
+            Steps(3);
+            Assert.AreEqual(0, client.World.Count);
+            Assert.IsFalse(client.Session.IsRunning);
+        }
+
+        [Test]
+        public void BlockedUnreliableSnapshotsDoNotGrowWithoutBound()
+        {
+            var client = AddClient();
+            _network.SetMaxPayload(Delivery.UnreliableSequenced, 65_535);
+            var large = new LargeSnapshotProbe { SnapshotRateHz = 30f };
+            _server.Spawn(large);
+            Steps(2);
+            Assert.AreEqual(1, client.World.Count);
+
+            _serverTransport.Conditions.SendQueueCapacity = 0;
+            Assert.DoesNotThrow(() => Steps(100));
+            Assert.IsTrue(client.Session.IsConnected);
         }
 
         #endregion

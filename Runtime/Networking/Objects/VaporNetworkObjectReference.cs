@@ -1,4 +1,5 @@
 using System;
+using Unity.Burst;
 using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Networking
@@ -18,7 +19,7 @@ namespace Vapor.Networking
         public VaporNetworkObjectReference(ulong networkObjectId) => NetworkObjectId = networkObjectId;
 
         public VaporNetworkObjectReference(VaporNetworkObject networkObject) =>
-            NetworkObjectId = networkObject != null && networkObject.IsSpawned ? networkObject.NetworkObjectId : 0;
+            NetworkObjectId = networkObject is { IsSpawned: true } ? networkObject.NetworkObjectId : 0;
 
         public bool IsNone => NetworkObjectId == 0;
 
@@ -38,6 +39,7 @@ namespace Vapor.Networking
         public bool TryGet<T>(out T networkObject) where T : VaporNetworkObject => TryGet(NetworkWorld.Current, out networkObject);
 
         public bool Equals(VaporNetworkObjectReference other) => NetworkObjectId == other.NetworkObjectId;
+        [BurstDiscard]
         public override bool Equals(object obj) => obj is VaporNetworkObjectReference other && Equals(other);
         public override int GetHashCode() => NetworkObjectId.GetHashCode();
         public override string ToString() => IsNone ? "ObjectRef[none]" : $"ObjectRef[{NetworkObjectId}]";

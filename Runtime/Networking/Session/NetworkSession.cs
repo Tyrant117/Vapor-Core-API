@@ -40,6 +40,15 @@ namespace Vapor.Networking
             public double LastReceivedAt;
         }
 
+        private sealed class PendingTransportClose
+        {
+            public ConnectionId Id;
+            public byte[] ControlPacket;
+            public bool Sent;
+            public ulong SentOnUpdate;
+            public double Deadline;
+        }
+
         private enum ClientState : byte { Disconnected, Connecting, Handshaking, Connected }
 
         private readonly IVaporTransport _transport;
@@ -55,7 +64,9 @@ namespace Vapor.Networking
         private readonly Dictionary<ulong, Connection> _clients = new();
         private readonly List<ulong> _clientIds = new();
         private readonly List<Connection> _connectionScratch = new();
+        private readonly List<PendingTransportClose> _pendingTransportCloses = new();
         private ulong _nextClientId = 1;
+        private ulong _updateSerial;
 
         // Client
         private ClientState _clientState;
@@ -252,6 +263,7 @@ namespace Vapor.Networking
             }
 
             _transport.Shutdown();
+            _pendingTransportCloses.Clear();
             Role = SessionRole.None;
             LocalClientId = InvalidClientId;
             LocalPlayerClientId = InvalidClientId;
@@ -283,8 +295,12 @@ namespace Vapor.Networking
         {
             if (!IsRunning) return;
 
+            _updateSerial++;
             _transport.Poll(this);
             if (!IsRunning) return;   // the poll may have ended the session
+
+            ProcessPendingTransportCloses();
+            if (!IsRunning) return;
 
             double now = _clock.Now;
             if (IsServer)
@@ -437,6 +453,81 @@ namespace Vapor.Networking
             _transport.Send(connection, Delivery.ReliableSequenced, _writer.WrittenSpan);
         }
 
+        private void QueueTransportClose(ConnectionId connection, MessageType type, Action<NetworkWriter> body)
+        {
+            _writer.Reset();
+            _writer.WriteByte((byte)type);
+            body?.Invoke(_writer);
+            var pending = new PendingTransportClose
+            {
+                Id = connection,
+                ControlPacket = _writer.ToArray(),
+                Deadline = _clock.Now + Math.Max(0.25, Math.Min(2.0, _config.HandshakeTimeoutSeconds)),
+            };
+
+            var result = _transport.Send(connection, Delivery.ReliableSequenced, pending.ControlPacket);
+            if (result == SendResult.Ok)
+            {
+                pending.Sent = true;
+                pending.SentOnUpdate = _updateSerial;
+            }
+            else if (result != SendResult.QueueFull)
+            {
+                _transport.Disconnect(connection);
+                return;
+            }
+
+            _pendingTransportCloses.Add(pending);
+        }
+
+        private void ProcessPendingTransportCloses()
+        {
+            double now = _clock.Now;
+            for (int i = _pendingTransportCloses.Count - 1; i >= 0; i--)
+            {
+                var pending = _pendingTransportCloses[i];
+                if (pending.Sent && pending.SentOnUpdate < _updateSerial)
+                {
+                    _transport.Disconnect(pending.Id);
+                    _pendingTransportCloses.RemoveAt(i);
+                    continue;
+                }
+
+                if (now >= pending.Deadline)
+                {
+                    _transport.Disconnect(pending.Id);
+                    _pendingTransportCloses.RemoveAt(i);
+                    continue;
+                }
+
+                if (!pending.Sent)
+                {
+                    var result = _transport.Send(pending.Id, Delivery.ReliableSequenced, pending.ControlPacket);
+                    if (result == SendResult.Ok)
+                    {
+                        pending.Sent = true;
+                        pending.SentOnUpdate = _updateSerial;
+                    }
+                    else if (result != SendResult.QueueFull)
+                    {
+                        _transport.Disconnect(pending.Id);
+                        _pendingTransportCloses.RemoveAt(i);
+                    }
+                }
+            }
+        }
+
+        private void ForgetPendingTransportClose(ConnectionId connection)
+        {
+            for (int i = _pendingTransportCloses.Count - 1; i >= 0; i--)
+            {
+                if (_pendingTransportCloses[i].Id == connection)
+                {
+                    _pendingTransportCloses.RemoveAt(i);
+                }
+            }
+        }
+
         private void SendPing(double now)
         {
             _lastPingSentAt = now;
@@ -481,6 +572,7 @@ namespace Vapor.Networking
 
         void ITransportEvents.OnDisconnected(ConnectionId connection, DisconnectReason reason)
         {
+            ForgetPendingTransportClose(connection);
             if (IsServer)
             {
                 if (_connections.TryGetValue(connection.Value, out var existing))
@@ -645,12 +737,11 @@ namespace Vapor.Networking
         private void Reject(Connection connection, SessionDisconnectReason reason, string detail)
         {
             connection.State = ConnectionState.Closing;
-            SendControl(connection.Id, MessageType.Reject, w =>
+            QueueTransportClose(connection.Id, MessageType.Reject, w =>
             {
                 w.WriteByte((byte)reason);
                 w.WriteString(detail);
             });
-            _transport.Disconnect(connection.Id);
             _connections.Remove(connection.Id.Value);
         }
 
@@ -662,8 +753,7 @@ namespace Vapor.Networking
 
             if (notifyPeer)
             {
-                SendControl(connection.Id, MessageType.Disconnect, w => w.WriteByte((byte)reason));
-                _transport.Disconnect(connection.Id);
+                QueueTransportClose(connection.Id, MessageType.Disconnect, w => w.WriteByte((byte)reason));
             }
 
             _connections.Remove(connection.Id.Value);

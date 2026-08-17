@@ -213,7 +213,7 @@ namespace Vapor.Vsl.SourceGenerator
                 sb.AppendLine($"{body}var __runtimeType = value.GetType();");
                 sb.AppendLine($"{body}if (__runtimeType != typeof({model.TypeName}))");
                 sb.AppendLine($"{body}{{");
-                sb.AppendLine($"{deep}writer.WriteTypeTag({Ns}.VslTypeRegistry.GetTag(__runtimeType));");
+                sb.AppendLine($"{deep}writer.WriteTypeTag({Ns}.VslTypeRegistry.GetTag(__runtimeType, typeof({model.TypeName})));");
                 sb.AppendLine($"{deep}{Ns}.VslFormatterRegistry.Get(__runtimeType).WriteObject(ref writer, value, context);");
                 sb.AppendLine($"{deep}return;");
                 sb.AppendLine($"{body}}}");
@@ -270,7 +270,14 @@ namespace Vapor.Vsl.SourceGenerator
                 sb.AppendLine($"{body}if (reader.TryReadTypeTag(out var __tag))");
                 sb.AppendLine($"{body}{{");
                 sb.AppendLine($"{deep}var __concrete = {Ns}.VslTypeRegistry.Resolve(__tag, typeof({model.TypeName}));");
-                sb.AppendLine($"{deep}if (__concrete != null && __concrete != typeof({model.TypeName}))");
+                sb.AppendLine($"{deep}if (__concrete == null)");
+                sb.AppendLine($"{deep}{{");
+                sb.AppendLine($"{deep}    if (context.Options.Strict)");
+                sb.AppendLine($"{deep}    {{");
+                sb.AppendLine($"{deep}        throw new {Ns}.VslException(\"'!\" + __tag.ToString() + \"' does not name a type assignable to {model.SimpleName}.\");");
+                sb.AppendLine($"{deep}    }}");
+                sb.AppendLine($"{deep}}}");
+                sb.AppendLine($"{deep}else if (__concrete != typeof({model.TypeName}))");
                 sb.AppendLine($"{deep}{{");
                 sb.AppendLine($"{deep}    return ({model.TypeName}){Ns}.VslFormatterRegistry.Get(__concrete).ReadObject(ref reader, context);");
                 sb.AppendLine($"{deep}}}");
@@ -279,11 +286,28 @@ namespace Vapor.Vsl.SourceGenerator
             }
             else
             {
-                sb.AppendLine($"{body}reader.TryReadTypeTag(out _);");
+                sb.AppendLine($"{body}if (reader.TryReadTypeTag(out var __tag))");
+                sb.AppendLine($"{body}{{");
+                sb.AppendLine($"{deep}var __concrete = {Ns}.VslTypeRegistry.Resolve(__tag, typeof({model.TypeName}));");
+                sb.AppendLine($"{deep}if (__concrete == null && context.Options.Strict)");
+                sb.AppendLine($"{deep}{{");
+                sb.AppendLine($"{deep}    throw new {Ns}.VslException(\"'!\" + __tag.ToString() + \"' does not name {model.SimpleName}.\");");
+                sb.AppendLine($"{deep}}}");
+                sb.AppendLine($"{body}}}");
                 sb.AppendLine();
             }
 
             sb.AppendLine($"{body}var value = new {model.TypeName}();");
+            for (var memberIndex = 0; memberIndex < model.Members.Count; memberIndex++)
+            {
+                sb.AppendLine($"{body}var __seen{memberIndex} = false;");
+            }
+
+            if (model.Members.Count > 0)
+            {
+                sb.AppendLine();
+            }
+
             sb.AppendLine($"{body}context.EnterDepth();");
             sb.AppendLine($"{body}try");
             sb.AppendLine($"{body}{{");
@@ -292,14 +316,16 @@ namespace Vapor.Vsl.SourceGenerator
             sb.AppendLine($"{deep}{{");
 
             var first = true;
-            foreach (var member in model.Members)
+            for (var memberIndex = 0; memberIndex < model.Members.Count; memberIndex++)
             {
+                var member = model.Members[memberIndex];
                 var keyword = first ? "if" : "else if";
                 first = false;
                 sb.AppendLine($"{deep}    {keyword} ({Ns}.VslNames.Matches(__name, {Literal(member.VslName)}))");
                 sb.AppendLine($"{deep}    {{");
                 if (member.IsInEveryProfile)
                 {
+                    sb.AppendLine($"{deep}        __seen{memberIndex} = true;");
                     sb.AppendLine($"{deep}        value.{member.Access} = {Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Read(ref reader, context);");
                 }
                 else
@@ -307,6 +333,7 @@ namespace Vapor.Vsl.SourceGenerator
                     // Present in the document but outside the active profile: leave the instance alone.
                     sb.AppendLine($"{deep}        if ((0x{member.ProfileMask:X}u & (uint)context.Profiles) != 0u)");
                     sb.AppendLine($"{deep}        {{");
+                    sb.AppendLine($"{deep}            __seen{memberIndex} = true;");
                     sb.AppendLine($"{deep}            value.{member.Access} = {Ns}.VslFormatterRegistry.Get<{member.TypeName}>().Read(ref reader, context);");
                     sb.AppendLine($"{deep}        }}");
                     sb.AppendLine($"{deep}        else");
@@ -337,6 +364,26 @@ namespace Vapor.Vsl.SourceGenerator
             }
 
             sb.AppendLine($"{deep}}}");
+            if (model.Members.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"{deep}if (context.Options.Strict)");
+                sb.AppendLine($"{deep}{{");
+                for (var memberIndex = 0; memberIndex < model.Members.Count; memberIndex++)
+                {
+                    var member = model.Members[memberIndex];
+                    var profileGuard = member.IsInEveryProfile
+                        ? $"!__seen{memberIndex}"
+                        : $"((0x{member.ProfileMask:X}u & (uint)context.Profiles) != 0u && !__seen{memberIndex})";
+                    sb.AppendLine($"{deep}    if ({profileGuard})");
+                    sb.AppendLine($"{deep}    {{");
+                    sb.AppendLine($"{deep}        throw new {Ns}.VslException(\"'{member.VslName}' is missing from the {model.SimpleName} object.\");");
+                    sb.AppendLine($"{deep}    }}");
+                }
+
+                sb.AppendLine($"{deep}}}");
+            }
+
             sb.AppendLine($"{body}}}");
             sb.AppendLine($"{body}finally");
             sb.AppendLine($"{body}{{");

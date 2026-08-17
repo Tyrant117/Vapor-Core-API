@@ -129,7 +129,13 @@ namespace Vapor.Networking
                 return null;
             }
 
-            return r.ReadBytes(checked((int)(prefix - 1))).ToArray();
+            uint encodedLength = prefix - 1;
+            if (encodedLength > int.MaxValue)
+            {
+                throw new NetworkSerializationException($"Byte-array length {encodedLength} exceeds the supported range.");
+            }
+
+            return r.ReadBytes((int)encodedLength).ToArray();
         }
 
         #endregion
@@ -302,7 +308,7 @@ namespace Vapor.Networking
                 return null;
             }
 
-            int count = checked((int)(prefix - 1));
+            int count = reader.ValidateCollectionCount(prefix - 1);
             var element = NetworkFormatters.Get<T>();
             var result = new T[count];
             for (int i = 0; i < count; i++)
@@ -340,7 +346,7 @@ namespace Vapor.Networking
                 return null;
             }
 
-            int count = checked((int)(prefix - 1));
+            int count = reader.ValidateCollectionCount(prefix - 1);
             var element = NetworkFormatters.Get<T>();
             var result = new List<T>(count);
             for (int i = 0; i < count; i++)
@@ -378,7 +384,7 @@ namespace Vapor.Networking
                 return null;
             }
 
-            int count = checked((int)(prefix - 1));
+            int count = reader.ValidateCollectionCount(prefix - 1);
             var element = NetworkFormatters.Get<T>();
             var result = new HashSet<T>();
             for (int i = 0; i < count; i++)
@@ -418,7 +424,7 @@ namespace Vapor.Networking
                 return null;
             }
 
-            int count = checked((int)(prefix - 1));
+            int count = reader.ValidateCollectionCount(prefix - 1);
             var keys = NetworkFormatters.Get<TKey>();
             var values = NetworkFormatters.Get<TValue>();
             var result = new Dictionary<TKey, TValue>(count);

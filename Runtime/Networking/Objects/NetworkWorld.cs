@@ -26,7 +26,7 @@ namespace Vapor.Networking
         private readonly List<VaporNetworkObject> _roots = new();
         private readonly List<VaporNetworkObject> _dirty = new();
         private readonly List<VaporNetworkObject> _tickScratch = new();
-        private readonly NetworkWriter _offlineRpcWriter = new(256);
+        private readonly NetworkWriter _offlineRpcWriter = new();
         private ulong _nextObjectId = 1;
 
         /// <summary>The world rpc arguments resolve against when no world is passed explicitly.</summary>
@@ -62,12 +62,12 @@ namespace Vapor.Networking
         public bool IsOffline => Session == null;
         public bool IsServer => Session == null || Session.IsServer;
         public bool IsClient => Session == null || Session.IsClient;
-        public bool IsHost => Session != null && Session.IsHost;
+        public bool IsHost => Session is { IsHost: true };
 
         /// <summary>The server, or anyone offline. The one place this is decided.</summary>
         public bool IsAuthority => Session == null || Session.IsServer;
 
-        public ulong LocalClientId => Session == null ? NetworkSession.ServerClientId : Session.LocalClientId;
+        public ulong LocalClientId => Session?.LocalClientId ?? NetworkSession.ServerClientId;
 
         #endregion
 
@@ -91,7 +91,7 @@ namespace Vapor.Networking
             return false;
         }
 
-        public VaporNetworkObject Get(ulong networkObjectId) => _objects.TryGetValue(networkObjectId, out var found) ? found : null;
+        public VaporNetworkObject Get(ulong networkObjectId) => _objects.GetValueOrDefault(networkObjectId);
 
         public event Action<VaporNetworkObject> Spawned;
         public event Action<VaporNetworkObject> Despawned;
@@ -120,7 +120,7 @@ namespace Vapor.Networking
             if (networkObject == null) throw new ArgumentNullException(nameof(networkObject));
             if (!IsAuthority) throw new InvalidOperationException("Only the authority (server or offline) may spawn objects.");
             if (networkObject.IsSpawned) throw new InvalidOperationException($"{networkObject} is already spawned.");
-            if (parent != null && !parent.IsSpawned) throw new InvalidOperationException("The parent must be spawned first.");
+            if (parent is { IsSpawned: false }) throw new InvalidOperationException("The parent must be spawned first.");
             if (parent != null && parent.World != this) throw new InvalidOperationException("The parent belongs to another world.");
 
             ulong id = _nextObjectId++;

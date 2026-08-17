@@ -173,20 +173,26 @@ namespace Vapor.Serialization
             var keys = new List<Keyframe>();
             var preWrap = WrapMode.ClampForever;
             var postWrap = WrapMode.ClampForever;
+            var sawPreWrap = false;
+            var sawPostWrap = false;
+            var sawKeys = false;
 
             reader.ReadObjectStart();
             while (reader.TryReadMemberName(out var name))
             {
                 if (VslNames.Matches(name, "preWrap") || VslNames.Matches(name, "preWrapMode"))
                 {
+                    sawPreWrap = true;
                     preWrap = EnumFormatter<WrapMode>.Instance.Read(ref reader, context);
                 }
                 else if (VslNames.Matches(name, "postWrap") || VslNames.Matches(name, "postWrapMode"))
                 {
+                    sawPostWrap = true;
                     postWrap = EnumFormatter<WrapMode>.Instance.Read(ref reader, context);
                 }
                 else if (VslNames.Matches(name, "keys"))
                 {
+                    sawKeys = true;
                     reader.ReadSequenceStart();
                     while (reader.TryReadSequenceItem())
                     {
@@ -195,8 +201,20 @@ namespace Vapor.Serialization
                 }
                 else
                 {
+                    if (context.Options.Strict)
+                    {
+                        throw new VslException($"'{name.ToString()}' is not an AnimationCurve member.");
+                    }
+
                     reader.SkipValue();
                 }
+            }
+
+            if (context.Options.Strict)
+            {
+                if (!sawPreWrap) throw new VslException("'preWrap' is missing from the AnimationCurve object.");
+                if (!sawPostWrap) throw new VslException("'postWrap' is missing from the AnimationCurve object.");
+                if (!sawKeys) throw new VslException("'keys' is missing from the AnimationCurve object.");
             }
 
             return new AnimationCurve(keys.ToArray())

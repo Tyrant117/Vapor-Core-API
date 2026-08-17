@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using UnityEngine;
 using Vapor.Serialization;
+using Vapor.Tests.Serialization.AmbiguousA;
 
 namespace Vapor.Tests.Serialization
 {
@@ -218,6 +219,25 @@ namespace Vapor.Tests.Serialization
             Assert.AreEqual(3, ((HealingEffect)copy.Effect).PerTick);
         }
 
+        [Test]
+        public void AmbiguousShortTypeNameFallsBackToFullName()
+        {
+            var original = new PolymorphicFixture
+            {
+                Power = new TwinAbility { First = 7 },
+            };
+
+            var text = Vsl.Serialize(original);
+            StringAssert.Contains("!Vapor.Tests.Serialization.AmbiguousA.TwinAbility", text);
+
+            var copy = Vsl.Deserialize<PolymorphicFixture>(text);
+            Assert.IsInstanceOf<TwinAbility>(copy.Power);
+            Assert.AreEqual(7, ((TwinAbility)copy.Power).First);
+
+            Assert.Throws<VslException>(() =>
+                Vsl.Deserialize<PolymorphicFixture>("{ power: !TwinAbility {} rotation: [] }"));
+        }
+
         private static int CountOccurrences(string text, string needle)
         {
             var count = 0;
@@ -279,6 +299,21 @@ namespace Vapor.Tests.Serialization
         {
             var context = new VslContext(VslOptions.Validating);
             Assert.Throws<VslException>(() => Vsl.Deserialize<GoldenFixture>("{ nope: 1 }", context));
+        }
+
+        [Test]
+        public void StrictModeRejectsMissingMembers()
+        {
+            var context = new VslContext(VslOptions.Validating);
+            Assert.Throws<VslException>(() => Vsl.Deserialize<GoldenFixture>("{}", context));
+            Assert.Throws<VslException>(() => Vsl.Deserialize<Gradient>("{}", context));
+            Assert.Throws<VslException>(() => Vsl.Deserialize<AnimationCurve>("{}", context));
+        }
+
+        [Test]
+        public void AmbiguousMemberNamesAreRejectedInsteadOfOverwriting()
+        {
+            Assert.Throws<VslException>(() => VslTypeSchema.Get(typeof(AmbiguousMemberFixture)));
         }
 
         [Test]
