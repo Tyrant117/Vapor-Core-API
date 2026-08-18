@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Vapor;
 using Vapor.Serialization;
+using VaporEditor.Inspector;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.DataRegistry
@@ -110,6 +111,10 @@ namespace VaporEditor.DataRegistry
         private ListView _entryList;
         private ToolbarSearchField _search;
         private VisualElement _inspectorPane;
+
+        /// <summary>The filter bar of whatever is in the inspector, when it has one. Ctrl+F and Escape go here.</summary>
+        private InspectorFilterBar _filterBar;
+
         private Label _statusLabel;
         private ToolbarButton _saveButton;
         private ToolbarButton _revertButton;
@@ -467,6 +472,16 @@ namespace VaporEditor.DataRegistry
         private VisualElement BuildInspectorPane()
         {
             _inspectorPane = new VisualElement { style = { flexGrow = 1f } };
+
+            // Trickled down so the search field's own text handling does not swallow Escape first.
+            _inspectorPane.RegisterCallback<KeyDownEvent>(evt =>
+            {
+                if (_filterBar != null && _filterBar.HandleShortcut(evt))
+                {
+                    evt.StopPropagation();
+                }
+            }, TrickleDown.TrickleDown);
+
             return _inspectorPane;
         }
 
@@ -681,6 +696,9 @@ namespace VaporEditor.DataRegistry
         {
             _inspectorPane.Clear();
 
+            // Whatever is built next hands one back if it has one; the comparison sheet does not.
+            _filterBar = null;
+
             if (_document == null || _selection.Count == 0)
             {
                 _inspectorPane.Add(new Label(_document == null
@@ -769,35 +787,52 @@ namespace VaporEditor.DataRegistry
 
         private VisualElement BuildSingleInspector()
         {
+            var root = new VisualElement { style = { flexGrow = 1f } };
+            var body = BuildEntryInspector(_selection[0], out var header);
+
+            // Outside the scroll: a filter bar that scrolled away with the fields it filters would be
+            // gone exactly when it is wanted.
+            if (header != null)
+            {
+                root.Add(header);
+            }
+
             var scroll = new ScrollView
             {
                 style = { flexGrow = 1f, paddingLeft = 6, paddingRight = 6, paddingTop = 4 },
             };
 
-            var body = BuildEntryInspector(_selection[0]);
             if (body != null)
             {
                 scroll.Add(body);
             }
 
-            return scroll;
+            root.Add(scroll);
+            return root;
         }
 
         /// <summary>
-        /// Builds one entry's editor. Name is drawn like any other <c>[VslSerialize]</c> member, so
-        /// there is no separate field for it — but editing it changes the row's label and its key,
-        /// which is why every change refreshes the row rather than only marking the document dirty.
+        /// Builds one entry's editor, and whatever chrome the view wants pinned over it. Name is drawn
+        /// like any other <c>[VslSerialize]</c> member, so there is no separate field for it — but
+        /// editing it changes the row's label and its key, which is why every change refreshes the row
+        /// rather than only marking the document dirty.
         /// </summary>
-        private VisualElement BuildEntryInspector(IData entry) =>
-            DataAuthoringViewFactory
-                .Resolve(_document.DataType)
-                // Handed the document the entry actually lives in, not the merged selection, so a
-                // custom view sees the file it would be writing to.
-                .CreateInspector(_document, entry, () =>
-                {
-                    MarkDirty(entry);
-                    RefreshRow(entry);
-                });
+        private VisualElement BuildEntryInspector(IData entry, out VisualElement pinnedHeader)
+        {
+            // Handed the document the entry actually lives in, not the merged selection, so a custom
+            // view sees the file it would be writing to.
+            var view = DataAuthoringViewFactory.Resolve(_document.DataType);
+            var body = view.CreateInspector(_document, entry, () =>
+            {
+                MarkDirty(entry);
+                RefreshRow(entry);
+            });
+
+            // Read after the build, not before: a header is usually made out of what was drawn.
+            pinnedHeader = (view as IDataAuthoringHeader)?.PinnedHeader;
+            _filterBar = pinnedHeader as InspectorFilterBar;
+            return body;
+        }
 
         private void RefreshRow(IData entry)
         {

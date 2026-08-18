@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 
 namespace Vapor.Networking
 {
@@ -9,7 +10,8 @@ namespace Vapor.Networking
     /// know "am I on a server / a client / offline?" without a session in hand (log markup, gameplay
     /// events gated by role) reads it here instead of holding a reference to a manager singleton.
     /// </summary>
-    public static class NetworkRoles
+    [AutoStaticsCleanup]
+    public static partial class NetworkRoles
     {
         private static int s_Servers;
         private static int s_Clients;

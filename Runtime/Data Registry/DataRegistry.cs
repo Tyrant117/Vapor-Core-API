@@ -16,6 +16,8 @@ namespace Vapor
             // subscribe once
             GlobalDataRegistry.OnRegistriesBuilt -= Rebuild;
             GlobalDataRegistry.OnRegistriesBuilt += Rebuild;
+            GlobalDataRegistry.OnDataRegistered -= Add;
+            GlobalDataRegistry.OnDataRegistered += Add;
             Rebuild();
         }
 
@@ -29,6 +31,18 @@ namespace Vapor
             Debug.Log($"{TooltipMarkup.ClassMethod(nameof(DataRegistry<TData>), nameof(Rebuild))} - {TooltipMarkup.Class(typeof(TData).Name)} - Loaded {s_RegistryMap.Count} Items");
         }
         
+        /// <summary>
+        /// Takes a single registration as it happens, so data registered after this map was built is
+        /// findable straight away rather than at the next rebuild.
+        /// </summary>
+        private static void Add(IData data)
+        {
+            if (data is TData typed)
+            {
+                s_RegistryMap[typed.Key] = typed;
+            }
+        }
+
         public static TData Get(uint id) => s_RegistryMap.GetValueOrDefault(id);
 
         public static TData Get(string id) => string.IsNullOrEmpty(id) ? null : Get(id.Hash32());

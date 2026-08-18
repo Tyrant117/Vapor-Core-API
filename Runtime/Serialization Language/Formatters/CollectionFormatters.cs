@@ -252,16 +252,43 @@ namespace Vapor.Serialization
     /// </summary>
     /// <remarks>
     /// The object form is what makes <c>Dictionary&lt;string, T&gt;</c> and enum-keyed lookups
-    /// legible; anything else would force a reader to decode positional pairs.
+    /// legible; anything else would force a reader to decode positional pairs. A key type that is
+    /// neither — a hashed id such as a <c>GameplayTag</c> — earns the object form by having its
+    /// formatter implement <see cref="IVslNameKeyFormatter{T}"/>.
     /// </remarks>
     public sealed class DictionaryFormatter<TKey, TValue> : VslFormatter<Dictionary<TKey, TValue>>
     {
-        private static readonly bool s_NameKeys = IsNameKey(typeof(TKey));
+        private static readonly bool s_IntrinsicNameKeys = IsNameKey(typeof(TKey));
 
         private IVslFormatter<TKey> _key;
         private IVslFormatter<TValue> _value;
+        private IVslNameKeyFormatter<TKey> _nameKey;
+        private bool _nameKeyResolved;
         private IVslFormatter<TKey> Key => _key ??= VslFormatterRegistry.Get<TKey>();
         private IVslFormatter<TValue> Value => _value ??= VslFormatterRegistry.Get<TValue>();
+
+        /// <summary>
+        /// The key formatter's own naming, when it has any. Resolved once, and lazily: asking the
+        /// registry for a formatter is what a static initializer cannot do, since the registry is
+        /// still being built while these types are.
+        /// </summary>
+        private IVslNameKeyFormatter<TKey> NameKey
+        {
+            get
+            {
+                if (_nameKeyResolved)
+                {
+                    return _nameKey;
+                }
+
+                _nameKeyResolved = true;
+                _nameKey = Key as IVslNameKeyFormatter<TKey>;
+                return _nameKey;
+            }
+        }
+
+        /// <summary>True when this dictionary writes as an object rather than as positional pairs.</summary>
+        private bool UsesNameKeys => s_IntrinsicNameKeys || NameKey != null;
 
         public override void Write(ref VslWriter writer, in Dictionary<TKey, TValue> value, VslContext context)
         {
@@ -273,7 +300,7 @@ namespace Vapor.Serialization
 
             var valueFormatter = Value;
 
-            if (s_NameKeys)
+            if (UsesNameKeys)
             {
                 writer.BeginObject(valueFormatter.IsScalar && value.Count <= context.Options.InlineMemberLimit);
                 foreach (var pair in value)
@@ -366,8 +393,16 @@ namespace Vapor.Serialization
             }
         }
 
-        private static string KeyToName(TKey key)
+        private string KeyToName(TKey key)
         {
+            // A key type that names itself is asked first: its answer is the one TryParseKey reads back,
+            // and for a hashed id it is the only form that survives the round trip at all.
+            var nameKey = NameKey;
+            if (nameKey != null)
+            {
+                return nameKey.ToName(key);
+            }
+
             if (key is string text)
             {
                 return text;
@@ -381,9 +416,27 @@ namespace Vapor.Serialization
             return key?.ToString() ?? string.Empty;
         }
 
-        private static bool TryParseKey(ReadOnlySpan<char> text, VslContext context, out TKey key)
+        private bool TryParseKey(ReadOnlySpan<char> text, VslContext context, out TKey key)
         {
             var type = typeof(TKey);
+
+            var nameKey = NameKey;
+            if (nameKey != null)
+            {
+                if (nameKey.TryParseName(text, out key))
+                {
+                    return true;
+                }
+
+                if (context.Options.Strict)
+                {
+                    throw new VslException($"'{text.ToString()}' is not a valid {type.Name} key.");
+                }
+
+                key = default;
+                return false;
+            }
+
             try
             {
                 if (type == typeof(string))

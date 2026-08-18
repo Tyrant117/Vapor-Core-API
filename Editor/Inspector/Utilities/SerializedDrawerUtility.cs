@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 using Unity.Properties;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -42,6 +43,7 @@ namespace VaporEditor.Inspector
         }
     }
     
+    [NoAutoStaticsCleanup]
     public static class ScriptableWrapperEmitter
     {
         private static readonly ModuleBuilder s_ModuleBuilder;

@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,7 +15,8 @@ namespace VaporEditor.Keys
     /// <c>Vapor/Keys/Auto-Generate Key Manifests</c>.
     /// </para>
     /// </summary>
-    public class KeyManifestPostprocessor : AssetPostprocessor
+    [AutoStaticsCleanup]
+    public partial class KeyManifestPostprocessor : AssetPostprocessor
     {
         private const string k_MenuPath = "Vapor/Keys/Auto-Generate Key Manifests";
         private const string k_PrefKey = "Vapor.Keys.AutoGenerateManifests";

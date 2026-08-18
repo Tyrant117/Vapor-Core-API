@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using UnityEngine;
 
 namespace Vapor.Inspector
@@ -7,7 +6,6 @@ namespace Vapor.Inspector
     /// <summary>
     /// This must be placed on a string or list of string type.
     /// </summary>
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
     public class TypeSelectorAttribute : PropertyAttribute
     {

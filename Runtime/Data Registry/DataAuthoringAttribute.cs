@@ -9,9 +9,9 @@ namespace Vapor
     /// <remarks>
     /// <para>
     /// Opt-in rather than opt-out. Plenty of <see cref="IData"/> implementations are not authored by
-    /// hand at all — <see cref="AddressableData"/> is generated from the Addressables labels, and
-    /// others only ever exist as runtime instances — so listing every implementation would fill the
-    /// window with types that have nothing to edit.
+    /// hand at all — some are built by a registry at startup, others only ever exist as runtime
+    /// instances — so listing every implementation would fill the window with types that have
+    /// nothing to edit.
     /// </para>
     /// <para>
     /// Not inherited: a subclass that should have its own document declares its own attribute, and

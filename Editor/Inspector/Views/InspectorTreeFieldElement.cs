@@ -1,9 +1,29 @@
+using System.Collections.Generic;
 using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
-    public class InspectorTreeFieldElement : InspectorTreeElement
+    public class InspectorTreeFieldElement : InspectorTreeElement, IInspectorFilterField
     {
+        /// <summary>
+        /// What a member search matches this row on. An array element adds nothing: they are named for
+        /// their position, so matching them would turn any list into a wall of hits — what is inside
+        /// one is still matched on its own name.
+        /// A dictionary entry adds nothing either, and for a stronger reason: it has no name at all, and
+        /// what it holds is matched on its own.
+        /// </summary>
+        void IInspectorFilterField.CollectFilterNames(List<string> names)
+        {
+            var property = Property;
+            if (property == null || property.IsArrayElement || property.IsDictionaryEntry)
+            {
+                return;
+            }
+
+            names.Add(property.DisplayName);
+            names.Add(property.PropertyName);
+        }
+
         public InspectorTreeFieldElement(InspectorTreeElement parentElement, InspectorTreeProperty property)
         {
             Root = parentElement.Root;

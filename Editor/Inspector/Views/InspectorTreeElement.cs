@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -9,9 +10,16 @@ using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
-    public class InspectorTreeElement : VisualElement
+    [NoAutoStaticsCleanup]
+    public class InspectorTreeElement : VisualElement, IInspectorFilterElement
     {
         private static readonly Func<VaporGroupAttribute, int> s_ShortestToLongestName = group => group.GroupName.Length;
+
+        /// <summary>
+        /// What a filter walking the drawn tree should make of this element. A member is a row; the
+        /// subclasses that are layout rather than a member say so themselves.
+        /// </summary>
+        public virtual InspectorFilterRole FilterRole => InspectorFilterRole.Row;
 
         /// <summary>
         /// What a controller draws: the element to attach, and the container its children belong in.
@@ -106,6 +114,13 @@ namespace VaporEditor.Inspector
             }
 
             if (Property.IsArray)
+            {
+                return;
+            }
+
+            // Same for a dictionary: its rows are drawn by the view that owns them, from the entry
+            // properties, and descending into it here would draw the table twice.
+            if (Property.IsDictionary)
             {
                 return;
             }
@@ -356,9 +371,7 @@ namespace VaporEditor.Inspector
             {
                 if (backgroundColor.HasBackgroundColorResolver)
                 {
-                    AddResolver(new SerializedResolverContainerType<Color>(Property,
-                        ReflectionUtility.GetMember(Property.ParentType, backgroundColor.BackgroundColorResolver),
-                        c => style.backgroundColor = c));
+                    ResolverBinding.Bind<Color>(this, Property, backgroundColor.BackgroundColorResolver, c => style.backgroundColor = c);
                 }
                 else
                 {
@@ -446,52 +459,48 @@ namespace VaporEditor.Inspector
                 return;
             }
 
-            var type = Property.ParentType;
-
             if (TryGetAttribute<ShowIfAttribute>(out var showIf))
             {
-                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, showIf.Resolver),
-                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
+                ResolverBinding.Bind<bool>(this, Property, showIf.Resolver,
+                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
             }
 
             if (TryGetAttribute<HideIfAttribute>(out var hideIf))
             {
-                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, hideIf.Resolver),
-                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
+                ResolverBinding.Bind<bool>(this, Property, hideIf.Resolver,
+                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
             }
 
             if (TryGetAttribute<DisableIfAttribute>(out var disableIf))
             {
-                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, disableIf.Resolver),
-                    b => SetEnabled(!b)));
+                ResolverBinding.Bind<bool>(this, Property, disableIf.Resolver, b => SetEnabled(!b));
             }
 
             if (TryGetAttribute<EnableIfAttribute>(out var enableIf))
             {
-                AddResolver(new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(type, enableIf.Resolver),
-                    SetEnabled));
+                ResolverBinding.Bind<bool>(this, Property, enableIf.Resolver, SetEnabled);
             }
 
             if (HasAttribute<HideInEditorModeAttribute>())
             {
-                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying,
-                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
+                ResolverBinding.BindExternal(this, () => EditorApplication.isPlaying,
+                    b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
             }
 
             if (HasAttribute<HideInPlayModeAttribute>())
             {
-                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying,
-                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
+                ResolverBinding.BindExternal(this, () => EditorApplication.isPlaying,
+                    b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
             }
 
             if (HasAttribute<DisableInEditorModeAttribute>())
             {
-                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying, SetEnabled));
+                ResolverBinding.BindExternal(this, () => EditorApplication.isPlaying, SetEnabled);
             }
 
             if (HasAttribute<DisableInPlayModeAttribute>())
             {
-                AddResolver(new SerializedResolverContainerAction<bool>(() => EditorApplication.isPlaying, b => SetEnabled(!b)));
+                ResolverBinding.BindExternal(this, () => EditorApplication.isPlaying, b => SetEnabled(!b));
             }
         }
         #endregion

@@ -1,4 +1,5 @@
-﻿using UnityEngine.Localization;
+﻿using UnityEngine;
+using UnityEngine.Localization;
 using Vapor.Serialization;
 using Vapor.Unsafe;
 
@@ -58,9 +59,8 @@ namespace Vapor.GameplayTags
         public LocalizedString LocalizedDescription { get; set; }
         
         [VslSerialize]
-        [VslComment("Addressable entry holding this tag's icon, by name.")]
-        [GameplayTagDrawer(true, true, GameplayTagCategories.ADDRESSABLE)]
-        public GameplayTag IconAddressableKey { get; set; }
+        [VslComment("This tag's icon.")]
+        public AssetRef<Sprite> IconRef { get; set; }
 
         /// <summary>
         /// For the serializer. Deserialization sets <see cref="Name"/>, which is what derives

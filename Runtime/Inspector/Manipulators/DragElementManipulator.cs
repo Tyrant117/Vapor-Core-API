@@ -101,18 +101,6 @@ namespace Vapor.Inspector
             target.UnregisterCallback<KeyUpEvent>(OnKeyUpEvent);
         }
 
-        private void OnSwitchToAbsolute(GeometryChangedEvent evt)
-        {
-            if (target.style.position == Position.Absolute)
-            {
-                return;
-            }
-
-            var world = target.LocalToWorld(target.transform.position);
-            target.style.position = Position.Absolute;
-            target.transform.position = world;
-        }
-
         public void SetupSwapDrag(VisualElement dragSourceElement, Vector3 worldPosition, Vector3 localPosition, Vector2 dragStartPosition, int pointerId, DragLocationMatch dragLocationMatch)
         {
             FromSwap = true;

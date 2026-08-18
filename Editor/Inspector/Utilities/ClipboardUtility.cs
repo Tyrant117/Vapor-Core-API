@@ -1,12 +1,14 @@
 using System;
 using System.Runtime.Serialization;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
-    public static class ClipboardUtility
+    [AutoStaticsCleanup]
+    public static partial class ClipboardUtility
     {
         public static object CopyBuffer { get; set; }
 

@@ -8,9 +8,11 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Unity.Properties;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Vapor.GameplayTags;
 using Vapor.Inspector;
 using Vapor.Serialization;
 using FilePathAttribute = Vapor.Inspector.FilePathAttribute;
@@ -18,7 +20,8 @@ using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
-    public class InspectorTreeProperty
+    [NoAutoStaticsCleanup]
+    public partial class InspectorTreeProperty
     {
         public enum MemberInfoType
         {
@@ -256,6 +259,13 @@ namespace VaporEditor.Inspector
                 // ArraySize both need it before the elements themselves are materialized.
                 _arrayHelper = CreateArrayHelper(PropertyType);
             }
+            IsDictionary = IsDictionaryType(PropertyType);
+            if (IsDictionary)
+            {
+                // Type-level only, like the array helper above: what the entries are made of is known
+                // before any of them exist.
+                _dictionaryHelper = new DictionaryReflectionHelper(PropertyType);
+            }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
             if (!IsUnitySerializedProperty)
             {
@@ -347,6 +357,13 @@ namespace VaporEditor.Inspector
                 // ArraySize both need it before the elements themselves are materialized.
                 _arrayHelper = CreateArrayHelper(PropertyType);
             }
+            IsDictionary = IsDictionaryType(PropertyType);
+            if (IsDictionary)
+            {
+                // Type-level only, like the array helper above: what the entries are made of is known
+                // before any of them exist.
+                _dictionaryHelper = new DictionaryReflectionHelper(PropertyType);
+            }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
 
             // A [VslSerialize] property is drawn as an editable field, so it needs the same null
@@ -408,6 +425,13 @@ namespace VaporEditor.Inspector
                 // Type-level only, so it is safe to build before any value exists. Array mutation and
                 // ArraySize both need it before the elements themselves are materialized.
                 _arrayHelper = CreateArrayHelper(PropertyType);
+            }
+            IsDictionary = IsDictionaryType(PropertyType);
+            if (IsDictionary)
+            {
+                // Type-level only, like the array helper above: what the entries are made of is known
+                // before any of them exist.
+                _dictionaryHelper = new DictionaryReflectionHelper(PropertyType);
             }
             IsStruct = PropertyType.IsValueType && !PropertyType.IsPrimitive;
             if (!IsUnitySerializedProperty)
@@ -475,6 +499,14 @@ namespace VaporEditor.Inspector
             if (IsArray)
             {
                 BuildListProperties();
+                return;
+            }
+
+            // So do dictionaries, whose children are the two halves of each entry rather than one
+            // element apiece.
+            if (IsDictionary)
+            {
+                BuildDictionaryProperties();
                 return;
             }
 
@@ -609,6 +641,13 @@ namespace VaporEditor.Inspector
                         return _cachedStructObject;
                     }
                     
+                    if (IsDictionaryEntry)
+                    {
+                        // The snapshot the row was built from. A dictionary hands out copies of its
+                        // keys and values, so there is nothing to read back through.
+                        return _entryObject == null ? GetDefaultValue(SerializedPropertyType, PropertyType) : CastToType(_entryObject, PropertyType);
+                    }
+
                     if (IsArrayElement)
                     {
                         return CastToType(ArrayElementObject, PropertyType);
@@ -704,7 +743,22 @@ namespace VaporEditor.Inspector
                         _cachedStructObject = val;
                     }
 
-                    if (IsArrayElement)
+                    if (IsDictionaryEntry)
+                    {
+                        // Written back through the dictionary that owns the entry: re-keying it is a
+                        // structural change only that property can make safely.
+                        if (IsEntryKey)
+                        {
+                            ParentProperty.SetEntryKeyAt(ElementIndex, val);
+                        }
+                        else
+                        {
+                            ParentProperty.SetEntryValueAt(ElementIndex, val);
+                        }
+
+                        _entryObject = ParentProperty.GetEntryObjectAt(ElementIndex, IsEntryKey);
+                    }
+                    else if (IsArrayElement)
                     {
                         ParentProperty.SetValueAtIndex(ElementIndex, val, rebuildArray);
                         ArrayElementObject = ParentProperty.GetValueAtIndex(ElementIndex);
@@ -1113,6 +1167,10 @@ namespace VaporEditor.Inspector
         /// the list and again for each entry. What remains here describes the <i>value</i>, so it is meant
         /// to reach each element: a range clamps every entry, [ReadOnly] locks every entry, and so on.
         /// </para>
+        /// <para>
+        /// A dictionary entry inherits from the same set, for the same reason: the member describes what
+        /// its keys and values are, and there is no other member for an entry to read.
+        /// </para>
         /// <para>Add to this set to make a new attribute propagate into elements.</para>
         /// </summary>
         private static readonly HashSet<Type> s_ArrayElementInheritedAttributes = new()
@@ -1134,6 +1192,7 @@ namespace VaporEditor.Inspector
             typeof(ChildGameObjectsOnlyAttribute),
             typeof(FilePathAttribute),
             typeof(FolderPathAttribute),
+            typeof(GameplayTagDrawerAttribute),
         };
 
         private static bool InheritsToArrayElements(Type attributeType)
@@ -1158,8 +1217,9 @@ namespace VaporEditor.Inspector
         {
             return PropertyInfoType switch
             {
-                MemberInfoType.Field => IsArrayElement
-                    ? InheritsToArrayElements(typeof(T)) && ParentProperty.HasAttribute<T>()
+                MemberInfoType.Field => IsArrayElement || IsDictionaryEntry
+                    ? (IsDictionaryEntry && typeof(T) == typeof(HideLabelAttribute))
+                      || (InheritsToArrayElements(typeof(T)) && ParentProperty.HasAttribute<T>())
                     : FieldInfo.IsDefined(typeof(T), true),
                 MemberInfoType.Method => MethodInfo.IsDefined(typeof(T), true),
                 MemberInfoType.Property => PropertyInfo.IsDefined(typeof(T), true),
@@ -1171,7 +1231,7 @@ namespace VaporEditor.Inspector
             switch (PropertyInfoType)
             {
                 case MemberInfoType.Field:
-                    if (IsArrayElement)
+                    if (IsArrayElement || IsDictionaryEntry)
                     {
                         if (!InheritsToArrayElements(typeof(T)))
                         {
@@ -1200,7 +1260,7 @@ namespace VaporEditor.Inspector
             switch (PropertyInfoType)
             {
                 case MemberInfoType.Field:
-                    if (IsArrayElement)
+                    if (IsArrayElement || IsDictionaryEntry)
                     {
                         if (!InheritsToArrayElements(typeof(T)))
                         {
@@ -1299,7 +1359,7 @@ namespace VaporEditor.Inspector
                 case TypeCode.String:
                     return SerializedPropertyType.String;
                 case TypeCode.Object:
-                    if (IsArrayOrList(type))
+                    if (IsArrayOrList(type) || IsDictionaryType(type))
                     {
                         return SerializedPropertyType.Generic;
                     }
@@ -1408,6 +1468,11 @@ namespace VaporEditor.Inspector
             {
                 case SerializedPropertyType.Generic:
                     if (!type.IsClass)
+                    {
+                        return Activator.CreateInstance(type);
+                    }
+
+                    if (IsDictionaryType(type))
                     {
                         return Activator.CreateInstance(type);
                     }

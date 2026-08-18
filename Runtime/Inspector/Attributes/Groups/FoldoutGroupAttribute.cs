@@ -1,9 +1,7 @@
 using System;
-using System.Diagnostics;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
     public class FoldoutGroupAttribute : VaporGroupAttribute
     {

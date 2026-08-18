@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using Vapor.GameplayTags;
 using Vapor.Serialization;
 using Vapor.Tests.Serialization.AmbiguousA;
 
@@ -115,11 +117,52 @@ namespace Vapor.Tests.Serialization
             StringAssert.Contains("enumKeyed: { Fire: 1.5 }", text);
             // A struct key cannot be a member name, so it falls back to pairs.
             StringAssert.Contains("structKeyed: [ ((1, 2), \"here\") ]", text);
+            // A tag cannot either, until its formatter says otherwise - which is what IVslNameKeyFormatter
+            // is. What the member is called depends on whether the tag tree knows the key, so only the
+            // shape is asserted here; TagKeyedDictionaryIsWrittenAsNamedMembers covers the name.
+            StringAssert.Contains("tagKeyed: {", text);
 
             var copy = RoundTrip(CollectionsFixture.Seeded());
             Assert.AreEqual(1, copy.StringKeyed["a"]);
             Assert.AreEqual(1.5f, copy.EnumKeyed[Element.Fire]);
             Assert.AreEqual("here", copy.StructKeyed[new Vector2Int(1, 2)]);
+        }
+
+        [Test]
+        public void TagKeyedDictionaryIsWrittenAsNamedMembers()
+        {
+            // Registered first: an unknown key has no name to be written as, and falls back to its number
+            // the same way a tag value does.
+            GameplayTagTree.InsertTag("Attribute.Item.Durability");
+
+            var fixture = new CollectionsFixture
+            {
+                TagKeyed = new Dictionary<GameplayTag, double> { [new GameplayTag("Attribute.Item.Durability")] = 100d },
+            };
+
+            var text = Vsl.Serialize(fixture);
+
+            StringAssert.Contains("tagKeyed: { Attribute.Item.Durability: 100 }", text);
+
+            var copy = Vsl.Deserialize<CollectionsFixture>(text);
+            Assert.AreEqual(100d, copy.TagKeyed[new GameplayTag("Attribute.Item.Durability")]);
+        }
+
+        [Test]
+        public void TagKeyedDictionaryKeepsAnUnregisteredKey()
+        {
+            var tag = new GameplayTag("Attribute.Item.NeverRegistered.aa9f13");
+            var fixture = new CollectionsFixture
+            {
+                TagKeyed = new Dictionary<GameplayTag, double> { [tag] = 3d },
+            };
+
+            // The name cannot be recovered, so the key is written as its number rather than as "None" -
+            // which every unresolved tag in the table would otherwise collapse onto.
+            var copy = Vsl.Deserialize<CollectionsFixture>(Vsl.Serialize(fixture));
+
+            Assert.AreEqual(1, copy.TagKeyed.Count);
+            Assert.AreEqual(3d, copy.TagKeyed[tag]);
         }
 
         #endregion

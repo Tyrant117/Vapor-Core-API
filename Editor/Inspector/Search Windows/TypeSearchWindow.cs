@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -12,6 +13,7 @@ using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public class TypeSearchWindow : EditorWindow
     {
         public class Descriptor
@@ -360,7 +362,9 @@ namespace VaporEditor.Inspector
             if (labels != null)
             {
                 // A column, so a description can sit under the name. The name itself stays a row -
-                // search splits it into several labels to highlight the matched run.
+                // search splits it into several labels to highlight the matched run. Centred in the
+                // row rather than stretched: a name on its own would otherwise sit against the top of
+                // the row it shares with a taller sibling.
                 var ve = new VisualElement()
                 {
                     style =
@@ -369,6 +373,8 @@ namespace VaporEditor.Inspector
                         flexGrow = 1f,
                         flexBasis = 0f,
                         overflow = Overflow.Hidden,
+                        alignSelf = Align.Center,
+                        justifyContent = Justify.Center,
                     }
                 };
 

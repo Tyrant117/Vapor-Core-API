@@ -2,11 +2,18 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine.UIElements;
+using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
     public class InspectorTreeRootElement : InspectorTreeElement
     {
+        /// <summary>
+        /// The wrapper an object's tree comes in rather than a row of its own, so a filter looks past
+        /// it to the members underneath.
+        /// </summary>
+        public override InspectorFilterRole FilterRole => InspectorFilterRole.Container;
+
         /// <summary>
         /// Draws a Unity object. Constructing the tree is what builds the data model, so callers never
         /// build an <see cref="InspectorTreeObject"/> themselves.

@@ -1,9 +1,10 @@
 using System;
+using System.IO;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
-using Object = UnityEngine.Object;
 
 namespace VaporEditor.Serialization
 {
@@ -27,6 +28,7 @@ namespace VaporEditor.Serialization
     /// prefers what the project already publishes them by.
     /// </para>
     /// </remarks>
+    [AutoStaticsCleanup]
     public sealed partial class VslEditorAssetLocator
     {
         /// <summary>Group every auto-published asset is filed under.</summary>
@@ -124,7 +126,7 @@ namespace VaporEditor.Serialization
         /// </remarks>
         private static string SimplifyAddress(string assetPath)
         {
-            var name = System.IO.Path.GetFileNameWithoutExtension(assetPath);
+            var name = Path.GetFileNameWithoutExtension(assetPath);
             if (string.IsNullOrEmpty(name))
             {
                 return "Asset";

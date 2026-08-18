@@ -11,6 +11,7 @@ using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
+    [AutoStaticsCleanup]
     public partial class InspectorTreeObject
     {
         private static readonly HashSet<InspectorTreeObject> s_PendingApply = new();

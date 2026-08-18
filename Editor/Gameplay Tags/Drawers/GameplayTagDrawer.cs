@@ -92,20 +92,26 @@ namespace VaporEditor.GameplayTags
             {
                 Align = Align.Stretch
             };
-            var labelContainer = new StyledElement(StyleHelper.GetInspectorLabelStyle() + " mr=2 pr=2")
+            // [HideLabel] takes the whole column, not just the words in it. The container is a third of
+            // the row wide whatever it holds, so hiding the text inside it — which is all the generic
+            // path can reach — left a third of the field as blank space with a help icon in it.
+            if (!field.Property.HasAttribute<HideLabelAttribute>())
             {
-                style =
+                var labelContainer = new StyledElement(StyleHelper.GetInspectorLabelStyle() + " mr=2 pr=2")
                 {
-                    alignItems = Align.Center,
-                    flexDirection = FlexDirection.Row,
-                    justifyContent = Justify.FlexStart
-                }
-            };
-            var label = new Text(field.Property.DisplayName, "mr=6 fg=1 ov=hidden tt=ellipsis ta=middleleft");
-            var helpUrl = new HelpUrlView(field.Property.TryGetAttribute<RichTextTooltipAttribute>(out var tooltipAtr) ? tooltipAtr.Tooltip : null);
-            labelContainer.AddChild(label);
-            labelContainer.AddChild(helpUrl);
-            group.Add(labelContainer);
+                    style =
+                    {
+                        alignItems = Align.Center,
+                        flexDirection = FlexDirection.Row,
+                        justifyContent = Justify.FlexStart
+                    }
+                };
+                var label = new Text(field.Property.DisplayName, "mr=6 fg=1 ov=hidden tt=ellipsis ta=middleleft");
+                var helpUrl = new HelpUrlView(field.Property.TryGetAttribute<RichTextTooltipAttribute>(out var tooltipAtr) ? tooltipAtr.Tooltip : null);
+                labelContainer.AddChild(label);
+                labelContainer.AddChild(helpUrl);
+                group.Add(labelContainer);
+            }
             _tagContainer = new VisualElement
             {
                 style =

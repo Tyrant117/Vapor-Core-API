@@ -350,7 +350,12 @@ namespace VaporEditor.Inspector
                     {
                         return null;
                     }
-                    return Property.IsArray ? new PaginatedList(Owner, Property, niceName) : (VisualElement)null;
+                    if (Property.IsArray)
+                    {
+                        return new PaginatedList(Owner, Property, niceName);
+                    }
+
+                    return Property.IsDictionary ? new PaginatedDictionary(Owner, Property, niceName) : (VisualElement)null;
                 case SerializedPropertyType.Integer:
                     switch (numericType)
                     {
@@ -1411,12 +1416,10 @@ namespace VaporEditor.Inspector
         {
             if (Property.TryGetAttribute<LabelAttribute>(out var labelAtr))
             {
-                var type = Property.ParentType;
                 var label = _internalLabel;
                 if (labelAtr.HasLabelResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<string>(Property, ReflectionUtility.GetMember(type, labelAtr.LabelResolver), s => label.text = s);
-                    AddResolver(resolverContainerProp);
+                    ResolverBinding.Bind<string>(this, Property, labelAtr.LabelResolver, s => label.text = s);
                 }
                 else
                 {
@@ -1425,8 +1428,7 @@ namespace VaporEditor.Inspector
 
                 if (labelAtr.HasLabelColorResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, labelAtr.LabelColorResolver), c => label.style.color = c);
-                    AddResolver(resolverContainerProp);
+                    ResolverBinding.Bind<Color>(this, Property, labelAtr.LabelColorResolver, c => label.style.color = c);
                 }
                 else
                 {
@@ -1445,8 +1447,7 @@ namespace VaporEditor.Inspector
 
                     if (labelAtr.HasIconColorResolver)
                     {
-                        var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, labelAtr.IconColorResolver), c => image.tintColor = c);
-                        AddResolver(resolverContainerProp);
+                        ResolverBinding.Bind<Color>(this, Property, labelAtr.IconColorResolver, c => image.tintColor = c);
                     }
                     else
                     {
@@ -1459,12 +1460,14 @@ namespace VaporEditor.Inspector
 
             if (Property.TryGetAttribute<InheritedLabel>(out var inheritedLabelAtr))
             {
-                var type = Property.ParentType;
+                // Bound against the parent property, so the resolver is looked for on the type that
+                // declares it — the same place the DisplayName fallback below comes from. The old code
+                // paired that parent target with this property's own parent type, which is one level
+                // deeper and could only ever have matched when the two happened to coincide.
                 var label = _internalLabel;
                 if (inheritedLabelAtr.HasLabelResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<string>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.LabelResolver), s => label.text = s);
-                    AddResolver(resolverContainerProp);
+                    ResolverBinding.Bind<string>(this, Property.ParentProperty, inheritedLabelAtr.LabelResolver, s => label.text = s);
                 }
                 else
                 {
@@ -1473,8 +1476,7 @@ namespace VaporEditor.Inspector
 
                 if (inheritedLabelAtr.HasLabelColorResolver)
                 {
-                    var resolverContainerProp = new SerializedResolverContainerType<Color>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.LabelColorResolver), c => label.style.color = c);
-                    AddResolver(resolverContainerProp);
+                    ResolverBinding.Bind<Color>(this, Property.ParentProperty, inheritedLabelAtr.LabelColorResolver, c => label.style.color = c);
                 }
                 else
                 {
@@ -1493,8 +1495,7 @@ namespace VaporEditor.Inspector
 
                     if (inheritedLabelAtr.HasIconColorResolver)
                     {
-                        var resolverContainerProp = new SerializedResolverContainerType<Color>(Property.ParentProperty, ReflectionUtility.GetMember(type, inheritedLabelAtr.IconColorResolver), c => image.tintColor = c);
-                        AddResolver(resolverContainerProp);
+                        ResolverBinding.Bind<Color>(this, Property.ParentProperty, inheritedLabelAtr.IconColorResolver, c => image.tintColor = c);
                     }
                     else
                     {
@@ -1744,8 +1745,7 @@ namespace VaporEditor.Inspector
                             };
                             if (atr.HasResolver)
                             {
-                                var resolverContainerProp = new SerializedResolverContainerType<Color>(Property, ReflectionUtility.GetMember(type, atr.TintResolver), c => image.tintColor = c);
-                                AddResolver(resolverContainerProp);
+                                ResolverBinding.Bind<Color>(this, Property, atr.TintResolver, c => image.tintColor = c);
                             }
 
                             inlineButton.Add(image);
@@ -2116,13 +2116,6 @@ namespace VaporEditor.Inspector
             return path;
         }
 
-        #endregion
-
-        #region - Resolvers -
-        private void AddResolver(SerializedResolverContainer resolver)
-        {
-            InspectorResolverTicker.Register(this, resolver);
-        }
         #endregion
 
         #region - Helper -

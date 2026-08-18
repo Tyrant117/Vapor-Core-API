@@ -23,6 +23,13 @@ namespace Vapor.Serialization
 
         public Type MemberType { get; }
 
+        /// <summary>
+        /// The C# field or property this member reads, which is not always what it is written under —
+        /// a <c>[VslName]</c> renames one and a backing field is normalised away. Lets a caller holding
+        /// reflection metadata find the schema member that corresponds to it.
+        /// </summary>
+        public string MemberName => _field != null ? _field.Name : _property.Name;
+
         /// <summary>The profiles this member belongs to; <see cref="VslProfiles.All"/> unless restricted with <see cref="VslProfileAttribute"/>.</summary>
         public VslProfiles Profiles { get; }
 
@@ -123,6 +130,29 @@ namespace Vapor.Serialization
             }
 
             return _byName.TryGetValue(VslNames.Normalize(name).ToString(), out member) ? member : null;
+        }
+
+        /// <summary>
+        /// Finds a member by the C# name of the field or property behind it, for a caller that has
+        /// reflection metadata rather than a document name. Falls back to the document name, so a
+        /// member neither renamed nor backed by a differently-named field is found either way.
+        /// </summary>
+        public VslMember FindByMemberName(string memberName)
+        {
+            if (string.IsNullOrEmpty(memberName))
+            {
+                return null;
+            }
+
+            foreach (var member in Members)
+            {
+                if (string.Equals(member.MemberName, memberName, StringComparison.Ordinal))
+                {
+                    return member;
+                }
+            }
+
+            return Find(memberName.AsSpan());
         }
 
         /// <summary>True when this type is small and flat enough to write on one line.</summary>

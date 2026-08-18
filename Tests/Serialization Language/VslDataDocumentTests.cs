@@ -93,7 +93,7 @@ namespace Vapor.Tests.Serialization
             var original = new GameplayTagData("Ability.Fire.Burn")
                 .WithEditorTooltip("Burns the target.")
                 .WithLocalization(("UI Text", "ability.fire.burn"), ("UI Text", "ability.fire.burn.desc"))
-                .WithIcon(new GameplayTag("Addressable.Icons.Burn"));
+                .WithAddressableIcon("Icons/Ability/Burn");
 
             var copy = Vsl.Deserialize<GameplayTagData>(Vsl.Serialize(original));
 
@@ -109,17 +109,18 @@ namespace Vapor.Tests.Serialization
         }
 
         [Test]
-        public void IconKeySurvivesEvenWhenTheTagIsNotRegistered()
+        public void AnIconRoundTripsAsItsLocatorAndNothingElse()
         {
             var original = new GameplayTagData("Ability.Fire.Burn")
-                .WithIcon(new GameplayTag("Addressable.Icons.Burn"));
+                .WithAddressableIcon("Icons/Ability/Burn");
 
             var copy = Vsl.Deserialize<GameplayTagData>(Vsl.Serialize(original));
 
-            // The formatter falls back to the raw key for a name the tag tree cannot resolve, so an
-            // icon still round trips in a project where the addressables have not been registered.
-            Assert.AreEqual(original.IconAddressableKey.Key, copy.IconAddressableKey.Key);
-            Assert.AreEqual("Addressable.Icons.Burn".Hash32(), copy.IconAddressableKey.Key);
+            // What is stored is the locator, not the sprite: the document round trips in a project
+            // where that address resolves to nothing, and reading it loads no artwork either way.
+            Assert.AreEqual(VslAssetSource.Addressable, copy.IconRef.Source);
+            Assert.AreEqual("Icons/Ability/Burn", copy.IconRef.Key);
+            Assert.AreEqual(original.IconRef, copy.IconRef);
         }
 
         [Test]

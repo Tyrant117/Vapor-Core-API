@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using Vapor;
@@ -49,6 +50,7 @@ namespace VaporEditor.DataRegistry
         /// Identity by reference, since <see cref="ReferenceEqualityComparer"/> is not available on
         /// this runtime.
         /// </summary>
+        [NoAutoStaticsCleanup]
         private sealed class EntryIdentity : IEqualityComparer<IData>
         {
             public static readonly EntryIdentity Instance = new EntryIdentity();

@@ -10,6 +10,12 @@ namespace VaporEditor.Inspector
         public VisualElement GroupContent { get; private set; }
         public bool HasTabs { get; private set; }
 
+        /// <summary>
+        /// Layout, not a member: a filter hides it whole so its heading goes with it, but a search
+        /// narrows to the members inside rather than matching the box around them.
+        /// </summary>
+        public override InspectorFilterRole FilterRole => InspectorFilterRole.Group;
+
         public InspectorTreeGroupElement(InspectorTreeElement parent, VaporGroupAttribute groupAttribute)
         {
             Root = parent.Root;
@@ -37,12 +43,12 @@ namespace VaporEditor.Inspector
             // The content is its only child, so this looks identical and keeps the resolver off the view.
             if (!Group.ShowIfResolver.EmptyOrNull())
             {
-                AddResolver(BoolResolver(Group.ShowIfResolver, b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None));
+                BindGroupResolver<bool>(Group.ShowIfResolver, b => style.display = b ? DisplayStyle.Flex : DisplayStyle.None);
             }
 
             if (!Group.HideIfResolver.EmptyOrNull())
             {
-                AddResolver(BoolResolver(Group.HideIfResolver, b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex));
+                BindGroupResolver<bool>(Group.HideIfResolver, b => style.display = b ? DisplayStyle.None : DisplayStyle.Flex);
             }
 
             if(Group is HorizontalGroupAttribute horizontalGroupAttribute && GroupContent is StyledHorizontalGroup horizontalGroup)
@@ -51,23 +57,7 @@ namespace VaporEditor.Inspector
                 {
                     if (!horizontalGroupAttribute.SingleLabelResolver.EmptyOrNull())
                     {
-                        if (HasProperty)
-                        {
-                            var property = Property;
-                            var type = property.PropertyType;
-
-                            var resolverContainerProp = new SerializedResolverContainerType<string>(property, 
-                                ReflectionUtility.GetMember(type, horizontalGroupAttribute.SingleLabelResolver),
-                                s => horizontalGroup.Label.text = s);
-                            AddResolver(resolverContainerProp);
-                        }
-                        else
-                        {
-                            var resolverContainerProp = new SerializedResolverContainerObject<string>(InspectorObject.Object, 
-                                ReflectionUtility.GetMember(InspectorObject.Type, horizontalGroupAttribute.SingleLabelResolver),
-                                s => horizontalGroup.Label.text = s);
-                            AddResolver(resolverContainerProp);
-                        }
+                        BindGroupResolver<string>(horizontalGroupAttribute.SingleLabelResolver, s => horizontalGroup.Label.text = s);
                     }
                 }
             }
@@ -75,14 +65,25 @@ namespace VaporEditor.Inspector
         }
 
         /// <summary>
-        /// Group resolvers read off the owning property when there is one, and off the inspected object
-        /// itself at the root.
+        /// Group resolvers read off the object that owns the grouped property, and off the inspected
+        /// object itself at the root.
         /// </summary>
-        private SerializedResolverContainer BoolResolver(string resolverName, Action<bool> onChanged)
+        /// <remarks>
+        /// The property branch used to look the member up on the property's own type while reading it
+        /// from the property's parent — two different objects — so it only ever resolved by coincidence.
+        /// The root branch, which was already consistent, is what this now mirrors: a group conditional
+        /// lives next to the field it groups, exactly like <c>ShowIf</c> on a single row.
+        /// </remarks>
+        private void BindGroupResolver<T>(string resolverName, Action<T> onChanged)
         {
-            return HasProperty
-                ? new SerializedResolverContainerType<bool>(Property, ReflectionUtility.GetMember(Property.PropertyType, resolverName), onChanged)
-                : new SerializedResolverContainerObject<bool>(InspectorObject.Object, ReflectionUtility.GetMember(InspectorObject.Type, resolverName), onChanged);
+            if (HasProperty)
+            {
+                ResolverBinding.Bind(this, Property, resolverName, onChanged);
+            }
+            else
+            {
+                ResolverBinding.Bind(this, InspectorObject.Object, InspectorObject.Type, resolverName, onChanged);
+            }
         }
 
         public override void AttachChildElements()

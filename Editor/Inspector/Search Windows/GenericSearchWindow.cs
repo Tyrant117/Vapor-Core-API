@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -13,6 +14,7 @@ using Vapor.Inspector;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public class GenericSearchWindow : EditorWindow
     {
         public class Descriptor

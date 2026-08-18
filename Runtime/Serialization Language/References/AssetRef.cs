@@ -1,4 +1,5 @@
 using System;
+using Unity.Burst;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -89,16 +90,66 @@ namespace Vapor
             }
         }
 
+        public async Awaitable<T> LoadAsync()
+        {
+            if (!IsSet)
+            {
+                return null;
+            }
+
+            switch (_source)
+            {
+                case VslAssetSource.Addressable:
+                {
+                    var addressableHandle = Addressables.LoadAssetAsync<T>(_key);
+                    await addressableHandle.Task;
+                    return addressableHandle.Result;
+                }
+
+                case VslAssetSource.Resource:
+                {
+                    var request = Resources.LoadAsync<T>(_key);
+                    await request;
+                    return request.asset as T;
+                }
+
+                default:
+                    return null;
+            }
+        }
+
+        public AsyncOperationHandle<T> LoadAsyncHandle()
+        {
+            if (!IsSet)
+            {
+                return default;
+            }
+            
+            switch (_source)
+            {
+                case VslAssetSource.Addressable:
+                {
+                    return Addressables.LoadAssetAsync<T>(_key);
+                }
+
+                case VslAssetSource.Resource:
+                case VslAssetSource.None:
+                default:
+                    throw new InvalidOperationException("Cannot load an asset asynchronously from a Resource.");
+            }
+        }
+
         /// <summary>Releases one addressable load of this asset. No-op for Resources.</summary>
         public void Release(T asset)
         {
-            if (_source == VslAssetSource.Addressable && asset != null)
+            if (_source == VslAssetSource.Addressable && asset)
             {
                 Addressables.Release(asset);
             }
         }
 
         public bool Equals(AssetRef<T> other) => _source == other._source && string.Equals(_key, other._key, StringComparison.Ordinal);
+        [BurstDiscard]
         public override bool Equals(object obj) => obj is AssetRef<T> other && Equals(other);
         public override int GetHashCode() => unchecked(((int)_source * 397) ^ (_key?.GetHashCode() ?? 0));
         public override string ToString() => IsSet ? $"AssetRef<{typeof(T).Name}>[{Locator}]" : $"AssetRef<{typeof(T).Name}>[none]";

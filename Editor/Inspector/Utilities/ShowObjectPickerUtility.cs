@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace VaporEditor.Inspector
 {
-    public static class ShowObjectPickerUtility
+    [AutoStaticsCleanup]
+    public static partial class ShowObjectPickerUtility
     {
 	    public enum ObjectPickerSources
 	    {

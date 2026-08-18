@@ -1,12 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEditor.UIElements;
-using UnityEngine;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class EditorReflection
     {
         private static PropertyInfo _propertyHandlerCacheProperty;

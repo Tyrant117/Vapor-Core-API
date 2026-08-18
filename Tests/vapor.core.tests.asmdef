@@ -3,6 +3,7 @@
     "rootNamespace": "Vapor.Tests",
     "references": [
         "vapor.core.runtime",
+        "vapor.core.editor",
         "vapor.core.runtime.unsafe",
         "vapor.core.networking",
         "vapor.core.networking.utp",

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Vapor.GameplayTags;
 using Vapor.Serialization;
 
 namespace Vapor.Tests.Serialization
@@ -154,6 +155,7 @@ namespace Vapor.Tests.Serialization
         public Dictionary<string, int> StringKeyed;
         public Dictionary<Element, float> EnumKeyed;
         public Dictionary<Vector2Int, string> StructKeyed;
+        public Dictionary<GameplayTag, double> TagKeyed;
         public KeyValuePair<string, int> Pair;
         public (int, string) Tuple;
         public int? NullableSet;
@@ -171,6 +173,7 @@ namespace Vapor.Tests.Serialization
             StringKeyed = new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 },
             EnumKeyed = new Dictionary<Element, float> { [Element.Fire] = 1.5f },
             StructKeyed = new Dictionary<Vector2Int, string> { [new Vector2Int(1, 2)] = "here" },
+            TagKeyed = new Dictionary<GameplayTag, double> { [new GameplayTag("Attribute.Item.Durability")] = 100d },
             Pair = new KeyValuePair<string, int>("k", 9),
             Tuple = (42, "answer"),
             NullableSet = 5,

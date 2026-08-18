@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using Unity.Scripting.LifecycleManagement;
 using Vapor.GameplayTags;
 
@@ -14,7 +16,7 @@ namespace Vapor.Serialization
     /// still survives the round trip.
     /// </remarks>
     [NoAutoStaticsCleanup]
-    public sealed class GameplayTagFormatter : VslFormatter<GameplayTag>
+    public sealed class GameplayTagFormatter : VslFormatter<GameplayTag>, IVslNameKeyFormatter<GameplayTag>
     {
         private const string NoneName = "None";
 
@@ -57,6 +59,52 @@ namespace Vapor.Serialization
             return VslNames.Matches(name, NoneName)
                 ? GameplayTag.None()
                 : new GameplayTag(name.ToString());
+        }
+
+        /// <summary>
+        /// The same name <see cref="Write"/> produces, for a dictionary keyed on tags — so an item's
+        /// attributes read as <c>{ Attribute.Item.Durability: 100 }</c> rather than as pairs.
+        /// </summary>
+        /// <remarks>
+        /// Not <see cref="GameplayTag.ToString"/>: that answers <c>None</c> for a key the tree does not
+        /// know, which would collapse every unregistered tag in the dictionary onto one member and lose
+        /// all but the last. An unknown key is written as its number instead, which
+        /// <see cref="TryParseName"/> reads straight back.
+        /// </remarks>
+        public string ToName(in GameplayTag value)
+        {
+            if (value.IsNone())
+            {
+                return NoneName;
+            }
+
+            return GameplayTagTree.TagMap.TryGetValue(value.Key, out var node) && !string.IsNullOrEmpty(node?.Name)
+                ? node.Name
+                : value.Key.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>
+        /// A bare number is a raw key, which is what <see cref="ToName"/> falls back to; anything else is
+        /// a name and is re-hashed. The two can never be confused, because a tag name cannot be all
+        /// digits — it has to start with a letter to be written bare in the first place.
+        /// </remarks>
+        public bool TryParseName(ReadOnlySpan<char> text, out GameplayTag value)
+        {
+            if (text.IsEmpty)
+            {
+                value = GameplayTag.None();
+                return false;
+            }
+
+            if (uint.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var key))
+            {
+                value = new GameplayTag(key);
+                return true;
+            }
+
+            value = VslNames.Matches(text, NoneName) ? GameplayTag.None() : new GameplayTag(text.ToString());
+            return true;
         }
     }
 

@@ -1,11 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine.UIElements;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class BaseBoolFieldReflection
     {
         private static FieldInfo _clickableField;

@@ -1,10 +1,8 @@
 using System;
-using System.Diagnostics;
 using UnityEngine;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
     public class ValidateInputAttribute : PropertyAttribute
     {

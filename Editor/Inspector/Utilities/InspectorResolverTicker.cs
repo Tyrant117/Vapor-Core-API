@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine.UIElements;
 
@@ -9,7 +10,8 @@ namespace VaporEditor.Inspector
     /// Each element used to run its own endless coroutine, so an inspector with fifty conditional fields
     /// spent every frame starting fifty of them.
     /// </summary>
-    internal static class InspectorResolverTicker
+    [AutoStaticsCleanup]
+    internal static partial class InspectorResolverTicker
     {
         private class Entry
         {

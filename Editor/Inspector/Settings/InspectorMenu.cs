@@ -1,36 +1,31 @@
-using System.Linq;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEditor.Build;
 using UnityEngine;
 
 namespace VaporEditor.Inspector
 {
     public static partial class InspectorMenu
     {
-        private const string EnableVaporInspectors = "_enableVaporInspectors";
         private const string InspectorSessionStateInitialized = "_inspectorSessionStateInitialized";
 
-        public static bool VaporInspectorsEnabled
-        {
-            get => EditorPrefs.GetBool(PlayerSettings.productName + EnableVaporInspectors, false);
-            set => EditorPrefs.SetBool(PlayerSettings.productName + EnableVaporInspectors, value);
-        }
-
-        private const string SymbolName = "VAPOR_INSPECTOR";
-
         /// <remarks>
+        /// <para>
         /// Deferred a tick: <see cref="OnCodeInitializingAttribute"/> runs earlier than the
-        /// <c>[InitializeOnLoadMethod]</c> it replaces, before the menu is registered and before the
-        /// asset database is ready for the refresh that define changes end in.
+        /// <c>[InitializeOnLoadMethod]</c> it replaces, before the asset database is ready for the
+        /// refresh this ends in.
+        /// </para>
+        /// <para>
+        /// This used to also maintain a <c>Vapor/Installation/Inspectors Enabled</c> toggle over a
+        /// separate <c>VAPOR_INSPECTOR</c> define. The inspector is part of the ecosystem rather than an
+        /// option within it, so it now lives and dies with <c>VAPOR</c> and there is nothing left to
+        /// toggle.
+        /// </para>
         /// </remarks>
         [OnCodeInitializing]
-        private static void InitToggle()
+        private static void InitializeSession()
         {
             if (SessionState.GetBool(InspectorSessionStateInitialized, false))
             {
-                EditorApplication.delayCall += () =>
-                    Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
                 return;
             }
 
@@ -45,50 +40,8 @@ namespace VaporEditor.Inspector
 
         private static void InitializeOncePerSession()
         {
-            // Toggle the checkmark
-            PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), out var defines);
-            if (defines.Contains(SymbolName))
-            {
-                VaporInspectorsEnabled = true;
-            }
-
-            if (!defines.Contains(SymbolName))
-            {
-                VaporInspectorsEnabled = false;
-            }
-                
-            Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
             DataRegistryMenu.SetupDataKeys();
             AssetDatabase.Refresh();
-        }
-
-        [MenuItem("Vapor/Installation/Inspectors Enabled")]
-        private static void ToggleSymbol()
-        {
-            PlayerSettings.GetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), out var defines);
-            if (defines.Contains(SymbolName))
-            {
-                ArrayUtility.Remove(ref defines, SymbolName);
-                PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), defines);
-                VaporInspectorsEnabled = false;
-            }
-            else
-            {
-                ArrayUtility.Add(ref defines, SymbolName);
-                PlayerSettings.SetScriptingDefineSymbols(NamedBuildTarget.FromBuildTargetGroup(EditorUserBuildSettings.selectedBuildTargetGroup), defines);
-                VaporInspectorsEnabled = true;
-            }
-
-            // Toggle the checkmark
-            Menu.SetChecked("Vapor/Installation/Inspectors Enabled", VaporInspectorsEnabled);
-            AssetDatabase.Refresh();
-        }
-
-        [MenuItem("Vapor/Installation/Inspectors Enabled", true)]
-        private static bool ToggleSymbolValidate()
-        {
-            // Always return true since the menu item is always valid
-            return true;
         }
 
         // [MenuItem("Vapor/Inspector/Create Inspectors From Selection", false, 1)]
@@ -144,7 +97,7 @@ namespace VaporEditor.Inspector
         //
         //         sb.Append($"namespace {FolderSetupUtility.EDITOR_NAMESPACE}\n");
         //         sb.Append("{\n");
-        //         sb.Append("#if VAPOR_INSPECTOR\n");
+        //         sb.Append("#if VAPOR\n");
         //         sb.Append("\t[CanEditMultipleObjects]\n" +
         //                   $"\t[CustomEditor(typeof({className}), true)]\n");
         //         sb.Append($"\tpublic class {className}Editor : {nameof(InspectorBaseEditor)}\n");
@@ -168,7 +121,7 @@ namespace VaporEditor.Inspector
         //
         //         sb.Append($"namespace {FolderSetupUtility.EDITOR_NAMESPACE}\n");
         //         sb.Append("{\n");
-        //         sb.Append("#if VAPOR_INSPECTOR\n");
+        //         sb.Append("#if VAPOR\n");
         //         sb.Append($"\t[CustomPropertyDrawer(typeof({className}), true)]\n");
         //         sb.Append($"\tpublic class {className}Drawer : PropertyDrawer\n");
         //         sb.Append("\t{\n");

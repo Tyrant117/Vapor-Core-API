@@ -1,9 +1,7 @@
 using System;
-using System.Diagnostics;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false)]
     public class ArrayEntryNameAttribute : Attribute
     {

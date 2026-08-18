@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor.Compilation;
 using UnityEngine;
 using Assembly = System.Reflection.Assembly;
 
 namespace VaporEditor.Inspector
 {
-    public class TypeSearchProvider : ISearchProvider<TypeSearchModel>
+    [AutoStaticsCleanup]
+    public partial class TypeSearchProvider : ISearchProvider<TypeSearchModel>
     {
         private static List<TypeSearchModel> s_CachedDescriptors;
         

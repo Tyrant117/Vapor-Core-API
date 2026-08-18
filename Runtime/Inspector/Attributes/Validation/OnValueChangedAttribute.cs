@@ -1,11 +1,9 @@
 using System;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using UnityEngine;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = true, AllowMultiple = true)]
     public class OnValueChangedAttribute : PropertyAttribute
     {

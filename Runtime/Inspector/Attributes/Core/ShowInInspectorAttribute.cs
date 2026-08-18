@@ -1,10 +1,8 @@
 using System;
-using System.Diagnostics;
 using UnityEngine;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
     public class ShowInInspectorAttribute : PropertyAttribute
     {

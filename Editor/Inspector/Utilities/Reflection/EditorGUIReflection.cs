@@ -1,12 +1,11 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class EditorGUIReflection
     {
         private static MethodInfo _hasVisibleChildFieldsMethod;

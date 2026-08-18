@@ -1,13 +1,12 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class ScriptAttributeUtilityReflection
     {
         private static Type _type;

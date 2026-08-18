@@ -1,12 +1,11 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor.UIElements;
-using UnityEngine;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static class ObjectFieldReflection
     {
         private static MethodInfo _SetObjectTypeWithoutDisplayUpdateMethod;

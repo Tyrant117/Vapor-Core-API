@@ -17,8 +17,8 @@ namespace Vapor.Inspector
             IncludeAllObsolete
         }
 
-        private static PropertyInfo _inspectorSortProperty;
-        private static PropertyInfo _sortDirectionProperty;
+        private static PropertyInfo s_InspectorSortProperty;
+        private static PropertyInfo s_SortDirectionProperty;
 
         private static readonly Dictionary<(CachedType, Type), EnumData> s_EnumData = new Dictionary<(CachedType, Type), EnumData>();
 
@@ -33,8 +33,8 @@ namespace Vapor.Inspector
             enumData.underlyingType = Enum.GetUnderlyingType(enumType);
             value = enumData;
             value.unsigned = value.underlyingType == typeof(byte) || value.underlyingType == typeof(ushort) || value.underlyingType == typeof(uint) || value.underlyingType == typeof(ulong);
-            FieldInfo[] fields = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
-            List<FieldInfo> list = new List<FieldInfo>();
+            var fields = enumType.GetFields(BindingFlags.Public | BindingFlags.Static);
+            var list = new List<FieldInfo>();
             int num = fields.Length;
             for (int i = 0; i < num; i++)
             {
@@ -46,8 +46,8 @@ namespace Vapor.Inspector
 
             if (!list.Any())
             {
-                string[] array = new string[1] { "" };
-                Enum[] values = new Enum[0];
+                string[] array = { "" };
+                var values = Array.Empty<Enum>();
                 int[] flagValues = new int[1];
                 value.values = values;
                 value.flagValues = flagValues;
@@ -61,25 +61,26 @@ namespace Vapor.Inspector
 
             try
             {
-                string location = list.First().Module.Assembly.Location;
+                string location = list.First().Module.Assembly.GetLoadedAssemblyPath();
                 if (!string.IsNullOrEmpty(location))
                 {
-                    list = list.OrderBy((FieldInfo f) => f.MetadataToken).ToList();
+                    list = list.OrderBy(f => f.MetadataToken).ToList();
                 }
             }
             catch
             {
+                // ignored
             }
 
-            value.displayNames = list.Select((FieldInfo f) => EnumNameFromEnumField(f, nicifyName)).ToArray();
+            value.displayNames = list.Select(f => EnumNameFromEnumField(f, nicifyName)).ToArray();
             if (value.displayNames.Distinct().Count() != value.displayNames.Length)
             {
                 Debug.LogWarning("Enum " + enumType.Name + " has multiple entries with the same display name, this prevents selection in EnumPopup.");
             }
 
-            value.tooltip = list.Select((FieldInfo f) => EnumTooltipFromEnumField(f)).ToArray();
-            value.values = list.Select((FieldInfo f) => (Enum)f.GetValue(null)).ToArray();
-            value.flagValues = (value.unsigned ? value.values.Select((Enum v) => (int)Convert.ToUInt64(v)).ToArray() : value.values.Select((Enum v) => (int)Convert.ToInt64(v)).ToArray());
+            value.tooltip = list.Select(EnumTooltipFromEnumField).ToArray();
+            value.values = list.Select(f => (Enum)f.GetValue(null)).ToArray();
+            value.flagValues = (value.unsigned ? value.values.Select(v => (int)Convert.ToUInt64(v)).ToArray() : value.values.Select(v => (int)Convert.ToInt64(v)).ToArray());
             value.names = new string[value.values.Length];
             for (int j = 0; j < list.Count; j++)
             {
@@ -171,24 +172,26 @@ namespace Vapor.Inspector
                     array[i] = i;
                 }
 
-                _inspectorSortProperty ??= typeof(InspectorOrderAttribute).GetProperty("m_inspectorSort", BindingFlags.NonPublic | BindingFlags.Instance);
-                InspectorSort inspectorSort = (InspectorSort)_inspectorSortProperty.GetValue(inspectorOrderAttribute);
-                InspectorSort inspectorSort2 = inspectorSort;
-                if (inspectorSort2 == InspectorSort.ByValue)
+                s_InspectorSortProperty ??= typeof(InspectorOrderAttribute).GetProperty("m_inspectorSort", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (s_InspectorSortProperty != null)
                 {
-                    int[] array2 = new int[num];
-                    Array.Copy(enumData.flagValues, array2, num);
-                    Array.Sort(array2, array);
-                }
-                else
-                {
-                    string[] array3 = new string[num];
-                    Array.Copy(enumData.displayNames, array3, num);
-                    Array.Sort(array3, array, StringComparer.Ordinal);
+                    InspectorSort inspectorSort = (InspectorSort)s_InspectorSortProperty.GetValue(inspectorOrderAttribute);
+                    if (inspectorSort == InspectorSort.ByValue)
+                    {
+                        int[] array2 = new int[num];
+                        Array.Copy(enumData.flagValues, array2, num);
+                        Array.Sort(array2, array);
+                    }
+                    else
+                    {
+                        string[] array3 = new string[num];
+                        Array.Copy(enumData.displayNames, array3, num);
+                        Array.Sort(array3, array, StringComparer.Ordinal);
+                    }
                 }
 
-                _sortDirectionProperty ??= typeof(InspectorOrderAttribute).GetProperty("m_sortDirection", BindingFlags.NonPublic | BindingFlags.Instance);
-                if ((InspectorSortDirection)_sortDirectionProperty.GetValue(inspectorOrderAttribute) == InspectorSortDirection.Descending)
+                s_SortDirectionProperty ??= typeof(InspectorOrderAttribute).GetProperty("m_sortDirection", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (s_SortDirectionProperty != null && (InspectorSortDirection)s_SortDirectionProperty.GetValue(inspectorOrderAttribute) == InspectorSortDirection.Descending)
                 {
                     Array.Reverse(array);
                 }

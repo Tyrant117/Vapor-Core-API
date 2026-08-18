@@ -27,14 +27,80 @@ namespace VaporEditor.Inspector
     /// </remarks>
     internal class DataExtensionListView : VisualElement
     {
+        private const string CollapsedPrefix = "Vapor.DataExtension.Collapsed.";
+
+        /// <summary>The accent an extension box is drawn with, and the colour its chip takes.</summary>
+        internal static Color BoxAccent { get; } = new Color(0.4f, 0.6f, 0.85f, 0.8f);
+
         /// <summary>The list this view draws. Read by the comparison sheet, which splits it into fields.</summary>
         public InspectorTreeProperty Property => _property;
+
+        /// <summary>
+        /// One drawn extension, handed out so a filter bar can put a chip on it and hide it without
+        /// knowing how a box is put together.
+        /// </summary>
+        internal sealed class Box
+        {
+            public Type Type { get; internal set; }
+            public string Title { get; internal set; }
+
+            /// <summary>The whole box. Hidden when its chip is off or a search excludes it.</summary>
+            public VisualElement Root { get; internal set; }
+
+            /// <summary>The extension's own fields, below the header. What a member search filters.</summary>
+            public VisualElement Content { get; internal set; }
+
+            internal VisualElement Arrow { get; set; }
+            internal string CollapsedKey { get; set; }
+
+            public bool IsExpanded => Content.style.display != DisplayStyle.None;
+
+            /// <summary>
+            /// Folds the box. A search expands what it matched inside, which is not a choice the user
+            /// made, so it passes <paramref name="persist"/> false and the box goes back to how it was
+            /// left when the search clears.
+            /// </summary>
+            public void SetExpanded(bool expanded, bool persist)
+            {
+                Content.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+                FoldArrow.Set(Arrow, !expanded);
+
+                if (persist)
+                {
+                    SessionState.SetBool(CollapsedKey, !expanded);
+                }
+            }
+        }
 
         private readonly InspectorTreeProperty _property;
         private readonly InspectorTreeElement _owner;
         private readonly Type _elementType;
         private readonly DataExtensionFilterAttribute _filter;
+        private readonly List<Box> _boxes = new();
         private VisualElement _body;
+        private bool _ownsAddButton = true;
+
+        /// <summary>The boxes, in list order. Rebuilt whenever the set of extensions changes.</summary>
+        internal IReadOnlyList<Box> Boxes => _boxes;
+
+        /// <summary>Raised after the boxes are rebuilt, so what indexes them can follow along.</summary>
+        internal event Action Rebuilt;
+
+        /// <summary>
+        /// Gives up the <c>Add Extension</c> button, for a host that offers adding of its own. Left on
+        /// by default: this view is drawn wherever a data extension list appears, and most of those
+        /// places have nowhere else to put it.
+        /// </summary>
+        internal void SuppressAddButton()
+        {
+            if (!_ownsAddButton)
+            {
+                return;
+            }
+
+            _ownsAddButton = false;
+            Rebuild();
+        }
 
         /// <summary>
         /// True when this property is a list of data extensions, and hands back its element type.
@@ -72,6 +138,7 @@ namespace VaporEditor.Inspector
         private void Rebuild()
         {
             Clear();
+            _boxes.Clear();
 
             Add(new Label(_property.DisplayName)
             {
@@ -84,7 +151,7 @@ namespace VaporEditor.Inspector
             var list = Current();
             if (list == null || list.Count == 0)
             {
-                _body.Add(new Label("No extensions.")
+                _body.Add(new Label(_ownsAddButton ? "No extensions." : "No extensions. Use + above.")
                 {
                     style = { opacity = 0.6f, marginLeft = 4, marginBottom = 2 },
                 });
@@ -100,9 +167,14 @@ namespace VaporEditor.Inspector
                 }
             }
 
-            var add = new Button(ShowPicker) { text = "Add Extension" };
-            add.style.marginTop = 2;
-            Add(add);
+            if (_ownsAddButton)
+            {
+                var add = new Button(ShowAddPicker) { text = "Add Extension" };
+                add.style.marginTop = 2;
+                Add(add);
+            }
+
+            Rebuilt?.Invoke();
         }
 
         private VisualElement BuildBox(IDataExtension extension)
@@ -119,7 +191,7 @@ namespace VaporEditor.Inspector
                     paddingBottom = 3,
                     backgroundColor = new Color(1f, 1f, 1f, 0.03f),
                     borderLeftWidth = 2,
-                    borderLeftColor = new Color(0.4f, 0.6f, 0.85f, 0.8f),
+                    borderLeftColor = BoxAccent,
                 },
             };
 
@@ -128,10 +200,18 @@ namespace VaporEditor.Inspector
                 style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginBottom = 2 },
             };
 
+            // Keyed by the entry and the extension type rather than by position: an extension list is
+            // a set, so a type is where it is until it is removed, whatever order the others arrive in.
+            var collapsedKey = CollapsedPrefix + ((_property.GetParentObject() as IData)?.Key ?? 0u) + "." + type.Name;
+            var collapsed = SessionState.GetBool(collapsedKey, false);
+
+            var arrow = FoldArrow.Create(collapsed);
+            header.Add(arrow);
+
             header.Add(new Label(ObjectNames.NicifyVariableName(type.Name))
             {
                 tooltip = type.FullName,
-                style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1f },
+                style = { unityFontStyleAndWeight = FontStyle.Bold, flexGrow = 1f, unityTextAlign = TextAnchor.MiddleLeft },
             });
 
             header.Add(new Button(() => Remove(type))
@@ -145,7 +225,34 @@ namespace VaporEditor.Inspector
 
             // The extension is a plain C# object, so it draws through the same reflected inspector as
             // any nested member - which is what gives it its drawers and its change handling.
-            box.Add(new InspectorTreeRootElement(extension, type, _property.InspectorObject));
+            var content = new VisualElement();
+            content.Add(new InspectorTreeRootElement(extension, type, _property.InspectorObject));
+            content.style.display = collapsed ? DisplayStyle.None : DisplayStyle.Flex;
+            box.Add(content);
+
+            var record = new Box
+            {
+                Type = type,
+                Title = ObjectNames.NicifyVariableName(type.Name),
+                Root = box,
+                Content = content,
+                Arrow = arrow,
+                CollapsedKey = collapsedKey,
+            };
+            _boxes.Add(record);
+
+            // Click anywhere on the header that is not a button to fold the body.
+            header.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (evt.button != 0 || evt.target is Button || (evt.target as VisualElement)?.GetFirstAncestorOfType<Button>() != null)
+                {
+                    return;
+                }
+
+                record.SetExpanded(!record.IsExpanded, true);
+                evt.StopPropagation();
+            });
+
             return box;
         }
 
@@ -153,7 +260,11 @@ namespace VaporEditor.Inspector
 
         private IList Current() => _property.GetValueSafe(true) as IList;
 
-        private void ShowPicker()
+        /// <summary>
+        /// Offers the extension types this entry can still take. Public so a host that has taken over
+        /// the add button can still open it.
+        /// </summary>
+        internal void ShowAddPicker()
         {
             var taken = new HashSet<Type>();
             var list = Current();

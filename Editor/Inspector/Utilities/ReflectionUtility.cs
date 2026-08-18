@@ -10,6 +10,7 @@ using Vapor.Serialization;
 
 namespace VaporEditor.Inspector
 {
+    [NoAutoStaticsCleanup]
     public static partial class ReflectionUtility
     {
         public static readonly Func<FieldInfo, bool> FieldSearchPredicate = f => !f.IsDefined(typeof(HideInInspector))

@@ -1,9 +1,7 @@
 using System;
-using System.Diagnostics;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Method | AttributeTargets.Property , AllowMultiple = true, Inherited = true)]
     public class BoxGroupAttribute : VaporGroupAttribute
     {

@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
 
 namespace Vapor.Inspector
 {
-    [Conditional("VAPOR_INSPECTOR")]
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Struct)]
     public class DropdownTooltipAttribute : Attribute
     {

@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Vapor.Inspector;
 using Vapor.Unsafe;
-using Unity.Scripting.LifecycleManagement;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -197,6 +197,17 @@ namespace Vapor
             OnRegistriesBuilt?.Invoke();
         }
         
+        /// <summary>
+        /// Raised for each data object as it is registered.
+        /// </summary>
+        /// <remarks>
+        /// Where <see cref="OnRegistriesBuilt"/> says a whole build finished, this says one object
+        /// arrived. It exists so a per-type <see cref="DataRegistry{TData}"/> can pick up something
+        /// registered after its build — code-built data, a test fixture — instead of answering lookups
+        /// for it with a miss until the next full rebuild.
+        /// </remarks>
+        public static event Action<IData> OnDataRegistered;
+
         public static void Register(IData data)
         {
             if (data == null)
@@ -215,6 +226,7 @@ namespace Vapor
             }
 
             s_RegistryMap[data.Key] = data;
+            OnDataRegistered?.Invoke(data);
         }
 
         public static IData Get(uint id) => s_RegistryMap.GetValueOrDefault(id);
