@@ -21,14 +21,14 @@ namespace Vapor.GameplayTags
         Loot,
         GameplayTagData,
         Item,
+        Weather,
+        World,
         Rune,
-        Skill,
-        Focus,
+        Trait,
         Damage,
         Stance,
         Monster,
         Npc,
-        World,
         Structure,
         City,
         Mine,
@@ -43,9 +43,16 @@ namespace Vapor.GameplayTags
         Vapor,
         Spell,
         Resist,
+        Training,
+        Skill,
+        Focus,
         Enchantment,
         Progression,
+        Scatter,
         Biome,
+        WorldSettings,
+        Subsystems,
+        Actors,
         Camp,
     }
 
@@ -67,14 +74,14 @@ namespace Vapor.GameplayTags
         public const string LOOT = "Loot";
         public const string GAMEPLAY_TAG_DATA = "GameplayTagData";
         public const string ITEM = "Item";
+        public const string WEATHER = "Weather";
+        public const string WORLD = "World";
         public const string RUNE = "Rune";
-        public const string SKILL = "Skill";
-        public const string FOCUS = "Focus";
+        public const string TRAIT = "Trait";
         public const string DAMAGE = "Damage";
         public const string STANCE = "Stance";
         public const string MONSTER = "Monster";
         public const string NPC = "Npc";
-        public const string WORLD = "World";
         public const string STRUCTURE = "Structure";
         public const string CITY = "City";
         public const string MINE = "Mine";
@@ -89,9 +96,16 @@ namespace Vapor.GameplayTags
         public const string VAPOR = "Vapor";
         public const string SPELL = "Spell";
         public const string RESIST = "Resist";
+        public const string TRAINING = "Training";
+        public const string SKILL = "Skill";
+        public const string FOCUS = "Focus";
         public const string ENCHANTMENT = "Enchantment";
         public const string PROGRESSION = "Progression";
+        public const string SCATTER = "Scatter";
         public const string BIOME = "Biome";
+        public const string WORLD_SETTINGS = "WorldSettings";
+        public const string SUBSYSTEMS = "Subsystems";
+        public const string ACTORS = "Actors";
         public const string CAMP = "Camp";
 
         public static string GetNameForCategory(GameplayTagDefaultCategories category)
@@ -114,14 +128,14 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Loot => LOOT,
                 GameplayTagDefaultCategories.GameplayTagData => GAMEPLAY_TAG_DATA,
                 GameplayTagDefaultCategories.Item => ITEM,
+                GameplayTagDefaultCategories.Weather => WEATHER,
+                GameplayTagDefaultCategories.World => WORLD,
                 GameplayTagDefaultCategories.Rune => RUNE,
-                GameplayTagDefaultCategories.Skill => SKILL,
-                GameplayTagDefaultCategories.Focus => FOCUS,
+                GameplayTagDefaultCategories.Trait => TRAIT,
                 GameplayTagDefaultCategories.Damage => DAMAGE,
                 GameplayTagDefaultCategories.Stance => STANCE,
                 GameplayTagDefaultCategories.Monster => MONSTER,
                 GameplayTagDefaultCategories.Npc => NPC,
-                GameplayTagDefaultCategories.World => WORLD,
                 GameplayTagDefaultCategories.Structure => STRUCTURE,
                 GameplayTagDefaultCategories.City => CITY,
                 GameplayTagDefaultCategories.Mine => MINE,
@@ -136,9 +150,16 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Vapor => VAPOR,
                 GameplayTagDefaultCategories.Spell => SPELL,
                 GameplayTagDefaultCategories.Resist => RESIST,
+                GameplayTagDefaultCategories.Training => TRAINING,
+                GameplayTagDefaultCategories.Skill => SKILL,
+                GameplayTagDefaultCategories.Focus => FOCUS,
                 GameplayTagDefaultCategories.Enchantment => ENCHANTMENT,
                 GameplayTagDefaultCategories.Progression => PROGRESSION,
+                GameplayTagDefaultCategories.Scatter => SCATTER,
                 GameplayTagDefaultCategories.Biome => BIOME,
+                GameplayTagDefaultCategories.WorldSettings => WORLD_SETTINGS,
+                GameplayTagDefaultCategories.Subsystems => SUBSYSTEMS,
+                GameplayTagDefaultCategories.Actors => ACTORS,
                 GameplayTagDefaultCategories.Camp => CAMP,
                 _ => throw new ArgumentOutOfRangeException(nameof(category), category, null)
             };
