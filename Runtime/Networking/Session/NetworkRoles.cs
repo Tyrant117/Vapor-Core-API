@@ -6,7 +6,7 @@ namespace Vapor.Networking
     /// <summary>
     /// The roles this process is currently playing on the network, published by every running
     /// <see cref="NetworkSession"/>: a dedicated server counts one server, a client one client, and a
-    /// host — a server session and a client session in one process — both. Code that only needs to
+    /// host — one session that is both — counts as each. Code that only needs to
     /// know "am I on a server / a client / offline?" without a session in hand (log markup, gameplay
     /// events gated by role) reads it here instead of holding a reference to a manager singleton.
     /// </summary>
@@ -36,6 +36,7 @@ namespace Vapor.Networking
             {
                 case SessionRole.Server: s_Servers++; break;
                 case SessionRole.Client: s_Clients++; break;
+                case SessionRole.Host: s_Servers++; s_Clients++; break;
                 default: return;
             }
 
@@ -48,6 +49,10 @@ namespace Vapor.Networking
             {
                 case SessionRole.Server: s_Servers = Math.Max(0, s_Servers - 1); break;
                 case SessionRole.Client: s_Clients = Math.Max(0, s_Clients - 1); break;
+                case SessionRole.Host:
+                    s_Servers = Math.Max(0, s_Servers - 1);
+                    s_Clients = Math.Max(0, s_Clients - 1);
+                    break;
                 default: return;
             }
 

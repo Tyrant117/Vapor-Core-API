@@ -117,9 +117,16 @@ namespace Vapor.Networking
 
         public void Dispose() => Unbind();
 
+        /// <summary>
+        /// A host's local player is not a peer. It already holds the objects the server holds — there
+        /// is nothing to spawn for it, nothing to snapshot to it, and no interest to compute: it sees
+        /// the world the server sees.
+        /// </summary>
+        private bool IsLocalPlayer(ulong clientId) => _session.IsHost && clientId == _session.LocalPlayerClientId;
+
         private void OnClientConnected(ulong clientId)
         {
-            if (!IsServer || _peers.ContainsKey(clientId)) return;
+            if (!IsServer || IsLocalPlayer(clientId) || _peers.ContainsKey(clientId)) return;
             var peer = new Peer { ClientId = clientId };
             _peers.Add(clientId, peer);
             _peerList.Add(peer);
@@ -128,7 +135,17 @@ namespace Vapor.Networking
 
         private void OnClientDisconnected(ulong clientId, SessionDisconnectReason reason)
         {
-            if (!IsServer || !_peers.TryGetValue(clientId, out var peer)) return;
+            if (!IsServer) return;
+
+            // The local player has no peer to tear down, but it is still a player leaving — and that
+            // is the only moment anything gets to save it.
+            if (IsLocalPlayer(clientId))
+            {
+                _world.HandleClientLeaving(clientId);
+                return;
+            }
+
+            if (!_peers.TryGetValue(clientId, out var peer)) return;
             _world.HandleClientLeaving(clientId);
             _peers.Remove(clientId);
             _peerList.Remove(peer);
@@ -687,7 +704,8 @@ namespace Vapor.Networking
                     return excludeClient == NetworkSession.InvalidClientId;   // "me" is the server only when the server sent it
 
                 case RpcTarget.Owner:
-                    if (ownerIsServer) return true;
+                    // A host owning it as its player is as local as the server owning it.
+                    if (ownerIsServer || IsLocalPlayer(owner)) return true;
                     if (owner != excludeClient && _peers.TryGetValue(owner, out var ownerPeer) && ownerPeer.Known.Contains(id))
                     {
                         AppendRecord(ownerPeer.For(delivery), MessageType.Rpc, payload);
@@ -695,7 +713,9 @@ namespace Vapor.Networking
                     return false;
 
                 case RpcTarget.NotOwner:
-                    var runLocally = !ownerIsServer;
+                    // A host wears both hats, and only one of them can be the owner: whichever is not
+                    // is a recipient, so this always runs there.
+                    var runLocally = _session.IsHost || !ownerIsServer;
                     foreach (var peer in _peerList)
                     {
                         if (peer.ClientId == owner || peer.ClientId == excludeClient || !peer.Known.Contains(id)) continue;
@@ -709,7 +729,8 @@ namespace Vapor.Networking
                         if (peer.ClientId == excludeClient || !peer.Known.Contains(id)) continue;
                         AppendRecord(peer.For(delivery), MessageType.Rpc, payload);
                     }
-                    return false;
+                    // Not the server — but a host's player is a client, and it is in this process.
+                    return _session.IsHost;
 
                 case RpcTarget.Everyone:
                 case RpcTarget.NotMe:

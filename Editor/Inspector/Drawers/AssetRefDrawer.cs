@@ -27,6 +27,11 @@ namespace VaporEditor.Inspector
     /// (plain C# objects such as data documents) and <see cref="CreatePropertyGUI"/> for serialized
     /// Unity objects.
     /// </para>
+    /// <para>
+    /// Right-click the row for <c>Set Null</c>. It is the only way to empty a locator whose asset the
+    /// project no longer has: the object field shows nothing in that case, and clearing an already
+    /// empty field raises no change, so the stale key would otherwise be stuck there.
+    /// </para>
     /// </remarks>
     [CustomPropertyDrawer(typeof(AssetRef<>), true)]
     public sealed class AssetRefDrawer : VaporPropertyDrawer
@@ -34,6 +39,7 @@ namespace VaporEditor.Inspector
         // Field names on AssetRef<T>.
         private const string SourcePath = "_source";
         private const string KeyPath = "_key";
+
 
         #region Vapor tree
 
@@ -139,12 +145,25 @@ namespace VaporEditor.Inspector
             row.Add(locator);
             ShowLocator(locator, source, key, objectField.value == null);
 
+            // What is stored right now, which is not always what the object field shows: a locator
+            // whose asset has gone leaves the field empty while the key is still there.
+            var storedSource = source;
+            var storedKey = key;
+
+            void Clear()
+            {
+                storedSource = VslAssetSource.None;
+                storedKey = null;
+                objectField.SetValueWithoutNotify(null);
+                apply(VslAssetSource.None, null);
+                ShowLocator(locator, VslAssetSource.None, null, false);
+            }
+
             objectField.RegisterValueChangedCallback(evt =>
             {
                 if (evt.newValue == null)
                 {
-                    apply(VslAssetSource.None, null);
-                    ShowLocator(locator, VslAssetSource.None, null, false);
+                    Clear();
                     return;
                 }
 
@@ -158,9 +177,22 @@ namespace VaporEditor.Inspector
                     return;
                 }
 
+                storedSource = nextSource;
+                storedKey = nextKey;
                 apply(nextSource, nextKey);
                 ShowLocator(locator, nextSource, nextKey, false);
             });
+
+            // Emptying an object field that is already empty raises nothing, so a locator pointing at
+            // an asset this project no longer has could never be cleared through the field. This is
+            // the way out: it clears what is stored rather than what is shown.
+            row.AddManipulator(new ContextualMenuManipulator(evt =>
+            {
+                evt.menu.AppendAction("Set Null", _ => Clear(), _ =>
+                    storedSource != VslAssetSource.None || !string.IsNullOrEmpty(storedKey)
+                        ? DropdownMenuAction.Status.Normal
+                        : DropdownMenuAction.Status.Disabled);
+            }));
 
             return row;
         }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 using Vapor.Networking;
 
 namespace Vapor.Tests.Networking
@@ -45,6 +48,9 @@ namespace Vapor.Tests.Networking
             _clientConnectedCount = 0;
             _serverData.Clear();
             _clientData.Clear();
+
+            // Process-wide, and another fixture may have left it counting.
+            NetworkRoles.Reset();
 
             _clock = new ManualClock();
             _network = new LoopbackNetwork(_clock, seed: 3);
@@ -393,15 +399,65 @@ namespace Vapor.Tests.Networking
         }
 
         [Test]
-        public void HostModeIsAServerWithALocalPlayerId()
+        public void ADedicatedServerIsNotAHostHoweverManyClientsAttach()
         {
             Connect();
             Assert.IsFalse(_server.IsHost);
-            _server.LocalPlayerClientId = _client.LocalClientId;
+            Assert.IsTrue(_server.IsServer);
+            Assert.IsFalse(_server.IsClient, "a server with a client attached is still only a server");
+        }
+
+        [Test]
+        public void AHostIsOneSessionThatIsBothHalves()
+        {
+            Assert.IsTrue(_server.StartHost(TransportEndpoint.Loopback(1)));
+
             Assert.IsTrue(_server.IsHost);
-            _client.Disconnect();
-            for (int i = 0; i < 3; i++) Step();
-            Assert.IsFalse(_server.IsHost);
+            Assert.IsTrue(_server.IsServer, "it is the authority");
+            Assert.IsTrue(_server.IsClient, "and it carries a player");
+            Assert.AreEqual(1, NetworkRoles.Servers, "one session, counted as each");
+            Assert.AreEqual(1, NetworkRoles.Clients);
+
+            // The player has an id of its own, not the server's: that is what keeps an owner-only
+            // thing off everything the server owns.
+            Assert.AreNotEqual(NetworkSession.ServerClientId, _server.LocalPlayerClientId);
+            Assert.AreEqual(_server.LocalPlayerClientId, _server.LocalClientId, "ownership answers as the player");
+
+            // Not announced until the world behind it is up.
+            CollectionAssert.IsEmpty(_serverConnected);
+            CollectionAssert.DoesNotContain(_server.ConnectedClientIds, _server.LocalPlayerClientId);
+
+            _server.AdmitLocalPlayer();
+            CollectionAssert.AreEqual(new[] { _server.LocalPlayerClientId }, _serverConnected, "the local player joins through the same event a remote one does");
+            CollectionAssert.Contains(new List<ulong>(_server.ConnectedClientIds), _server.LocalPlayerClientId);
+            Assert.IsTrue(_server.IsClientConnected(_server.LocalPlayerClientId), "it is connected, with no connection to ask");
+
+            _server.AdmitLocalPlayer();
+            Assert.AreEqual(1, _serverConnected.Count, "admitting twice is not two joins");
+
+            _server.ReleaseLocalPlayer();
+            Assert.AreEqual(1, _serverDisconnected.Count, "and it leaves the same way, which is the only chance to save it");
+            Assert.AreEqual(_server.LocalPlayerClientId, _serverDisconnected[0].Item1);
+        }
+
+        [Test]
+        public void AHostItsOwnApprovalRefusesDoesNotStart()
+        {
+            _server.Approval = (_, _) => ConnectionApproval.Reject("not today");
+
+            LogAssert.Expect(LogType.Error, new Regex("refused by its own approval"));
+            Assert.IsFalse(_server.StartHost(TransportEndpoint.Loopback(1)));
+            Assert.IsFalse(_server.IsRunning, "nothing is left listening");
+        }
+
+        [Test]
+        public void AHostsApprovalSeesThePayloadItWasStartedWith()
+        {
+            byte[] seen = null;
+            _server.Approval = (_, payload) => { seen = payload.ToArray(); return ConnectionApproval.Approve(); };
+
+            Assert.IsTrue(_server.StartHost(TransportEndpoint.Loopback(1), new byte[] { 7, 9 }));
+            CollectionAssert.AreEqual(new byte[] { 7, 9 }, seen, "the host is judged on what StartHost was given, as a client is on what it sent");
         }
 
         #endregion

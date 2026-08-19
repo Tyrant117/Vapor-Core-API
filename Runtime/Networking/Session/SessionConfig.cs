@@ -2,7 +2,12 @@ using System;
 
 namespace Vapor.Networking
 {
-    public enum SessionRole : byte { None, Server, Client }
+    /// <summary>
+    /// What a session is. <see cref="Host"/> is a server that also carries the local player: one
+    /// session, one world, and both <see cref="NetworkSession.IsServer"/> and
+    /// <see cref="NetworkSession.IsClient"/> answer true for it.
+    /// </summary>
+    public enum SessionRole : byte { None, Server, Client, Host }
 
     /// <summary>Why a session-level connection ended. Superset of the transport's reasons.</summary>
     public enum SessionDisconnectReason : byte

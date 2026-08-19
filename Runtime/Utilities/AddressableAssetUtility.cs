@@ -81,7 +81,7 @@ namespace Vapor
             var results = new List<T>();
             handles = new List<AsyncOperationHandle<T>>();
             var locations = Addressables.LoadResourceLocationsAsync(namesOrLabels, Addressables.MergeMode.Union).WaitForCompletion() ?? new List<IResourceLocation>();
-            Debug.Log($"Loaded {locations.Count} assets");
+            // Debug.Log($"Loaded {locations.Count} assets");
             if (locations.Count == 0)
             {
                 handles = null;

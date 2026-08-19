@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Vapor.Networking
 {
@@ -116,29 +117,41 @@ namespace Vapor.Networking
         }
 
         public bool IsRunning => Role != SessionRole.None;
-        public bool IsServer => Role == SessionRole.Server;
-        public bool IsClient => Role == SessionRole.Client;
+
+        /// <summary>This session runs the authority: a dedicated server, or a host.</summary>
+        public bool IsServer => Role is SessionRole.Server or SessionRole.Host;
+
+        /// <summary>This session carries a local player: a client, or a host.</summary>
+        public bool IsClient => Role is SessionRole.Client or SessionRole.Host;
 
         /// <summary>Client: the handshake completed and the server assigned an id. Server: always true while running.</summary>
         public bool IsConnected => IsServer || _clientState == ClientState.Connected;
 
-        /// <summary>Server: <see cref="ServerClientId"/>. Client: the id the server assigned, once connected.</summary>
+        /// <summary>
+        /// Who this session is, for ownership. <see cref="ServerClientId"/> on a dedicated server, the
+        /// id the server assigned on a client, and the local player's own id on a host — a host's
+        /// objects are owned by its player, not by the server it also happens to be.
+        /// </summary>
         public ulong LocalClientId { get; private set; } = InvalidClientId;
 
         /// <summary>
-        /// Server only. The client id of the player sharing this process (host mode), if any. Set by
-        /// whoever wires the local client session up; the replicator treats that client like any other.
+        /// Server side. The client id of the player sharing this process; invalid on a dedicated
+        /// server. A host reserves one at <see cref="StartHost"/> and never gives it a connection: the
+        /// replicator has nothing to send to someone who already holds the objects.
         /// </summary>
-        public ulong LocalPlayerClientId { get; set; } = InvalidClientId;
+        public ulong LocalPlayerClientId { get; private set; } = InvalidClientId;
 
-        public bool IsHost => IsServer && LocalPlayerClientId != InvalidClientId;
+        public bool IsHost => Role == SessionRole.Host;
 
         /// <summary>Server: every approved client. Client: empty.</summary>
         public IReadOnlyList<ulong> ConnectedClientIds => _clientIds;
 
         public int ClientCount => _clientIds.Count;
 
-        public bool IsClientConnected(ulong clientId) => _clients.TryGetValue(clientId, out var c) && c.State == ConnectionState.Connected;
+        /// <summary>Whether a client is connected. A host's local player counts, and has no connection to ask.</summary>
+        public bool IsClientConnected(ulong clientId) =>
+            (IsHost && clientId == LocalPlayerClientId && _clientIds.Contains(clientId)) ||
+            (_clients.TryGetValue(clientId, out var c) && c.State == ConnectionState.Connected);
 
         public double TickRate => _config.TickRate;
         public double TickInterval => 1.0 / _config.TickRate;
@@ -219,6 +232,62 @@ namespace Vapor.Networking
             _tickAccumulator = 0;
             _tick = 0;
             return true;
+        }
+
+        /// <summary>
+        /// A server that is also its own client. One session, one world: the local player is given a
+        /// client id and holds the server's objects directly, so nothing is serialised to it and it
+        /// sees everything the server does.
+        /// </summary>
+        /// <remarks>
+        /// Approval runs here, against <paramref name="connectionPayload"/>, exactly as it would for a
+        /// remote join — a host that its own rules reject does not start. The player is not announced
+        /// yet: <see cref="AdmitLocalPlayer"/> does that once whoever started the session has wired up
+        /// its world and its listeners, so the join is heard the same way a remote one is.
+        /// </remarks>
+        public bool StartHost(TransportEndpoint bind, ReadOnlySpan<byte> connectionPayload = default)
+        {
+            if (IsRunning) return false;
+
+            ulong clientId = _nextClientId;
+            var approval = Approval?.Invoke(clientId, connectionPayload.ToArray()) ?? ConnectionApproval.Approve();
+            if (!approval.Approved)
+            {
+                Debug.LogError($"The host was refused by its own approval: {approval.Reason}");
+                return false;
+            }
+
+            if (!_transport.StartServer(bind)) return false;
+
+            _nextClientId++;
+            Role = SessionRole.Host;
+            LocalPlayerClientId = clientId;
+            LocalClientId = clientId;
+            _lastUpdateTime = _clock.Now;
+            _tickAccumulator = 0;
+            _tick = 0;
+            return true;
+        }
+
+        /// <summary>
+        /// Host: puts the local player among the connected clients and raises <see cref="ClientConnected"/>
+        /// for it, so a game mode spawns its controller through the one path it uses for everybody.
+        /// Call once, after the world and the listeners are up.
+        /// </summary>
+        public void AdmitLocalPlayer()
+        {
+            if (!IsHost || _clientIds.Contains(LocalPlayerClientId)) return;
+
+            _clientIds.Add(LocalPlayerClientId);
+            ClientConnected?.Invoke(LocalPlayerClientId);
+        }
+
+        /// <summary>Host: the mirror of <see cref="AdmitLocalPlayer"/>. The local player never disconnects on its own, and something has to be the last chance to save it.</summary>
+        public void ReleaseLocalPlayer()
+        {
+            if (!IsHost || !_clientIds.Remove(LocalPlayerClientId)) return;
+
+            ClientDisconnected?.Invoke(LocalPlayerClientId, SessionDisconnectReason.ServerShutdown);
         }
 
         public bool StartClient(TransportEndpoint remote, ReadOnlySpan<byte> connectionPayload = default)
