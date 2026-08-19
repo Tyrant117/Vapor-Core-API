@@ -76,11 +76,11 @@ namespace Vapor
             Addressables.LoadAssetAsync<T>(referenceLabel).Completed += callback;
         }
 
-        public static IList<T> LoadAll<T>(Action<T> callback, object[] namesOrLabels, out List<AsyncOperationHandle<T>> handles)
+        public static IList<T> LoadAll<T>(object[] namesOrLabels, out List<AsyncOperationHandle<T>> handles)
         {
-            List<T> results = new List<T>();
+            var results = new List<T>();
             handles = new List<AsyncOperationHandle<T>>();
-            var locations = Addressables.LoadResourceLocationsAsync(namesOrLabels, Addressables.MergeMode.Union).WaitForCompletion();
+            var locations = Addressables.LoadResourceLocationsAsync(namesOrLabels, Addressables.MergeMode.Union).WaitForCompletion() ?? new List<IResourceLocation>();
             Debug.Log($"Loaded {locations.Count} assets");
             if (locations.Count == 0)
             {
@@ -95,19 +95,12 @@ namespace Vapor
                 handles.Add(handle);
             }
             return results;
-            // handle = Addressables.LoadAssetsAsync(locations, callback, Addressables.MergeMode.Union, false);
-            // return handle.WaitForCompletion();
         }
 
         public static IList<T> LoadAll<T>(Action<T> callback, AssetLabelReference referenceLabel)
         {
             return Addressables.LoadAssetsAsync(referenceLabel, callback, false).WaitForCompletion();
         }
-
-        // public static IList<T> LoadAll<T>(Action<T> callback, IEnumerable enumerable)
-        // {
-        //     return Addressables.LoadAssetsAsync(enumerable, callback, Addressables.MergeMode.Union, false).WaitForCompletion();
-        // }
 
         public static void LoadAllAsync<T>(Action<T> processor, Action<AsyncOperationHandle<IList<T>>> callback, params string[] namesOrLabels)
         {

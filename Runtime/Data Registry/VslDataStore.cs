@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Vapor.Inspector;
 using Vapor.Keys;
 using Vapor.Serialization;
 
@@ -115,7 +116,7 @@ namespace Vapor
             // still being a perfectly good member of the family at runtime.
             var found = VaporTypeCache.GetTypesDerivedFrom<IData>()
                 .Where(t => !t.IsInterface && !t.IsAbstract && root.IsAssignableFrom(t) && GetDocumentOwner(t) == root
-                            && !t.IsDefined(typeof(Vapor.Inspector.IgnoreDropdownAttribute), false))
+                            && !t.IsDefined(typeof(IgnoreDropdownAttribute), false))
                 .ToList();
 
             found.Sort((a, b) =>
@@ -361,7 +362,7 @@ namespace Vapor
         {
             var documents = new List<(Type, int, List<IData>)>();
 
-            var assets = AddressableAssetUtility.LoadAll<TextAsset>(null, new object[] { AddressableLabel }, out var loaded);
+            var assets = AddressableAssetUtility.LoadAll<TextAsset>(new object[] { AddressableLabel }, out var loaded);
             if (assets == null)
             {
                 return documents;

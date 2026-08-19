@@ -77,7 +77,7 @@ namespace Vapor
             foreach (var assetType in assetTypes)
             {
                 var atr = assetType.GetCustomAttribute<IsAddressableAttribute>();
-                var assets = AddressableAssetUtility.LoadAll<ScriptableObject>(null, new object[] { atr.AddressableLabel }, out var handle);
+                var assets = AddressableAssetUtility.LoadAll<ScriptableObject>(new object[] { atr.AddressableLabel }, out var handle);
                 if (assets == null)
                 {
                     continue;
