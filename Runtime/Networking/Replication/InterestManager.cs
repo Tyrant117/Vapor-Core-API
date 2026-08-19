@@ -68,6 +68,21 @@ namespace Vapor.Networking
             networkObject != null && _replicator.IsObserving(clientId, networkObject.NetworkObjectId);
 
         /// <summary>
+        /// Server: holds one object relevant to one client whatever the channels and the grid say, until
+        /// <see cref="Unpin"/> or the object despawns. For something the client is being made to look at
+        /// from outside its own interest — a view target, a cutscene subject. Returns true when new.
+        /// </summary>
+        public bool Pin(ulong clientId, VaporNetworkObject networkObject) =>
+            networkObject != null && _replicator.Pin(clientId, networkObject.NetworkObjectId);
+
+        /// <summary>Server: drops the pin. The object reverts to normal interest, which may despawn it on that client.</summary>
+        public bool Unpin(ulong clientId, VaporNetworkObject networkObject) =>
+            networkObject != null && _replicator.Unpin(clientId, networkObject.NetworkObjectId);
+
+        public bool IsPinned(ulong clientId, VaporNetworkObject networkObject) =>
+            networkObject != null && _replicator.IsPinned(clientId, networkObject.NetworkObjectId);
+
+        /// <summary>
         /// Server: re-evaluates spatial relevance for every spatial object against every client. The
         /// spatial provider calls this (or the per-object overload) when positions have moved enough
         /// to matter — typically once per tick from the grid.

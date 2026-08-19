@@ -43,6 +43,8 @@ namespace Vapor.Networking
             public ulong ClientId;
             public readonly HashSet<ulong> Known = new();
             public readonly HashSet<InterestGroup> Subscriptions = new();
+            /// <summary>Objects this client is kept aware of whatever the channels and the grid say.</summary>
+            public readonly HashSet<ulong> Pinned = new();
             /// <summary>Snapshot scheduling: how many sends each object is "owed" for this client.</summary>
             public readonly Dictionary<ulong, float> SnapshotDue = new();
             public readonly OutboundBatch Reliable = new(Delivery.ReliableFragmentedSequenced);
@@ -155,6 +157,31 @@ namespace Vapor.Networking
         public bool IsSubscribed(ulong clientId, InterestGroup group) =>
             _peers.TryGetValue(clientId, out var peer) && peer.Subscriptions.Contains(group);
 
+        /// <summary>
+        /// Keeps one object relevant to one client for as long as the pin lasts, whatever the channels
+        /// and the spatial grid would say. For something the client is being made to look at from
+        /// outside its own interest — a view target, a cutscene subject.
+        /// </summary>
+        public bool Pin(ulong clientId, ulong networkObjectId)
+        {
+            if (!IsServer || !_peers.TryGetValue(clientId, out var peer)) return false;
+            if (!peer.Pinned.Add(networkObjectId)) return false;
+            RelevancePass(peer);
+            return true;
+        }
+
+        /// <summary>Drops a pin. The object goes back to whatever the channels and the grid say about it, which may mean leaving.</summary>
+        public bool Unpin(ulong clientId, ulong networkObjectId)
+        {
+            if (!IsServer || !_peers.TryGetValue(clientId, out var peer)) return false;
+            if (!peer.Pinned.Remove(networkObjectId)) return false;
+            RelevancePass(peer);
+            return true;
+        }
+
+        public bool IsPinned(ulong clientId, ulong networkObjectId) =>
+            _peers.TryGetValue(clientId, out var peer) && peer.Pinned.Contains(networkObjectId);
+
         public bool IsObserving(ulong clientId, ulong networkObjectId) =>
             _peers.TryGetValue(clientId, out var peer) && peer.Known.Contains(networkObjectId);
 
@@ -168,6 +195,13 @@ namespace Vapor.Networking
             if (networkObject.SpawnedOnlyOnOwner)
             {
                 return networkObject.OwnerClientId == peer.ClientId;
+            }
+
+            // A pin outranks the channels and the grid, but not the owner-only rule above: something the
+            // client is being made to look at has to arrive even from outside its interest.
+            if (peer.Pinned.Contains(networkObject.NetworkObjectId))
+            {
+                return true;
             }
 
             bool inChannel = false;
@@ -344,6 +378,9 @@ namespace Vapor.Networking
             foreach (var peer in _peerList)
             {
                 peer.SnapshotDue.Remove(id);
+
+                // A pin on a despawned object would outlive it and then apply to whatever reuses the id.
+                peer.Pinned.Remove(id);
                 if (peer.Known.Remove(id))
                 {
                     _stateScratch.Reset();
