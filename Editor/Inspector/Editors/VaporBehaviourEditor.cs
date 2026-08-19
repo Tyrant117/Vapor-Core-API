@@ -20,7 +20,7 @@ namespace VaporEditor.Inspector
         protected virtual void OnSceneGUI()
         {
             // The editor can outlive its target by a frame when the object is deleted from the scene.
-            if (target == null)
+            if (!target)
             {
                 return;
             }
@@ -31,16 +31,8 @@ namespace VaporEditor.Inspector
                 return;
             }
 
-            if (targets.Length > 1 && !ReferenceEquals(target, targets[0]))
-            {
-                return;
-            }
-
             var view = SceneView.currentDrawingSceneView;
-            foreach (var selected in targets)
-            {
-                binding.Invoke(selected, view);
-            }
+            binding.Invoke(target, view);
         }
 
         /// <summary>
