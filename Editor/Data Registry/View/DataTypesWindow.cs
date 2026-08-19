@@ -244,7 +244,13 @@ namespace VaporEditor.DataRegistry
                     $"{_document.DisplayName} has unsaved changes.", "Save", "Discard"))
             {
                 _document.Save();
+                return;
             }
+
+            // Discarded rather than simply abandoned: a saved document leaves its entries in the
+            // registry, so unsaved edits to them have to be read back off disk or the rest of the
+            // editor spends the session looking at changes the file does not have.
+            _document.Revert();
         }
 
         #region Chrome
@@ -335,7 +341,37 @@ namespace VaporEditor.DataRegistry
                 style = { flexShrink = 0f },
             });
 
+            var menu = new ToolbarMenu { tooltip = "More actions.", style = { flexShrink = 0f, width = 28 } };
+            menu.menu.AppendAction("Rebalance Files", _ => RebalanceCurrent(),
+                _ => _document == null ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
+            menu.menu.AppendSeparator();
+            menu.menu.AppendAction("Log Save Timings", _ => VslSaveDiagnostics.Enabled = !VslSaveDiagnostics.Enabled,
+                _ => VslSaveDiagnostics.Enabled ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+            menu.menu.AppendAction("Log Registry Rebuilds", _ => VslSaveDiagnostics.Verbose = !VslSaveDiagnostics.Verbose,
+                _ => VslSaveDiagnostics.Verbose ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal);
+            toolbar.Add(menu);
+
             return toolbar;
+        }
+
+        /// <summary>Re-packs the open document's files, then saves.</summary>
+        private void RebalanceCurrent()
+        {
+            if (_document == null)
+            {
+                return;
+            }
+
+            var before = _document.ShardCount;
+            if (!_document.Rebalance())
+            {
+                return;
+            }
+
+            Debug.Log($"Rebalanced {_document.DisplayName} from {before} {(before == 1 ? "file" : "files")} to {_document.ShardCount}.");
+            RefreshExternalKeys();
+            RefreshEntryList();
+            UpdateStatus();
         }
 
         /// <summary>
@@ -846,7 +882,7 @@ namespace VaporEditor.DataRegistry
         /// <summary>Marks only the file the edited entry belongs to, so saving leaves the rest alone.</summary>
         private void MarkDirty(IData entry)
         {
-            _document?.SetDirty();
+            _document?.SetDirty(entry);
             UpdateStatus();
         }
 
@@ -1138,13 +1174,32 @@ namespace VaporEditor.DataRegistry
 
         private void SaveCurrent()
         {
-            if (_document == null || !_document.Save())
+            if (_document == null)
             {
                 return;
             }
 
-            RefreshExternalKeys();
-            RefreshEntryList();
+            // Bracketed here rather than in the document so the report covers the window's own refresh
+            // too. Nested operations fold into the outermost one, so the document's bracket inside this
+            // one still reports as a single line.
+            VslSaveDiagnostics.Begin($"Save {_document.DisplayName}");
+            try
+            {
+                if (!_document.Save())
+                {
+                    return;
+                }
+
+                using (VslSaveDiagnostics.Measure("ui"))
+                {
+                    RefreshExternalKeys();
+                    RefreshEntryList();
+                }
+            }
+            finally
+            {
+                VslSaveDiagnostics.End();
+            }
         }
 
         private void RevertCurrent()
@@ -1181,12 +1236,12 @@ namespace VaporEditor.DataRegistry
                 }
             }
 
-            foreach (var (_, _, entries) in VslDataStore.ReadAllFromDisk())
+            // Asked of the registry rather than worked out by re-reading the data folder. The registry
+            // already records which keys came from a document, and parsing every file again to rederive
+            // that made a save read the whole corpus twice.
+            foreach (var key in GlobalDataRegistry.GetDocumentKeys())
             {
-                foreach (var entry in entries)
-                {
-                    _externalKeys.Remove(entry.Key);
-                }
+                _externalKeys.Remove(key);
             }
         }
 
@@ -1206,7 +1261,13 @@ namespace VaporEditor.DataRegistry
 
             var dirty = _document.IsDirty ? "*" : string.Empty;
             var comparing = _selection.Count > 1 ? $"  —  comparing {_selection.Count}" : string.Empty;
-            _statusLabel.text = $"{_document.DisplayName}{dirty}  —  {_document.Entries.Count} entries{comparing}  —  {_document.AssetPath}";
+
+            // The path is only the whole story while the document fits in one file, so say how many
+            // there are once it does not. Otherwise the status line quietly names a fraction of the data.
+            var shards = _document.ShardCount;
+            var location = shards > 1 ? $"{_document.AssetPath} +{shards - 1} more" : _document.AssetPath;
+
+            _statusLabel.text = $"{_document.DisplayName}{dirty}  —  {_document.Entries.Count} entries{comparing}  —  {location}";
             SetChromeEnabled(true);
         }
 

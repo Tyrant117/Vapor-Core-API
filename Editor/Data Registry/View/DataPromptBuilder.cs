@@ -43,6 +43,16 @@ namespace VaporEditor.DataRegistry
             sb.AppendLine($"Data type: {VslDataStore.GetDisplayName(type)}  ({type.FullName})");
             sb.AppendLine($"File: {document.AssetPath}");
 
+            // Said plainly because it changes what a useful answer looks like: a model asked to add a
+            // hundred entries can put them in a file of their own rather than restating an existing one.
+            if (document.ShardCount > 1)
+            {
+                sb.AppendLine($"This document is spread across {document.ShardCount} files in {VslDataStore.RelativeFolder}.");
+            }
+
+            sb.AppendLine($"New entries may go in a new .vsl file in {VslDataStore.RelativeFolder}; any file there whose");
+            sb.AppendLine("entries are of this type is loaded as part of this document, whatever it is called.");
+
             // A family shares one document, so the model needs to know what else may legitimately
             // appear in it and which tag names those entries.
             var concrete = VslDataStore.GetConcreteTypes(type);

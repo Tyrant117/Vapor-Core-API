@@ -71,6 +71,15 @@ namespace VaporEditor.Serialization
             // remote or otherwise specially configured content into the default group just to add a
             // registry label.
             var entry = settings.FindAssetEntry(guid);
+
+            // Already published: nothing to do. A document is reimported whenever its bytes change, and
+            // re-applying a label the entry already carries would dirty the addressables settings asset
+            // on every one of those - a settings write per save, for no change at all.
+            if (entry != null && entry.labels != null && entry.labels.Contains(VslDataStore.AddressableLabel))
+            {
+                return;
+            }
+
             if (entry == null)
             {
                 if (settings.DefaultGroup == null)

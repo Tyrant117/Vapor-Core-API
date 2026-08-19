@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
@@ -45,6 +44,66 @@ namespace VaporEditor.DataRegistry
         /// here is what happened to <em>this</em> entry rather than to one that looks like it.
         /// </remarks>
         private readonly Dictionary<IData, uint> _keysWhenLoaded = new Dictionary<IData, uint>(EntryIdentity.Instance);
+
+        /// <summary>
+        /// Which shard file each entry belongs to.
+        /// </summary>
+        /// <remarks>
+        /// Populated from where an entry was read and consulted when it is written, which is the whole
+        /// of what makes shard assignment sticky. Keyed by reference for the same reason as
+        /// <see cref="_keysWhenLoaded"/>: the question is about this object, not one that looks like it.
+        /// </remarks>
+        private readonly Dictionary<IData, string> _shardOf = new Dictionary<IData, string>(EntryIdentity.Instance);
+
+        /// <summary>Shards known to differ from disk, so a save only has to consider these.</summary>
+        private readonly HashSet<string> _dirtyShards = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Entries added since the last save, which have no shard yet.
+        /// </summary>
+        /// <remarks>
+        /// Tracked so an edit to one of them is recognised as "not placed yet" rather than as "not from
+        /// this document". The two look identical from <see cref="_shardOf"/> alone, and they need
+        /// opposite answers: the first is already going to be written, the second means the assumption
+        /// behind targeted marking does not hold and every shard has to be reconsidered.
+        /// </remarks>
+        private readonly HashSet<IData> _pendingPlacement = new HashSet<IData>(EntryIdentity.Instance);
+
+        /// <summary>
+        /// Set when something changed without saying where, so every shard is reconsidered.
+        /// </summary>
+        /// <remarks>
+        /// The safe answer, and the one an untargeted <see cref="SetDirty()"/> gets. Reconsidering a
+        /// shard still compares its text before writing, so over-marking costs a serialize and never a
+        /// write; under-marking would lose an edit, which is why the doubt resolves this way.
+        /// </remarks>
+        private bool _allShardsDirty;
+
+        /// <summary>
+        /// How many files this document's entries are currently spread across.
+        /// </summary>
+        /// <remarks>
+        /// Answered from the in-memory assignment rather than by listing the folder, because the status
+        /// line asks on every keystroke.
+        /// </remarks>
+        public int ShardCount
+        {
+            get
+            {
+                if (_shardOf.Count == 0)
+                {
+                    return 1;
+                }
+
+                var distinct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var shard in _shardOf.Values)
+                {
+                    distinct.Add(shard);
+                }
+
+                return distinct.Count;
+            }
+        }
 
         /// <summary>
         /// Identity by reference, since <see cref="ReferenceEqualityComparer"/> is not available on
@@ -110,30 +169,94 @@ namespace VaporEditor.DataRegistry
                 return null;
             }
 
-            List<IData> entries;
+            var document = new DataDocument(dataType, new List<IData>());
+            return document.Read() ? document : null;
+        }
+
+        /// <summary>Reads every shard, recording where each entry came from. False when unreadable.</summary>
+        private bool Read()
+        {
+            _shardOf.Clear();
+            _pendingPlacement.Clear();
+
             try
             {
-                entries = VslDataStore.ReadFromDisk(dataType);
+                Entries = VslDataStore.ReadFromDisk(DataType, _shardOf);
             }
             catch (Exception e)
             {
                 // Surfaced rather than thrown: the window has to stay usable so the file can be fixed
                 // by hand, and an empty document here would silently overwrite it on the next save.
-                Debug.LogError($"Could not read {VslDataStore.GetAssetPath(dataType)} - {e.Message}");
-                return null;
+                Debug.LogError($"Could not read {VslDataStore.GetAssetPath(DataType)} - {e.Message}");
+                return false;
             }
 
-            return new DataDocument(dataType, entries);
+            SnapshotKeys();
+            _dirtyShards.Clear();
+            _allShardsDirty = false;
+            IsDirty = false;
+            return true;
         }
 
+        /// <summary>
+        /// Throws away the in-memory edits and reads the document back off disk.
+        /// </summary>
+        /// <remarks>
+        /// The registry is re-pointed at what was just read, because a save hands it these very
+        /// objects rather than copies of them. That is what makes an edit visible everywhere the moment
+        /// it is saved — and it means the objects a revert discards are objects the registry is holding,
+        /// so leaving them there would keep answering lookups with changes the file does not have.
+        /// </remarks>
         public void Revert()
         {
-            Entries = VslDataStore.ReadFromDisk(DataType);
-            SnapshotKeys();
-            IsDirty = false;
+            if (Read())
+            {
+                GlobalDataRegistry.ReplaceDocument(DataType, Entries);
+            }
         }
 
-        public void SetDirty() => IsDirty = true;
+        /// <summary>Marks the document changed without saying which shard, so all are reconsidered.</summary>
+        public void SetDirty()
+        {
+            IsDirty = true;
+            _allShardsDirty = true;
+        }
+
+        /// <summary>
+        /// Marks the shard holding <paramref name="entry"/> changed, so a save leaves the rest alone.
+        /// </summary>
+        /// <remarks>
+        /// The path an inspector edit takes. Editing one field of one entry should cost one file
+        /// rewrite no matter how large the document has grown, and that is only possible if the edit
+        /// says which entry it touched.
+        /// </remarks>
+        public void SetDirty(IData entry)
+        {
+            IsDirty = true;
+
+            if (entry == null)
+            {
+                _allShardsDirty = true;
+                return;
+            }
+
+            if (_shardOf.TryGetValue(entry, out var shard))
+            {
+                _dirtyShards.Add(shard);
+                return;
+            }
+
+            // Added since the last save, so it has no shard yet; the one it lands in is marked once the
+            // save has placed it.
+            if (_pendingPlacement.Contains(entry))
+            {
+                return;
+            }
+
+            // Some other document's entry, or one this document does not know it holds. Nothing useful
+            // can be said about which file it belongs to, so nothing is assumed about the others either.
+            _allShardsDirty = true;
+        }
 
         #region Mutation
 
@@ -160,6 +283,7 @@ namespace VaporEditor.DataRegistry
             (entry as IDataLoadCallback)?.OnDataLoaded();
 
             Entries.Add(entry);
+            _pendingPlacement.Add(entry);
             IsDirty = true;
             return entry;
         }
@@ -188,16 +312,27 @@ namespace VaporEditor.DataRegistry
 
             SetName(copy, MakeUniqueName(GetName(source)));
             Entries.Add(copy);
+            _pendingPlacement.Add(copy);
             IsDirty = true;
             return copy;
         }
 
         public void Remove(IData entry)
         {
-            if (entry != null && Entries.Remove(entry))
+            if (entry == null || !Entries.Remove(entry))
             {
-                IsDirty = true;
+                return;
             }
+
+            // The file it was in has to be rewritten without it, so mark that one before forgetting
+            // where it lived.
+            if (_shardOf.Remove(entry, out var shard))
+            {
+                _dirtyShards.Add(shard);
+            }
+
+            _pendingPlacement.Remove(entry);
+            IsDirty = true;
         }
 
         /// <summary>
@@ -244,6 +379,7 @@ namespace VaporEditor.DataRegistry
 
                 SetName(entry, MakeUniqueName(GetName(entry)));
                 Entries.Add(entry);
+                _pendingPlacement.Add(entry);
                 added.Add(entry);
             }
 
@@ -282,6 +418,7 @@ namespace VaporEditor.DataRegistry
                 }
 
                 Entries.Add(copy);
+                _pendingPlacement.Add(copy);
                 imported++;
             }
 
@@ -389,56 +526,217 @@ namespace VaporEditor.DataRegistry
         #region Saving
 
         /// <summary>
-        /// Writes the document and rebuilds the registry from it.
+        /// Writes the shards that changed and hands the result back to the registry.
         /// </summary>
         /// <remarks>
-        /// The rebuild is what makes the edit visible everywhere else immediately: the tag tree, the
-        /// key dropdowns and the manifest generators all rebuild off
-        /// <see cref="GlobalDataRegistry.OnRegistriesBuilt"/>.
+        /// <para>
+        /// Three things keep this cheap as a project grows. Only shards holding an edited entry are
+        /// serialized, and a shard whose text turns out identical is not written at all. Only a file the
+        /// asset database has never seen is imported, so the usual save never enters the import pipeline.
+        /// And only this document is re-ingested, through
+        /// <see cref="GlobalDataRegistry.ReplaceDocument"/>, rather than every source being reloaded to
+        /// discover that none of the others moved.
+        /// </para>
+        /// <para>
+        /// The edit is visible everywhere else immediately all the same: the tag tree and the key
+        /// dropdowns drop their caches on
+        /// <see cref="GlobalDataRegistry.OnRegistryChanged"/> and rebuild when next read.
+        /// </para>
         /// </remarks>
-        public bool Save()
+        public bool Save() => Write(false);
+
+        /// <summary>
+        /// Re-packs the document from the first shard onward, then saves.
+        /// </summary>
+        /// <remarks>
+        /// Sticky assignment never moves an entry, so deleting a lot of content leaves shards standing
+        /// half empty and new entries keep landing in the first one with room rather than filling the
+        /// gaps. This is the deliberate correction: one large diff, run when it is wanted, instead of
+        /// small ones creeping in on every save.
+        /// </remarks>
+        public bool Rebalance() => Write(true);
+
+        private bool Write(bool rebalance)
         {
-            // Renames are propagated first, so the file that comes out already points at the new name —
-            // including this one, which may well refer to the entry renamed in it.
-            PropagateRenames();
-
-            var absolute = VslDataStore.GetAbsolutePath(DataType);
-            var existed = File.Exists(absolute);
-
+            VslSaveDiagnostics.Begin(rebalance ? $"Rebalance {DisplayName}" : $"Save {DisplayName}");
             try
             {
-                var folder = Path.GetDirectoryName(absolute);
-                if (!string.IsNullOrEmpty(folder))
+                // Renames are propagated first, so the files that come out already point at the new name —
+                // including these, which may well refer to the entry renamed in them.
+                using (VslSaveDiagnostics.Measure("renames"))
                 {
-                    Directory.CreateDirectory(folder);
+                    PropagateRenames();
                 }
 
-                File.WriteAllText(absolute, VslDataStore.Write(Entries), new UTF8Encoding(false));
+                List<(string Shard, List<IData> Entries)> plan;
+                var newlyPlaced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                using (VslSaveDiagnostics.Measure("assign"))
+                {
+                    if (rebalance)
+                    {
+                        plan = VslDataStore.RebalanceShards(DataType, Entries, _shardOf);
+                        _allShardsDirty = true;
+                    }
+                    else
+                    {
+                        // Noted before the assignment runs, because afterwards every entry has a shard
+                        // and there is no way to tell which ones just got one.
+                        var unassigned = new List<IData>();
+                        foreach (var entry in Entries)
+                        {
+                            if (entry != null && !_shardOf.ContainsKey(entry))
+                            {
+                                unassigned.Add(entry);
+                            }
+                        }
+
+                        plan = VslDataStore.AssignShards(DataType, Entries, _shardOf);
+
+                        // Whatever the assignment just placed is new to its file, so that file is dirty
+                        // even though nobody said so when the entry was created.
+                        foreach (var entry in unassigned)
+                        {
+                            if (_shardOf.TryGetValue(entry, out var placed))
+                            {
+                                newlyPlaced.Add(placed);
+                            }
+                        }
+                    }
+                }
+
+                var planned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var created = new List<string>();
+
+                using (VslSaveDiagnostics.Measure("write"))
+                {
+                    foreach (var (shard, entries) in plan)
+                    {
+                        planned.Add(shard);
+
+                        // The first shard is always written, even empty: it is the document's file, and a
+                        // project that has deleted everything should still have one rather than appearing
+                        // never to have had any data.
+                        var isPrimary = string.Equals(shard, VslDataStore.GetShardName(DataType, 0), StringComparison.OrdinalIgnoreCase);
+                        if (entries.Count == 0 && !isPrimary)
+                        {
+                            continue;
+                        }
+
+                        if (!_allShardsDirty && !_dirtyShards.Contains(shard) && !newlyPlaced.Contains(shard)
+                            && File.Exists(VslDataStore.GetShardAbsolutePath(shard)))
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            if (VslDataStore.WriteShard(shard, entries, out var madeFile) && madeFile)
+                            {
+                                created.Add(shard);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError($"Could not write {VslDataStore.GetShardAssetPath(shard)} - {e.Message}");
+                            return false;
+                        }
+                    }
+                }
+
+                using (VslSaveDiagnostics.Measure("prune"))
+                {
+                    DeleteEmptiedShards(plan, planned);
+                }
+
+                IsDirty = false;
+                _dirtyShards.Clear();
+                _pendingPlacement.Clear();
+                _allShardsDirty = false;
+                SnapshotKeys();
+
+                // Only a file the asset database has never seen needs telling about. An existing shard
+                // whose bytes changed is picked up by the next refresh, and forcing that import here cost
+                // a synchronous round trip through the importer plus an addressables settings write on
+                // every save — for a label that was already on the entry and could not have come off.
+                if (created.Count > 0)
+                {
+                    using (VslSaveDiagnostics.Measure("import"))
+                    {
+                        VslDataStore.InvalidateShardIndex();
+                        AssetDatabase.Refresh();
+                    }
+                }
+
+                // One document changed, so one document is re-ingested. The code registries and the
+                // addressable assets cannot have been affected by writing a .vsl, and re-reading every
+                // other document to find that out is what a save used to spend most of its time on.
+                GlobalDataRegistry.ReplaceDocument(DataType, Entries);
+                return true;
             }
-            catch (Exception e)
+            finally
             {
-                Debug.LogError($"Could not write {AssetPath} - {e.Message}");
-                return false;
+                VslSaveDiagnostics.End();
+            }
+        }
+
+        /// <summary>Removes shard files this document no longer puts anything in.</summary>
+        private void DeleteEmptiedShards(List<(string Shard, List<IData> Entries)> plan, HashSet<string> planned)
+        {
+            var primary = VslDataStore.GetShardName(DataType, 0);
+
+            var empty = new List<string>();
+            foreach (var (shard, entries) in plan)
+            {
+                if (entries.Count == 0 && !string.Equals(shard, primary, StringComparison.OrdinalIgnoreCase))
+                {
+                    empty.Add(shard);
+                }
             }
 
-            IsDirty = false;
-            SnapshotKeys();
-
-            // Brought into the asset database before rebuilding: that is what runs the importer and
-            // applies the addressable label, and the rebuild is what the rest of the editor listens
-            // to. A file the database has never seen needs the full refresh; after that, importing
-            // the one path is enough.
-            if (existed)
+            // A file that backed this document before the save but is in no part of the plan is gone the
+            // same way - it held entries that have since been deleted.
+            foreach (var shard in VslDataStore.EnumerateShardNames(DataType))
             {
-                AssetDatabase.ImportAsset(AssetPath, ImportAssetOptions.ForceUpdate);
-            }
-            else
-            {
-                AssetDatabase.Refresh();
+                if (!planned.Contains(shard) && !string.Equals(shard, primary, StringComparison.OrdinalIgnoreCase))
+                {
+                    empty.Add(shard);
+                }
             }
 
-            GlobalDataRegistry.Initialize();
-            return true;
+            if (empty.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var shard in empty)
+            {
+                var assetPath = VslDataStore.GetShardAssetPath(shard);
+                var absolute = VslDataStore.GetShardAbsolutePath(shard);
+                if (!File.Exists(absolute))
+                {
+                    continue;
+                }
+
+                if (!AssetDatabase.DeleteAsset(assetPath))
+                {
+                    // Not in the database - a file written this session and never imported. Take the meta
+                    // with it, or the next refresh resurrects an entry for something that is not there.
+                    try
+                    {
+                        File.Delete(absolute);
+                        if (File.Exists(absolute + ".meta"))
+                        {
+                            File.Delete(absolute + ".meta");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"Could not remove the emptied shard {assetPath} - {e.Message}");
+                    }
+                }
+            }
+
+            VslDataStore.InvalidateShardIndex();
         }
 
         /// <summary>

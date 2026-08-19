@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using UnityEditor;
 using UnityEngine;
 using Vapor;
 using Vapor.GameplayTags;
@@ -66,15 +65,17 @@ namespace VaporEditor.DataRegistry
             }
 
             var rewritten = 0;
-            var openPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var openTypes = new HashSet<Type>();
 
             foreach (var document in openDocuments ?? Array.Empty<DataDocument>())
             {
-                openPaths.Add(document.AssetPath);
+                openTypes.Add(document.DataType);
 
                 var changed = RewriteAll(document.Entries, renames);
                 if (changed > 0)
                 {
+                    // Untargeted on purpose: a rename can land in any entry, so every shard of an open
+                    // document has to be reconsidered.
                     document.SetDirty();
                     rewritten += changed;
                 }
@@ -82,9 +83,11 @@ namespace VaporEditor.DataRegistry
 
             // Everything else is read, rewritten and written back only if it actually referred to the
             // renamed entry - so an unrelated document is never rewritten just because a rename happened.
+            // Skipped by type rather than by path: a document is however many files it is spread over,
+            // and all of them are the open window's to write.
             foreach (var type in VslDataStore.GetAuthoredTypes())
             {
-                if (!openPaths.Contains(VslDataStore.GetAssetPath(type)))
+                if (!openTypes.Contains(type))
                 {
                     rewritten += RewriteOnDisk(type, renames);
                 }
@@ -93,40 +96,53 @@ namespace VaporEditor.DataRegistry
             return rewritten;
         }
 
+        /// <summary>
+        /// Rewrites a closed document's references, one shard at a time.
+        /// </summary>
+        /// <remarks>
+        /// Per shard rather than per document so a rename costs the files that actually mention the
+        /// renamed entry, not every file of every type that mentions it once.
+        /// </remarks>
         private static int RewriteOnDisk(Type dataType, IReadOnlyList<Rename> renames)
         {
-            var assetPath = VslDataStore.GetAssetPath(dataType);
+            var total = 0;
 
-            List<IData> entries;
-            try
+            foreach (var shard in VslDataStore.EnumerateShardNames(dataType))
             {
-                entries = VslDataStore.ReadFromDisk(dataType);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Could not check {assetPath} for renamed references - {e.Message}");
-                return 0;
+                var assetPath = VslDataStore.GetShardAssetPath(shard);
+
+                List<IData> entries;
+                try
+                {
+                    entries = VslDataStore.ReadShard(shard);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Could not check {assetPath} for renamed references - {e.Message}");
+                    continue;
+                }
+
+                var changed = RewriteAll(entries, renames);
+                if (changed == 0)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    File.WriteAllText(VslDataStore.GetShardAbsolutePath(shard), VslDataStore.Write(entries),
+                        new UTF8Encoding(false));
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Could not update references in {assetPath} - {e.Message}");
+                    continue;
+                }
+
+                total += changed;
             }
 
-            var changed = RewriteAll(entries, renames);
-            if (changed == 0)
-            {
-                return 0;
-            }
-
-            try
-            {
-                File.WriteAllText(VslDataStore.GetAbsolutePath(dataType), VslDataStore.Write(entries),
-                    new UTF8Encoding(false));
-                AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"Could not update references in {assetPath} - {e.Message}");
-                return 0;
-            }
-
-            return changed;
+            return total;
         }
 
         #region Walking

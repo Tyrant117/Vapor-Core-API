@@ -54,8 +54,8 @@ namespace Vapor.GameplayTags
                 // Rebuilding the registry (e.g. after regenerating data keys) must rebuild the tree.
                 // Unsubscribe first: the statics here are reset on entering play mode while the event on
                 // the registry is not, so a bare += would stack another handler every play session.
-                GlobalDataRegistry.OnRegistriesBuilt -= Invalidate;
-                GlobalDataRegistry.OnRegistriesBuilt += Invalidate;
+                GlobalDataRegistry.OnRegistryChanged -= Invalidate;
+                GlobalDataRegistry.OnRegistryChanged += Invalidate;
                 s_Subscribed = true;
             }
 

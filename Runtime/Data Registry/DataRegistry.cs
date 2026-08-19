@@ -18,9 +18,19 @@ namespace Vapor
             GlobalDataRegistry.OnRegistriesBuilt += Rebuild;
             GlobalDataRegistry.OnDataRegistered -= Add;
             GlobalDataRegistry.OnDataRegistered += Add;
+            GlobalDataRegistry.OnDataUnregistered -= Remove;
+            GlobalDataRegistry.OnDataUnregistered += Remove;
             Rebuild();
         }
 
+        /// <summary>
+        /// Rescans the whole global map. Only correct as a response to that map being rebuilt.
+        /// </summary>
+        /// <remarks>
+        /// Costs one pass over every registered entry, per closed generic — so a project with fifty of
+        /// these pays fifty passes. That is affordable once on a code load and nowhere else, which is
+        /// why saving a document goes through <see cref="Add"/> and <see cref="Remove"/> instead.
+        /// </remarks>
         private static void Rebuild()
         {
             s_RegistryMap.Clear();
@@ -28,9 +38,13 @@ namespace Vapor
             {
                 s_RegistryMap[data.Key] = data;
             }
-            Debug.Log($"{TooltipMarkup.ClassMethod(nameof(DataRegistry<TData>), nameof(Rebuild))} - {TooltipMarkup.Class(typeof(TData).Name)} - Loaded {s_RegistryMap.Count} Items");
+
+            if (VslSaveDiagnostics.Verbose)
+            {
+                Debug.Log($"{TooltipMarkup.ClassMethod(nameof(DataRegistry<TData>), nameof(Rebuild))} - {TooltipMarkup.Class(typeof(TData).Name)} - Loaded {s_RegistryMap.Count} Items");
+            }
         }
-        
+
         /// <summary>
         /// Takes a single registration as it happens, so data registered after this map was built is
         /// findable straight away rather than at the next rebuild.
@@ -40,6 +54,22 @@ namespace Vapor
             if (data is TData typed)
             {
                 s_RegistryMap[typed.Key] = typed;
+            }
+        }
+
+        /// <summary>
+        /// Drops a single entry as it leaves the global registry.
+        /// </summary>
+        /// <remarks>
+        /// The half that lets a document be re-ingested without a rebuild: an entry deleted or renamed
+        /// in the window leaves here at the same moment it leaves the global map, so a stale key is
+        /// never answerable from this side.
+        /// </remarks>
+        private static void Remove(IData data)
+        {
+            if (data is TData typed)
+            {
+                s_RegistryMap.Remove(typed.Key);
             }
         }
 

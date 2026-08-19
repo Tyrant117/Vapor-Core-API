@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using Unity.Scripting.LifecycleManagement;
 using Vapor.GameplayTags;
@@ -32,7 +32,7 @@ namespace Vapor
             if (!s_Subscribed)
             {
                 // Rebuilding the registry (e.g. after regenerating data keys) must refresh the dropdown cache.
-                GlobalDataRegistry.OnRegistriesBuilt += Invalidate;
+                GlobalDataRegistry.OnRegistryChanged += Invalidate;
                 s_Subscribed = true;
             }
 
@@ -46,10 +46,12 @@ namespace Vapor
             s_CachedTypeNames.Clear();
 
             // Inspectors draw before play mode, so make sure the registry has been built at least once.
-            if (!GlobalDataRegistry.GetAll().Any())
+            if (GlobalDataRegistry.Count == 0)
             {
                 GlobalDataRegistry.Initialize();
             }
+
+            using var _ = VslSaveDiagnostics.Measure("dropdown cache");
 
             // Pre-seed category / type-name buckets from the known IData types (mirrors how KeyUtility.Init used
             // VaporTypeCache over IKeysProvider) so category lookups resolve even for types with no instances yet.
@@ -64,6 +66,17 @@ namespace Vapor
                 s_CachedCategories.TryAdd(category, new List<DropdownModel>());
                 s_CachedTypeNames.TryAdd(scriptName, new List<DropdownModel>());
             }
+
+            // Which buckets this one entry has already been filed under. A base type may share a
+            // category with a subclass through [KeyOptions], and the entry belongs in that bucket once
+            // rather than once per level.
+            //
+            // Deduplicated by bucket name rather than by scanning the bucket for the model: DropdownModel
+            // is a struct with no equality of its own, so List.Contains falls back to reflective
+            // ValueType.Equals over its fields, and doing that once per entry per bucket made building
+            // this cache quadratic in the number of registered entries.
+            var filedCategories = new HashSet<string>(StringComparer.Ordinal);
+            var filedScriptNames = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var data in GlobalDataRegistry.GetAll())
             {
@@ -82,6 +95,9 @@ namespace Vapor
                 var model = new DropdownModel(data.Name, (GameplayTag)data.Key, tooltip);
                 s_AllDropdownModels.Add(model);
 
+                filedCategories.Clear();
+                filedScriptNames.Clear();
+
                 // Filed under its own type and under every IData class above it, matching the key
                 // classes: a picker asking for the family's root sees the whole family, one asking
                 // for a level of it sees that level down.
@@ -89,27 +105,25 @@ namespace Vapor
                 {
                     var (scriptName, category) = KeyGenerator.DeriveScriptAndCategory(type, type.GetCustomAttribute<KeyOptionsAttribute>());
 
-                    if (!s_CachedCategories.TryGetValue(category, out var categoryList))
+                    if (filedCategories.Add(category))
                     {
-                        categoryList = new List<DropdownModel>();
-                        s_CachedCategories[category] = categoryList;
-                    }
+                        if (!s_CachedCategories.TryGetValue(category, out var categoryList))
+                        {
+                            categoryList = new List<DropdownModel>();
+                            s_CachedCategories[category] = categoryList;
+                        }
 
-                    // A base type may share a category with a subclass through [KeyOptions]; the
-                    // entry is filed once per bucket, not once per level.
-                    if (!categoryList.Contains(model))
-                    {
                         categoryList.Add(model);
                     }
 
-                    if (!s_CachedTypeNames.TryGetValue(scriptName, out var typeList))
+                    if (filedScriptNames.Add(scriptName))
                     {
-                        typeList = new List<DropdownModel>();
-                        s_CachedTypeNames[scriptName] = typeList;
-                    }
+                        if (!s_CachedTypeNames.TryGetValue(scriptName, out var typeList))
+                        {
+                            typeList = new List<DropdownModel>();
+                            s_CachedTypeNames[scriptName] = typeList;
+                        }
 
-                    if (!typeList.Contains(model))
-                    {
                         typeList.Add(model);
                     }
                 }

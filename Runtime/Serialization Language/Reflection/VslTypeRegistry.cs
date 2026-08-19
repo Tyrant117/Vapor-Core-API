@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine.Assemblies;
@@ -30,8 +31,45 @@ namespace Vapor.Serialization
         private static readonly ConcurrentDictionary<string, Type> s_ResolvedByTagAndBase =
             new ConcurrentDictionary<string, Type>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// The tag written for a type in a given slot, which is the mirror of
+        /// <see cref="s_ResolvedByTagAndBase"/> for the writing side.
+        /// </summary>
+        /// <remarks>
+        /// A type with no <see cref="VslTypeAttribute"/> earns its short name only if no other type in
+        /// the slot shares it, and answering that means walking every type in every loaded assembly.
+        /// Reading has always cached its half; writing did not, so serializing paid a full assembly
+        /// scan per <c>!tag</c> - about 70 ms each in a project this size, which is most of what a
+        /// document write cost. Keyed on the pair because the answer depends on the slot as well as
+        /// the type.
+        /// </remarks>
+        private static readonly ConcurrentDictionary<(Type Type, Type Base), string> s_TagByTypeAndBase =
+            new ConcurrentDictionary<(Type, Type), string>();
+
         private static bool s_Scanned;
+        private static int s_ScannedAssemblyCount;
         private static readonly object s_ScanLock = new object();
+
+        /// <summary>
+        /// Every instantiable type by its short name, built once by the scan.
+        /// </summary>
+        /// <remarks>
+        /// Both halves of tag resolution ask "which types are called this?", and both used to answer it
+        /// by walking every type in every loaded assembly, once per tag. Holding the answer costs one
+        /// entry per distinct short name and removes the scan from every path but the full-name last
+        /// resort.
+        /// </remarks>
+        private static Dictionary<string, Type[]> s_TypesByShortName;
+
+        /// <summary>How many distinct short names the index holds. Diagnostics only.</summary>
+        internal static int IndexedNameCount
+        {
+            get
+            {
+                EnsureScanned();
+                return s_TypesByShortName?.Count ?? 0;
+            }
+        }
 
         /// <summary>Registers the tag for a type, overriding any <see cref="VslTypeAttribute"/>.</summary>
         public static void Register(string tag, Type type)
@@ -51,6 +89,10 @@ namespace Vapor.Serialization
             AddCandidate(tag, type);
             s_TagsByType[type] = tag;
             s_ResolvedByTagAndBase.Clear();
+
+            // A new registration can change what any type's short name resolves to, so the written
+            // side has to forget what it worked out just as the read side does.
+            s_TagByTypeAndBase.Clear();
         }
 
         private static void AddCandidate(string tag, Type type)
@@ -89,6 +131,21 @@ namespace Vapor.Serialization
                 throw new ArgumentNullException(nameof(type));
             }
 
+            var key = (type, expectedBase);
+            if (s_TagByTypeAndBase.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            // Stored only on success, so an ambiguous registration goes on throwing every time it is
+            // asked rather than being answered once and then silently forgotten.
+            var resolved = GetTagUncached(type, expectedBase);
+            s_TagByTypeAndBase[key] = resolved;
+            return resolved;
+        }
+
+        private static string GetTagUncached(Type type, Type expectedBase)
+        {
             EnsureScanned();
 
             if (s_TagsByType.TryGetValue(type, out var tag))
@@ -175,37 +232,44 @@ namespace Vapor.Serialization
                 return direct;
             }
 
-            // Otherwise search for a concrete type with this short name that fits the slot.
+            // Otherwise a concrete type with this short name that fits the slot, from the index.
             Type shortMatch = null;
-            Type fallback = null;
+            foreach (var type in TypesNamed(name))
+            {
+                if (!IsCompatible(type, expectedBase))
+                {
+                    continue;
+                }
+
+                if (shortMatch != null && shortMatch != type)
+                {
+                    throw new VslException(
+                        $"'!{name}' is ambiguous for {expectedBase?.Name ?? "object"}; use a [VslType] tag or a full type name.");
+                }
+
+                shortMatch = type;
+            }
+
+            if (shortMatch != null)
+            {
+                return shortMatch;
+            }
+
+            // A full name that is not assembly-qualified, which Type.GetType above could not resolve.
+            // Rare enough to be worth a scan rather than a second index of every full name.
             foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
             {
                 foreach (var type in SafeGetTypes(assembly))
                 {
-                    if (!IsCompatible(type, expectedBase))
+                    if (IsCompatible(type, expectedBase) &&
+                        string.Equals(type.FullName, name, StringComparison.OrdinalIgnoreCase))
                     {
-                        continue;
-                    }
-
-                    if (string.Equals(type.Name, name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (shortMatch != null && shortMatch != type)
-                        {
-                            throw new VslException(
-                                $"'!{name}' is ambiguous for {expectedBase?.Name ?? "object"}; use a [VslType] tag or a full type name.");
-                        }
-
-                        shortMatch = type;
-                    }
-
-                    if (fallback == null && string.Equals(type.FullName, name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        fallback = type;
+                        return type;
                     }
                 }
             }
 
-            return shortMatch ?? fallback;
+            return null;
         }
 
         private static void EnsureRegisteredTagIsUnique(string tag, Type type, Type expectedBase)
@@ -242,26 +306,37 @@ namespace Vapor.Serialization
         private static bool IsShortNameUnique(Type type, Type expectedBase)
         {
             Type match = null;
-            foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
+            foreach (var candidate in TypesNamed(type.Name))
             {
-                foreach (var candidate in SafeGetTypes(assembly))
+                if (!IsCompatible(candidate, expectedBase))
                 {
-                    if (!IsCompatible(candidate, expectedBase) ||
-                        !string.Equals(candidate.Name, type.Name, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    if (match != null && match != candidate)
-                    {
-                        return false;
-                    }
-
-                    match = candidate;
+                    continue;
                 }
+
+                if (match != null && match != candidate)
+                {
+                    return false;
+                }
+
+                match = candidate;
             }
 
             return match == type;
+        }
+
+        /// <summary>
+        /// The instantiable types with a given short name, from the index built by the scan.
+        /// </summary>
+        /// <remarks>
+        /// Abstracts and interfaces are left out because <see cref="IsCompatible"/> refuses them
+        /// anyway, so their absence cannot change an answer - it only keeps the index to the types
+        /// that could ever be written or read.
+        /// </remarks>
+        private static Type[] TypesNamed(string name)
+        {
+            EnsureScanned();
+            var index = s_TypesByShortName;
+            return index != null && index.TryGetValue(name, out var types) ? types : Array.Empty<Type>();
         }
 
         private static bool IsValidTag(string tag)
@@ -307,34 +382,74 @@ namespace Vapor.Serialization
         /// </summary>
         private static void EnsureScanned()
         {
-            if (s_Scanned)
+            // The index is a snapshot where the scan it replaced read the assembly list afresh every
+            // time. An assembly loaded later - a test assembly, a runtime-loaded plugin - would
+            // otherwise be invisible to tag resolution for the rest of the session, which is a wrong
+            // answer rather than a slow one. Counting is cheap and only happens on a cache miss.
+            var loaded = 0;
+            foreach (var _ in CurrentAssemblies.GetLoadedAssemblies())
+            {
+                loaded++;
+            }
+
+            if (s_Scanned && loaded == s_ScannedAssemblyCount)
             {
                 return;
             }
 
             lock (s_ScanLock)
             {
-                if (s_Scanned)
+                if (s_Scanned && loaded == s_ScannedAssemblyCount)
                 {
                     return;
                 }
+
+                // Rescanning can change what a short name resolves to, so what was worked out from the
+                // previous set of assemblies cannot be trusted.
+                s_TagByTypeAndBase.Clear();
+                s_ResolvedByTagAndBase.Clear();
+
+                var byName = new Dictionary<string, List<Type>>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var assembly in CurrentAssemblies.GetLoadedAssemblies())
                 {
                     foreach (var type in SafeGetTypes(assembly))
                     {
                         var attribute = type.GetCustomAttribute<VslTypeAttribute>(false);
-                        if (attribute == null || string.IsNullOrEmpty(attribute.Tag))
+                        if (attribute != null && !string.IsNullOrEmpty(attribute.Tag))
+                        {
+                            AddCandidate(attribute.Tag, type);
+                            // A manual Register call made before the first scan overrides the attribute.
+                            s_TagsByType.TryAdd(type, attribute.Tag);
+                        }
+
+                        // Indexed in the same pass, because both halves of tag resolution used to walk
+                        // every type in every assembly again for every tag they handled. The scan was
+                        // already here; only the index was missing.
+                        if (type.IsAbstract || type.IsInterface)
                         {
                             continue;
                         }
 
-                        AddCandidate(attribute.Tag, type);
-                        // A manual Register call made before the first scan overrides the attribute.
-                        s_TagsByType.TryAdd(type, attribute.Tag);
+                        if (!byName.TryGetValue(type.Name, out var named))
+                        {
+                            named = new List<Type>(1);
+                            byName.Add(type.Name, named);
+                        }
+
+                        named.Add(type);
                     }
                 }
 
+                var index = new Dictionary<string, Type[]>(byName.Count, StringComparer.OrdinalIgnoreCase);
+                foreach (var pair in byName)
+                {
+                    index.Add(pair.Key, pair.Value.ToArray());
+                }
+
+                // Published before the flag, so nothing can see s_Scanned true with no index behind it.
+                s_TypesByShortName = index;
+                s_ScannedAssemblyCount = loaded;
                 s_Scanned = true;
             }
         }
