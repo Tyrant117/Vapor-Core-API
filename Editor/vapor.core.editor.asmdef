@@ -3,6 +3,7 @@
     "rootNamespace": "VaporEditor",
     "references": [
         "vapor.core.runtime",
+        "vapor.core.networking",
         "Unity.Addressables.Editor",
         "Unity.Addressables",
         "Unity.EditorCoroutines.Editor",

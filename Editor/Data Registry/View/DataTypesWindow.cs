@@ -47,14 +47,14 @@ namespace VaporEditor.DataRegistry
         /// </para>
         /// <para>
         /// The type rail and the selection are both private, and deliberately: opening at an entry has
-        /// to select the type, load its document and pin the row in one step, or the window comes up on
-        /// the right type with nothing chosen.
+        /// to select the type, load its document and select the row in one step, or the window comes up
+        /// on the right type with nothing chosen.
         /// </para>
         /// <para>
         /// <b>Matched by key, not by reference, and that is the whole difficulty.</b> A caller holds
         /// the registry's instance; selecting the type makes <see cref="OpenType"/> load the document
         /// fresh, which builds its OWN instances from the file. They are equal in every way that
-        /// matters and identical in none — so pinning the caller's object put a row in the list that
+        /// matters and identical in none — so selecting the caller's object put a row in the list that
         /// <see cref="RefreshEntryList"/> then dropped, because it intersects the selection with what
         /// the document holds. The window opened on the right type with nothing selected.
         /// </para>
@@ -87,24 +87,8 @@ namespace VaporEditor.DataRegistry
                 return;
             }
 
-            window._typeRail.Select(entry.GetType());
-
-            // The document's own instance of it, which is the one every other path here deals in.
-            var opened = window._document?.Entries?.FirstOrDefault(e => e != null && e.Key == entry.Key);
-            if (opened == null)
-            {
-                return;
-            }
-
-            window.SelectOnly(opened);
-            window.RefreshEntryList();
-
-            // The list draws from _filtered, which RefreshEntryList has just rebuilt with the pinned
-            // row at the top. Telling the ListView about it is what highlights the row; RefreshInspector
-            // is what puts the fields on screen. Neither follows from setting _selection alone.
-            window._entryList?.SetSelectionWithoutNotify(new[] { 0 });
-            window.RefreshInspector();
-            window.UpdateStatus();
+            // By type and key rather than by the caller's object; see the remarks above.
+            window.ShowEntry(entry.GetType(), entry.Key);
         }
 
         private DataTypeRail _typeRail;
@@ -137,8 +121,19 @@ namespace VaporEditor.DataRegistry
         /// </remarks>
         private readonly List<IData> _filtered = new();
 
-        /// <summary>How many of the leading <see cref="_filtered"/> rows are pinned selection.</summary>
-        private int _pinnedCount;
+        /// <summary>How many of the leading <see cref="_filtered"/> rows are there because they are selected.</summary>
+        private int _stickyCount;
+
+        /// <summary>Entries the user keeps a click away, in the order they were pinned. Any type, not only the open one.</summary>
+        private readonly List<DataPin> _pinned = new();
+
+        /// <summary>The last pin list written to prefs, so a rename does not write on every keystroke.</summary>
+        private string _storedPins = string.Empty;
+
+        private VisualElement _pinRail;
+
+        /// <summary>The name on the open entry's header, kept in step with a rename as it is typed.</summary>
+        private Label _entryHeaderName;
 
         /// <summary>
         /// Members ticked on the sheet's field axis. Empty — the default — means <c>Copy Prompt</c>
@@ -167,6 +162,16 @@ namespace VaporEditor.DataRegistry
 
         private const string FieldsAsRowsPref = "Vapor.DataTypes.FieldsAsRows";
 
+        private const string PinnedPrefsKey = "Vapor.DataTypes.Pinned";
+
+        /// <summary>Separators for the stored pins. Control characters, so no name can contain one.</summary>
+        private const char RecordSeparator = (char)0x1E;
+
+        private const char FieldSeparator = (char)0x1F;
+
+        private static readonly Color PinRailBackground = new Color(0f, 0f, 0f, 0.15f);
+        private static readonly Color PinRailRule = new Color(1f, 1f, 1f, 0.12f);
+
         private static bool FlagDifferences
         {
             get => EditorPrefs.GetBool(FlagDifferencesPref, true);
@@ -185,6 +190,7 @@ namespace VaporEditor.DataRegistry
         public void CreateGUI()
         {
             rootVisualElement.Add(BuildToolbar());
+            rootVisualElement.Add(BuildPinRail());
 
             // Every pane goes into a plain container with a flex grow and a minimum width. A split view
             // sizes its panes from what the child reports, and a TreeView or ScrollView handed to it
@@ -209,6 +215,9 @@ namespace VaporEditor.DataRegistry
             // events of its own. Trickling down so these win over the list's own key handling; the
             // text-editing guard is what keeps it from stealing keystrokes meant for a field.
             rootVisualElement.RegisterCallback<KeyDownEvent>(OnEntryShortcut, TrickleDown.TrickleDown);
+
+            // Before the rail picks a type: opening one draws the pins, and there would be none yet.
+            RestorePins();
 
             RefreshExternalKeys();
             RefreshTypeRail();
@@ -563,33 +572,33 @@ namespace VaporEditor.DataRegistry
             }
 
             var entry = _filtered[index];
-            var name = DataDocument.GetName(entry);
+            var entryName = DataDocument.GetName(entry);
 
             var nameLabel = element.Q<Label>("Name");
-            nameLabel.text = string.IsNullOrEmpty(name) ? "<unnamed>" : name;
-            nameLabel.style.opacity = string.IsNullOrEmpty(name) ? 0.6f : 1f;
+            nameLabel.text = string.IsNullOrEmpty(entryName) ? "<unnamed>" : entryName;
+            nameLabel.style.opacity = string.IsNullOrEmpty(entryName) ? 0.6f : 1f;
 
             // A pinned row is one the search would otherwise have hidden. Saying so explains why it is
             // still there, and the rule stays out of the way when the search is empty.
-            var pinned = index < _pinnedCount && !string.IsNullOrEmpty(_search?.value);
-            nameLabel.tooltip = pinned ? "Kept in view because it is selected." : name;
+            var pinned = index < _stickyCount && !string.IsNullOrEmpty(_search?.value);
+            nameLabel.tooltip = pinned ? "Kept in view because it is selected." : entryName;
 
             var separator = element.Q<VisualElement>("Separator");
-            separator.style.display = index == _pinnedCount - 1 && _pinnedCount < _filtered.Count
+            separator.style.display = index == _stickyCount - 1 && _stickyCount < _filtered.Count
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
 
             var warning = element.Q<Label>("Warning");
-            var problem = DescribeProblem(entry, name);
+            var problem = DescribeProblem(entry, entryName);
             warning.text = problem == null ? string.Empty : "!";
             warning.tooltip = problem ?? string.Empty;
             warning.style.color = new Color(0.9f, 0.6f, 0.2f);
         }
 
         /// <summary>The reason this entry will not register cleanly, or null when it will.</summary>
-        private string DescribeProblem(IData entry, string name)
+        private string DescribeProblem(IData entry, string entryName)
         {
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(entryName))
             {
                 return "This entry has no name, so it has no key and cannot be registered.";
             }
@@ -602,6 +611,291 @@ namespace VaporEditor.DataRegistry
             return _externalKeys.Contains(entry.Key)
                 ? "A code registry or addressable asset already registers this key. One of the two has to go."
                 : null;
+        }
+
+        #endregion
+
+        #region Pinned entries
+
+        /// <summary>
+        /// One pinned entry.
+        /// </summary>
+        /// <remarks>
+        /// Held two ways because only one type's document is open at a time. While its type is the
+        /// open one there is a real entry to point at, and a rename moves the pin with it; while it is
+        /// not, all that is left is the type, the key and the name it had when we last saw it - which
+        /// is enough to draw a chip and to find the entry again when the type is opened.
+        /// </remarks>
+        private sealed class DataPin
+        {
+            public Type Type;
+            public uint Key;
+            public string Label;
+            public IData Entry;
+        }
+
+        /// <summary>
+        /// The strip of pinned entries under the toolbar: the ones being worked on together, each a
+        /// click away whatever type the rail is on.
+        /// </summary>
+        /// <remarks>
+        /// Hidden outright while nothing is pinned rather than left as an empty band, so a window
+        /// nobody pins anything in looks exactly as it did before.
+        /// </remarks>
+        private VisualElement BuildPinRail()
+        {
+            _pinRail = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    flexWrap = Wrap.Wrap,
+                    alignItems = Align.Center,
+                    flexShrink = 0f,
+                    paddingLeft = 6,
+                    paddingRight = 6,
+                    paddingTop = 4,
+                    paddingBottom = 1,
+                    backgroundColor = PinRailBackground,
+                    borderBottomWidth = 1,
+                    borderBottomColor = PinRailRule,
+                    display = DisplayStyle.None,
+                },
+            };
+
+            return _pinRail;
+        }
+
+        private void RefreshPinRail()
+        {
+            if (_pinRail == null)
+            {
+                return;
+            }
+
+            RebindPins();
+            StorePins();
+
+            _pinRail.Clear();
+            _pinRail.style.display = _pinned.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+
+            foreach (var pin in _pinned)
+            {
+                _pinRail.Add(PinChip(pin));
+            }
+        }
+
+        /// <summary>
+        /// Points every pin of the open type at the entry it means, and drops the ones that are gone.
+        /// </summary>
+        /// <remarks>
+        /// A revert - or any other reload - builds the document's entries again, so a pin holding one
+        /// of the old objects is holding something the document has already thrown away. The key is
+        /// what survives that, and the entry is what survives a rename, so each is used where it works.
+        /// </remarks>
+        private void RebindPins()
+        {
+            for (int i = _pinned.Count - 1; i >= 0; i--)
+            {
+                var pin = _pinned[i];
+
+                if (_document == null || pin.Type != _document.DataType)
+                {
+                    pin.Entry = null;
+                    continue;
+                }
+
+                if (pin.Entry != null && _document.Entries != null && !_document.Entries.Contains(pin.Entry))
+                {
+                    pin.Entry = null;
+                }
+
+                pin.Entry ??= _document.Entries?.FirstOrDefault(entry => entry != null && entry.Key == pin.Key);
+
+                if (pin.Entry == null)
+                {
+                    _pinned.RemoveAt(i);
+                    continue;
+                }
+
+                // A rename moves both, and the pin follows because it is holding the object rather
+                // than the name it used to have.
+                pin.Key = pin.Entry.Key;
+                pin.Label = EntryLabel(pin.Entry);
+            }
+        }
+
+        private VisualElement PinChip(DataPin pin)
+        {
+            bool showing = pin.Entry != null && _selection.Count > 0 && _selection[0] == pin.Entry;
+            bool open = _document != null && pin.Type == _document.DataType;
+
+            var chip = InspectorFilterBar.CreateChip(
+                pin.Label,
+                $"{pin.Type.Name}   ·   key 0x{pin.Key:X8}\n" +
+                (open
+                    ? "Click to open it. Right-click to unpin."
+                    : "Click to switch to this type and open it. Right-click to unpin."),
+                VslDataStore.GetColor(pin.Type),
+                showing,
+                () => ShowEntry(pin.Type, pin.Key));
+
+            chip.AddManipulator(new ContextualMenuManipulator(evt =>
+            {
+                evt.menu.AppendAction("Unpin", _ => Unpin(pin));
+                evt.menu.AppendAction("Unpin All", _ =>
+                {
+                    _pinned.Clear();
+                    RefreshPinRail();
+                });
+            }));
+
+            return chip;
+        }
+
+        private static string EntryLabel(IData entry) =>
+            entry == null || string.IsNullOrEmpty(entry.Name) ? "<unnamed>" : entry.Name;
+
+        /// <summary>
+        /// The pin for an entry, if it has one.
+        /// </summary>
+        /// <remarks>
+        /// A pin holds the document's type, not the entry's own. One document covers a whole family —
+        /// the concrete subtype is a filter on the list, not a document of its own — so a pin recorded
+        /// against the subtype would name a type the rail cannot open.
+        /// </remarks>
+        private DataPin FindPin(IData entry)
+        {
+            if (entry == null)
+            {
+                return null;
+            }
+
+            return _pinned.FirstOrDefault(pin => pin.Entry == entry ||
+                (_document != null && pin.Type == _document.DataType && pin.Key == entry.Key));
+        }
+
+        private bool IsPinned(IData entry) => FindPin(entry) != null;
+
+        private void TogglePin(IData entry)
+        {
+            if (entry == null || _document == null)
+            {
+                return;
+            }
+
+            var existing = FindPin(entry);
+            if (existing != null)
+            {
+                _pinned.Remove(existing);
+            }
+            else
+            {
+                _pinned.Add(new DataPin
+                {
+                    Type = _document.DataType,
+                    Key = entry.Key,
+                    Label = EntryLabel(entry),
+                    Entry = entry,
+                });
+            }
+
+            RefreshPinRail();
+        }
+
+        private void Unpin(DataPin pin)
+        {
+            if (_pinned.Remove(pin))
+            {
+                RefreshPinRail();
+            }
+        }
+
+        /// <summary>
+        /// Selects an entry by type and key, switching the rail to that type first if it is elsewhere.
+        /// </summary>
+        /// <remarks>
+        /// The rail asks about unsaved changes on the way, and a cancelled prompt leaves it where it
+        /// was — so what got opened is checked afterwards rather than assumed.
+        /// </remarks>
+        private void ShowEntry(Type type, uint key)
+        {
+            _typeRail.Select(type);
+
+            if (_document == null || _document.DataType != type)
+            {
+                return;
+            }
+
+            var opened = _document.Entries?.FirstOrDefault(entry => entry != null && entry.Key == key);
+            if (opened == null)
+            {
+                return;
+            }
+
+            SelectOnly(opened);
+            RefreshEntryList();
+
+            // The list draws from _filtered, which RefreshEntryList has just rebuilt with the selected
+            // row at the top. Telling the ListView about it is what highlights the row; RefreshInspector
+            // is what puts the fields on screen. Neither follows from setting _selection alone.
+            _entryList?.SetSelectionWithoutNotify(new[] { 0 });
+            RefreshInspector();
+            UpdateStatus();
+        }
+
+        /// <summary>
+        /// Reads the pins back. Stored as type, key and last known name, one pin per record.
+        /// </summary>
+        /// <remarks>
+        /// The name is stored as well as the key because a pin whose type is not the open one has no
+        /// entry to read a name off, and a rail of keys is a rail nobody can use. It is refreshed from
+        /// the entry itself whenever that type is open.
+        /// </remarks>
+        private void RestorePins()
+        {
+            _pinned.Clear();
+            _storedPins = EditorPrefs.GetString(PinnedPrefsKey, string.Empty);
+            if (string.IsNullOrEmpty(_storedPins))
+            {
+                return;
+            }
+
+            var known = VslDataStore.GetAuthoredTypes().ToList();
+
+            foreach (var record in _storedPins.Split(RecordSeparator))
+            {
+                var parts = record.Split(FieldSeparator);
+                if (parts.Length != 3 || !uint.TryParse(parts[1], out uint key))
+                {
+                    continue;
+                }
+
+                var type = known.FirstOrDefault(candidate => candidate.FullName == parts[0]);
+
+                // A type that has gained a window of its own since it was pinned is not this window's
+                // to open, and a chip that does nothing is worse than no chip.
+                if (type == null || DataAuthoringWindows.HasWindow(type))
+                {
+                    continue;
+                }
+
+                _pinned.Add(new DataPin { Type = type, Key = key, Label = parts[2] });
+            }
+        }
+
+        private void StorePins()
+        {
+            string text = string.Join(RecordSeparator.ToString(), _pinned.Select(pin =>
+                string.Join(FieldSeparator.ToString(), pin.Type.FullName, pin.Key.ToString(), pin.Label)));
+
+            if (text == _storedPins)
+            {
+                return;
+            }
+
+            _storedPins = text;
+            EditorPrefs.SetString(PinnedPrefsKey, text);
         }
 
         #endregion
@@ -661,7 +955,7 @@ namespace VaporEditor.DataRegistry
         private void RefreshEntryList()
         {
             _filtered.Clear();
-            _pinnedCount = 0;
+            _stickyCount = 0;
 
             if (_document != null)
             {
@@ -674,7 +968,7 @@ namespace VaporEditor.DataRegistry
                     if (_selection.Contains(entry))
                     {
                         _filtered.Add(entry);
-                        _pinnedCount++;
+                        _stickyCount++;
                     }
                 }
 
@@ -734,6 +1028,11 @@ namespace VaporEditor.DataRegistry
 
             // Whatever is built next hands one back if it has one; the comparison sheet does not.
             _filterBar = null;
+            _entryHeaderName = null;
+
+            // The rail marks whichever pin the inspector is showing, so it is drawn from here rather
+            // than from the selection: every path that changes what is inspected comes through.
+            RefreshPinRail();
 
             if (_document == null || _selection.Count == 0)
             {
@@ -826,6 +1125,8 @@ namespace VaporEditor.DataRegistry
             var root = new VisualElement { style = { flexGrow = 1f } };
             var body = BuildEntryInspector(_selection[0], out var header);
 
+            root.Add(BuildEntryHeader(_selection[0]));
+
             // Outside the scroll: a filter bar that scrolled away with the fields it filters would be
             // gone exactly when it is wanted.
             if (header != null)
@@ -846,6 +1147,167 @@ namespace VaporEditor.DataRegistry
             root.Add(scroll);
             return root;
         }
+
+        /// <summary>
+        /// The line above the open entry: what it is, and the pin that puts it in the rail.
+        /// </summary>
+        /// <remarks>
+        /// The window had no header of its own before this - the entry's name is drawn as an ordinary
+        /// member further down, and the type is on the rail. It exists because the pin needs somewhere
+        /// to live that belongs to the entry being looked at rather than to the list or the document,
+        /// and it earns the space by naming what the fields underneath belong to.
+        /// </remarks>
+        private VisualElement BuildEntryHeader(IData entry)
+        {
+            var color = VslDataStore.GetColor(_document.DataType);
+
+            var header = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    flexShrink = 0f,
+                    paddingLeft = 8,
+                    paddingRight = 6,
+                    paddingTop = 4,
+                    paddingBottom = 4,
+                    borderLeftWidth = 3,
+                    borderLeftColor = color,
+                    borderBottomWidth = 1,
+                    borderBottomColor = PinRailRule,
+                    backgroundColor = new Color(color.r, color.g, color.b, 0.10f),
+                },
+            };
+
+            _entryHeaderName = new Label(EntryLabel(entry))
+            {
+                tooltip = $"{_document.DataType.FullName}   ·   key 0x{entry.Key:X8}",
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    flexGrow = 1f,
+                    flexShrink = 1f,
+                    overflow = Overflow.Hidden,
+                    textOverflow = TextOverflow.Ellipsis,
+                },
+            };
+            header.Add(_entryHeaderName);
+
+            // The entry's own class rather than the document's: one document covers a family, and the
+            // class worth opening is the one this entry actually is.
+            header.Add(TypeScriptLocator.CreateButton(entry.GetType()));
+            header.Add(BuildPinButton(entry, color));
+
+            return header;
+        }
+
+        /// <summary>
+        /// The pin, on the header of whatever is being inspected: it puts this entry in the rail under
+        /// the toolbar, and takes it out again.
+        /// </summary>
+        /// <remarks>
+        /// The state is drawn onto the button rather than announced anywhere, because the rail below
+        /// is the announcement - what the button has to say is whether clicking it adds or removes.
+        /// </remarks>
+        private VisualElement BuildPinButton(IData entry, Color color)
+        {
+            var button = new Button
+            {
+                style =
+                {
+                    height = 18,
+                    minWidth = 22,
+                    marginLeft = 6,
+                    marginTop = 0,
+                    marginBottom = 0,
+                    marginRight = 0,
+                    paddingLeft = 4,
+                    paddingRight = 4,
+                    flexShrink = 0f,
+                    alignItems = Align.Center,
+                    justifyContent = Justify.Center,
+                    borderTopLeftRadius = 3,
+                    borderTopRightRadius = 3,
+                    borderBottomLeftRadius = 3,
+                    borderBottomRightRadius = 3,
+                },
+            };
+
+            var icon = PinIcon();
+            if (icon != null)
+            {
+                button.Add(new VisualElement
+                {
+                    style = { backgroundImage = new StyleBackground(icon), width = 14, height = 14, flexShrink = 0f },
+                });
+            }
+
+            void Apply()
+            {
+                bool on = IsPinned(entry);
+
+                button.tooltip = on
+                    ? "Unpin. It leaves the rail under the toolbar."
+                    : "Pin to the rail under the toolbar, a click away whatever type the rail is on.";
+
+                button.style.opacity = on ? 1f : 0.6f;
+                button.style.backgroundColor = on ? new Color(color.r, color.g, color.b, 0.30f) : StyleKeyword.Null;
+
+                if (icon == null)
+                {
+                    button.text = on ? "Unpin" : "Pin";
+                }
+            }
+
+            button.clicked += () =>
+            {
+                TogglePin(entry);
+                Apply();
+            };
+
+            Apply();
+            return button;
+        }
+
+        /// <summary>
+        /// The first built-in icon that exists in this Unity version, or null to fall back to text.
+        /// </summary>
+        /// <remarks>
+        /// Looked up by name and cached, because <c>IconContent</c> is happy to throw on a name a
+        /// version does not have rather than returning nothing.
+        /// </remarks>
+        private Texture2D PinIcon()
+        {
+            if (_pinIconResolved)
+            {
+                return _pinIcon;
+            }
+
+            _pinIconResolved = true;
+
+            foreach (var pinName in new[] { "pin", "pinned", "d_Favorite Icon", "Favorite Icon", "d_Favorite", "Favorite" })
+            {
+                try
+                {
+                    _pinIcon = EditorGUIUtility.IconContent(pinName)?.image as Texture2D;
+                }
+                catch (Exception)
+                {
+                    _pinIcon = null;
+                }
+
+                if (_pinIcon)
+                {
+                    return _pinIcon;
+                }
+            }
+
+            return null;
+        }
+
+        private Texture2D _pinIcon;
+        private bool _pinIconResolved;
 
         /// <summary>
         /// Builds one entry's editor, and whatever chrome the view wants pinned over it. Name is drawn
@@ -876,6 +1338,17 @@ namespace VaporEditor.DataRegistry
             if (index >= 0)
             {
                 _entryList.RefreshItem(index);
+            }
+
+            if (_entryHeaderName != null && _selection.Count == 1 && _selection[0] == entry)
+            {
+                _entryHeaderName.text = EntryLabel(entry);
+            }
+
+            // A rename moves the chip's label with it, and moves the key the pin is stored under.
+            if (IsPinned(entry))
+            {
+                RefreshPinRail();
             }
         }
 

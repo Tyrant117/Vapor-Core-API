@@ -195,6 +195,16 @@ namespace VaporEditor.Inspector
             });
         }
 
+        /// <summary>
+        /// The chip this bar draws, for a window that wants the same one somewhere else.
+        /// </summary>
+        /// <remarks>
+        /// A second row of chips elsewhere in a window reads as part of the same window only if it is
+        /// made of the same chip; a look-alike drifts apart the first time either one is restyled.
+        /// </remarks>
+        public static VisualElement CreateChip(string text, string tooltip, Color accent, bool on, Action onClick) =>
+            Chip(text, tooltip, accent, on, _ => onClick?.Invoke());
+
         private static VisualElement Chip(string text, string tooltip, Color accent, bool on, Action<bool> onClick)
         {
             var border = on ? new Color(accent.r, accent.g, accent.b, 0.9f) : new Color(1f, 1f, 1f, 0.12f);
