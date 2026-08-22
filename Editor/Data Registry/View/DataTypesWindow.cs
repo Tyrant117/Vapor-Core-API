@@ -822,7 +822,16 @@ namespace VaporEditor.DataRegistry
         {
             _typeRail.Select(type);
 
-            if (_document == null || _document.DataType != type)
+            // AGAINST THE DOCUMENT'S OWNER, NOT THE ENTRY'S OWN TYPE. A family shares one document —
+            // every terrain brush lives in TerrainStampData.vsl whatever subclass it is — and the rail
+            // resolves a member to that owner, so a document opened for one is never opened AS one.
+            // Comparing against the concrete type therefore returned here for every subclassed entry:
+            // the rail moved, the family opened, and nothing was selected — which is precisely the
+            // failure this method exists to prevent. It only bites the types that have a family, which
+            // is why it survived.
+            var owner = VslDataStore.GetDocumentOwner(type) ?? type;
+
+            if (_document == null || _document.DataType != owner)
             {
                 return;
             }

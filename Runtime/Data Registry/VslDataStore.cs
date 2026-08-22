@@ -205,10 +205,20 @@ namespace Vapor
         #region Paths
 
         /// <summary>The document a type's entries live in, without the extension.</summary>
+        /// <remarks>
+        /// <b>Answers for the document's owner, not for the type asked about.</b> A family shares one
+        /// file, so a concrete member has to name the root's — and <see cref="GetDocumentOwner"/> is
+        /// the one thing that decides which root that is. Reading the member's own attribute instead
+        /// disagreed with it the moment a subclass declared a <see cref="DataAuthoringAttribute"/> of
+        /// its own for a name prefix or a colour: the path named a file after the subclass, which does
+        /// not exist. Nothing failed loudly — a read came back empty and a write would have put half a
+        /// family in a second file beside the first.
+        /// </remarks>
         public static string GetFileName(Type dataType)
         {
-            var authoring = GetAuthoring(dataType);
-            return string.IsNullOrWhiteSpace(authoring?.FileName) ? dataType.Name : authoring.FileName;
+            var owner = GetDocumentOwner(dataType) ?? dataType;
+            var authoring = GetAuthoring(owner);
+            return string.IsNullOrWhiteSpace(authoring?.FileName) ? owner.Name : authoring.FileName;
         }
 
         /// <summary>Project-relative asset path of a type's first shard, for the asset database.</summary>

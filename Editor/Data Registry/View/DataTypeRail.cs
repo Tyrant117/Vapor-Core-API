@@ -397,12 +397,25 @@ namespace VaporEditor.DataRegistry
         /// Opens a named type, expanding whatever family holds it. For jumping to an entry.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Goes through the same path a click does, so an unsaved document still gets its prompt —
         /// arriving from somewhere else is not a reason to lose edits.
+        /// </para>
+        /// <para>
+        /// <b>A family member is a filter, not a destination.</b> Handed a concrete type of a family,
+        /// this selects the document's OWNER and narrows to the member — exactly what clicking its row
+        /// does. Selecting the member itself is what a caller naturally asks for and is wrong twice
+        /// over: the rail highlights nothing, because only roots have rows, and
+        /// <see cref="VslDataStore.GetFileName"/> then names a file after the subclass. That file does
+        /// not exist, so the document loads empty and the entry the caller asked for is never found —
+        /// a jump that opens a blank pane and reports nothing. It bites the moment a subclass declares
+        /// its own <see cref="DataAuthoringAttribute"/> for a name prefix or a colour, which is a
+        /// supported thing to do and does not move its entries out of the family's file.
+        /// </para>
         /// </remarks>
         public void Select(Type type)
         {
-            if (type == null || SelectedType == type)
+            if (type == null)
             {
                 return;
             }
@@ -413,9 +426,22 @@ namespace VaporEditor.DataRegistry
                 return;
             }
 
-            if (SelectType(type))
+            var owner = VslDataStore.GetDocumentOwner(type) ?? type;
+            var filter = owner != type ? type : null;
+
+            // Already open is not a reason to skip the filter below — jumping from one family member
+            // to another leaves the document alone and moves only the narrowing.
+            if (SelectedType != owner && !SelectType(owner))
             {
-                SetExpanded(type, true);
+                return;
+            }
+
+            SetExpanded(owner, true);
+
+            if (TypeFilter != filter)
+            {
+                TypeFilter = filter;
+                TypeFilterChanged?.Invoke(filter);
             }
 
             Rebuild();

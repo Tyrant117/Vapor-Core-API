@@ -232,6 +232,14 @@ namespace Vapor.Tests.Serialization
                 {
                     Assert.AreEqual(root, VslDataStore.GetDocumentOwner(concrete),
                         $"{concrete.Name} does not resolve to {root.Name}'s document");
+
+                    // The path has to agree with the ownership, and used not to: a subclass declaring
+                    // its own [DataAuthoring] for a prefix or a colour named a file after itself,
+                    // which nothing had written. Asserting the owner alone let that through.
+                    Assert.AreEqual(VslDataStore.GetFileName(root), VslDataStore.GetFileName(concrete),
+                        $"{concrete.Name} names a different file from {root.Name}");
+                    Assert.AreEqual(VslDataStore.GetAssetPath(root), VslDataStore.GetAssetPath(concrete),
+                        $"{concrete.Name} names a different path from {root.Name}");
                 }
             }
         }
