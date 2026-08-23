@@ -15,6 +15,21 @@ namespace Vapor.Networking
     /// the same stack when they clone the same template. Ids are assigned by the authority as
     /// components are added and are stable for the component's lifetime on that object.
     /// </remarks>
+    /// <summary>
+    /// A component that always takes the same component id, whatever else its object carries.
+    /// </summary>
+    /// <remarks>
+    /// Ordinary components are numbered in attach order, which is fine while every peer builds the same
+    /// stack — but it means adding, removing or reordering anything shifts every id after it, and
+    /// anything keyed on those ids (a save, a routed rpc) moves with them. A component that is close to
+    /// universal is worth pinning so the rest can move freely around it.
+    /// </remarks>
+    public interface IReservedComponentId
+    {
+        /// <summary>The id to claim. Must be below <see cref="VaporNetworkObject.FirstSequentialComponentId"/>.</summary>
+        ushort ReservedComponentId { get; }
+    }
+
     public abstract partial class NetworkComponent : IRpcHost, INetworkVariableHost
     {
         private const byte k_FlagVariables = 1;

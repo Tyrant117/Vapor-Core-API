@@ -39,7 +39,14 @@ namespace Vapor.Networking
         private readonly List<VaporNetworkObject> _subObjects = new();
         private readonly List<InterestGroup> _interestGroups = new();
         private Dictionary<Type, List<NetworkComponent>> _componentsByType;
-        private ushort _nextComponentId = 1;
+        /// <summary>
+        /// The first id handed out in attach order. Everything below it is reserved for components that
+        /// claim a fixed id through <see cref="IReservedComponentId"/>, so a reservation can never
+        /// collide with a sequential one however the stack is ordered.
+        /// </summary>
+        public const ushort FirstSequentialComponentId = 2;
+
+        private ushort _nextComponentId = FirstSequentialComponentId;
         private bool _customStateDirty;
         private bool _spawnCompleted;
         internal bool QueuedDirty;
@@ -265,7 +272,8 @@ namespace Vapor.Networking
             // stack in OnPreSpawn; afterwards it is the authority's call and it replicates.
             if (_spawnCompleted && !IsAuthority) throw new InvalidOperationException("Only the authority may add components to a spawned object.");
 
-            AttachComponent(component, _nextComponentId++);
+            ushort id = component is IReservedComponentId reserved ? reserved.ReservedComponentId : _nextComponentId++;
+            AttachComponent(component, id);
             if (_spawnCompleted)
             {
                 component.SpawnInternal();
