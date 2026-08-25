@@ -84,6 +84,29 @@ namespace Vapor.GameplayFramework
             }
         }
 
+        /// <summary>
+        /// Triggers an event with struct data, without boxing it when nobody is listening.
+        /// </summary>
+        /// <remarks>
+        /// The interface parameter above forces a box at the call site, which happens before anything
+        /// here can discover that the event has no subscribers — so a caller raising a value event
+        /// every frame allocated every frame whether or not the value went anywhere. Taking the data
+        /// generically moves the box behind the lookup: the common case of an event nobody has
+        /// subscribed to costs a dictionary probe and nothing else.
+        /// <para>
+        /// Callers need do nothing to opt in. Passing a struct picks this overload over the interface
+        /// one automatically, because an identity conversion beats a boxing conversion.
+        /// </para>
+        /// </remarks>
+        public static void TriggerEvent<T>([DataKey("Event")] uint eventId, in T gameplayEventData)
+            where T : struct, IGameplayEventData
+        {
+            if (s_Events.TryGetValue(eventId, out GameplayEvent gameplayEvent))
+            {
+                gameplayEvent.TriggerEvent(gameplayEventData);
+            }
+        }
+
         /// <summary>Triggers the event only where a client session runs (a client or a host); a dedicated server ignores it.</summary>
         public static void TriggerClientEvent([DataKey("Event")] uint eventId, IGameplayEventData gameplayEventData)
         {
