@@ -85,6 +85,12 @@ namespace Vapor.Networking
         // Ticks
         private double _lastUpdateTime;
         private double _tickAccumulator;
+
+        /// <summary>Reliable data that arrived before the welcome, held rather than thrown away.</summary>
+        private readonly List<(Delivery delivery, byte[] payload)> _preWelcome = new();
+        private readonly List<(Delivery delivery, byte[] payload)> _heldScratch = new();
+
+        private const int MaxHeldBeforeWelcome = 256;
         private uint _tick;
 
         public NetworkSession(IVaporTransport transport, INetworkClock clock, SessionConfig config = null)
@@ -684,7 +690,7 @@ namespace Vapor.Networking
                 }
                 else
                 {
-                    HandleClientMessage(connection, delivery, type);
+                    HandleClientMessage(connection, delivery, type, payload);
                 }
             }
             catch (NetworkSerializationException)
@@ -846,7 +852,8 @@ namespace Vapor.Networking
 
         #region - Client handshake and messages -
 
-        private void HandleClientMessage(ConnectionId connectionId, Delivery delivery, MessageType type)
+        private void HandleClientMessage(ConnectionId connectionId, Delivery delivery, MessageType type,
+            ReadOnlySpan<byte> payload)
         {
             if (connectionId != _serverConnection || _clientState == ClientState.Disconnected) return;
             double now = _clock.Now;
@@ -875,6 +882,11 @@ namespace Vapor.Networking
                         {
                             SendPing(now);
                         }
+
+                        // Anything that overtook this welcome on the other reliable pipeline, in the
+                        // order it arrived — after Connected, so whatever binds on connect is ready to
+                        // receive a world.
+                        DeliverHeldData();
                     }
                     break;
 
@@ -911,8 +923,79 @@ namespace Vapor.Networking
                     {
                         Data?.Invoke(ServerClientId, delivery, _reader);
                     }
+                    else if (delivery.IsReliable())
+                    {
+                        HoldUntilWelcome(delivery, payload);
+                    }
+
                     break;
             }
+        }
+
+        /// <summary>
+        /// Reliable data that arrived before the welcome it should have followed.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The welcome and the world arrive on two different pipelines, and nothing orders one against
+        /// the other.</b> Control messages go out reliable-sequenced; the replicator's spawns go out
+        /// reliable-<i>fragmented</i>-sequenced, because a full spawn can exceed a datagram. Those are two
+        /// sequence spaces — in this transport, in UTP, and in Steam's — so ordering holds within each and
+        /// not between them. On a link with no jitter every packet takes exactly the same time and send
+        /// order survives by accident, which is why this was invisible for as long as it was.
+        /// </para>
+        /// <para>
+        /// Add a millisecond of jitter and the first spawn overtakes the welcome. A client that discarded
+        /// it would be discarding <i>reliable</i> data, which by definition is never sent again: the
+        /// joining player gets an empty world and stays in it. Holding the data for the few milliseconds
+        /// until the welcome lands costs a list and fixes it exactly.
+        /// </para>
+        /// <para>
+        /// Only reliable classes are held. An unreliable snapshot from before you were welcomed describes
+        /// a world you had no way to interpret and will be superseded within a tick, which is what
+        /// "unreliable" was chosen to mean.
+        /// </para>
+        /// </remarks>
+        private void HoldUntilWelcome(Delivery delivery, ReadOnlySpan<byte> payload)
+        {
+            // A bound, because everything arriving before a welcome that never comes is otherwise held
+            // forever. A real handshake takes a round trip; anything past this is a server that is not
+            // going to welcome us.
+            if (_preWelcome.Count >= MaxHeldBeforeWelcome)
+            {
+                FailClient(SessionDisconnectReason.TransportError);
+                return;
+            }
+
+            _preWelcome.Add((delivery, payload.ToArray()));
+        }
+
+        /// <summary>Replays what was held, in arrival order, once the welcome has been processed.</summary>
+        private void DeliverHeldData()
+        {
+            if (_preWelcome.Count == 0)
+            {
+                return;
+            }
+
+            // A copy, because a handler may disconnect us — which clears the list underneath the loop.
+            _heldScratch.Clear();
+            _heldScratch.AddRange(_preWelcome);
+            _preWelcome.Clear();
+
+            foreach (var (delivery, payload) in _heldScratch)
+            {
+                if (_clientState != ClientState.Connected)
+                {
+                    return;
+                }
+
+                _reader.SetSource(payload, 0, payload.Length);
+                _reader.ReadByte();   // the message type, already known to be Data
+                Data?.Invoke(ServerClientId, delivery, _reader);
+            }
+
+            _heldScratch.Clear();
         }
 
         private void ApplyTimeSample(double now, double sentAt, double serverTime, uint serverTick)
@@ -943,6 +1026,10 @@ namespace Vapor.Networking
             _serverConnection = ConnectionId.Invalid;
             LocalClientId = InvalidClientId;
             _hasTimeSync = false;
+
+            // A world we were never welcomed into is not one to replay on the next connection.
+            _preWelcome.Clear();
+            _heldScratch.Clear();
             if (wasKnown)
             {
                 Disconnected?.Invoke(reason);

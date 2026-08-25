@@ -166,7 +166,14 @@ namespace Vapor.Tests.Networking
             world.BindToSession();
             var client = new Client { Transport = transport, Session = session, World = world };
             _clients.Add(client);
-            Steps(4);
+
+            // Stepped until it connects rather than for a fixed count, because a handshake is a round
+            // trip and how many ticks that takes is a property of the link, not of the test.
+            for (int i = 0; i < 60 && !session.IsConnected; i++)
+            {
+                Step();
+            }
+
             Assert.IsTrue(session.IsConnected, "client did not connect");
             return client;
         }
@@ -826,6 +833,55 @@ namespace Vapor.Tests.Networking
             Assert.AreEqual(5, mirror.Health.Value);
             Assert.AreEqual("old", mirror.Get<ProbeComponent>().Tag);
             Assert.AreEqual(1, mirror.SubObjects.Count);
+        }
+
+        /// <summary>
+        /// The same join, on a link where packets do not all take exactly the same time.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>A welcome and the world that follows it travel on two different reliable pipelines.</b>
+        /// Control messages are reliable-sequenced; spawns are reliable-<i>fragmented</i>-sequenced,
+        /// because a full spawn can exceed a datagram. Two sequence spaces, ordered within themselves and
+        /// not against each other — here, in UTP, and in Steam's sockets.
+        /// </para>
+        /// <para>
+        /// With a perfectly even link every packet takes the same time and send order survives by
+        /// accident, which is why every other test in this file passed while this was broken. One
+        /// millisecond of jitter is enough for the first spawn to overtake the welcome, and a client that
+        /// dropped it would be dropping <i>reliable</i> data that is never sent again — a joining player
+        /// left in an empty world for the rest of the session.
+        /// </para>
+        /// <para>
+        /// Found while running M1's gate conditions, which is exactly what gate conditions are for.
+        /// </para>
+        /// </remarks>
+        [TestCase(0.005, 0.001, TestName = "ALateJoinerReceivesTheExistingWorldOverAJitteredLink_1ms")]
+        [TestCase(0.060, 0.015, TestName = "ALateJoinerReceivesTheExistingWorldOverAJitteredLink_15ms")]
+        public void ALateJoinerReceivesTheExistingWorldOverAJitteredLink(double latency, double jitter)
+        {
+            _network.DefaultConditions.LatencySeconds = latency;
+            _network.DefaultConditions.JitterSeconds = jitter;
+            _serverTransport.Conditions.LatencySeconds = latency;
+            _serverTransport.Conditions.JitterSeconds = jitter;
+
+            var probe = new Probe();
+            probe.AddComponent(new ProbeComponent { Tag = "old" });
+            _server.Spawn(probe);
+            probe.Health.Value = 5;
+            Steps(4);
+
+            var late = AddClient();
+            for (int i = 0; i < 60 && late.World.Count < 1; i++)
+            {
+                Step();
+            }
+
+            Assert.AreEqual(1, late.World.Count,
+                $"the existing world reached a joiner at {latency * 1000:F0} ms with {jitter * 1000:F0} ms of jitter");
+            var mirror = Only<Probe>(late.World);
+            Assert.AreEqual(5, mirror.Health.Value, "with its state");
+            Assert.AreEqual("old", mirror.Get<ProbeComponent>().Tag, "and its components");
         }
 
         #endregion

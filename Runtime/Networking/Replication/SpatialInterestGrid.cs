@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vapor.Networking
 {
     /// <summary>
-    /// A uniform grid over the XZ plane that answers "is this object near this client" for relevance,
+    /// A uniform grid over three dimensions that answers "is this object near this client" for relevance,
     /// and "how far" for LOD. Objects report positions; clients report focus points (their pawn, a
     /// spectator camera). Membership changes only when a position crosses a cell edge, so updating it
     /// every tick is cheap.
@@ -157,11 +157,12 @@ namespace Vapor.Networking
             _idScratch.Clear();
             foreach (var point in focus)
             {
-                Unpack(CellOf(point), out int cx, out int cz);
+                Unpack(CellOf(point), out int cx, out int cy, out int cz);
                 for (int x = cx - radiusCells; x <= cx + radiusCells; x++)
+                for (int y = cy - radiusCells; y <= cy + radiusCells; y++)
                 for (int z = cz - radiusCells; z <= cz + radiusCells; z++)
                 {
-                    if (_cells.TryGetValue(Pack(x, z), out var set))
+                    if (_cells.TryGetValue(Pack(x, y, z), out var set))
                     {
                         foreach (var id in set)
                         {
@@ -185,11 +186,11 @@ namespace Vapor.Networking
             if (!_focus.TryGetValue(clientId, out var focus) || focus.Count == 0) return false;
 
             int reach = RadiusCells + (currentlyObserving ? HysteresisCells : 0);
-            Unpack(entry.Cell, out int ox, out int oz);
+            Unpack(entry.Cell, out int ox, out int oy, out int oz);
             for (int i = 0; i < focus.Count; i++)
             {
-                Unpack(CellOf(focus[i]), out int fx, out int fz);
-                if (Math.Abs(ox - fx) <= reach && Math.Abs(oz - fz) <= reach)
+                Unpack(CellOf(focus[i]), out int fx, out int fy, out int fz);
+                if (Math.Abs(ox - fx) <= reach && Math.Abs(oy - fy) <= reach && Math.Abs(oz - fz) <= reach)
                 {
                     return true;
                 }
@@ -209,20 +210,41 @@ namespace Vapor.Networking
 
         #region - Cells -
 
-        private long CellOf(Vector3 position)
+        private long CellOf(Vector3 position) => Pack(
+            (int)Math.Floor(position.x / CellSize),
+            (int)Math.Floor(position.y / CellSize),
+            (int)Math.Floor(position.z / CellSize));
+
+        /// <summary>
+        /// Three cell coordinates in one long, twenty-one bits each.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The grid was a plane until it had to describe a belt. Two thirty-two-bit axes fitted a long
+        /// exactly and left no room for the third, so each axis gives up eleven bits — which still buys
+        /// ±1,048,576 cells, or ±33,000 km at the default 32 m. That is four hundred times the play space
+        /// this exists for.
+        /// </para>
+        /// <para>
+        /// A world laid out on a plane is unaffected: everything in it lands in the same Y cell, and a Y
+        /// comparison between two identical numbers is always true.
+        /// </para>
+        /// </remarks>
+        private static long Pack(int x, int y, int z) =>
+            ((long)(x & Mask) << (2 * Bits)) | ((long)(y & Mask) << Bits) | (uint)(z & Mask);
+
+        private static void Unpack(long cell, out int x, out int y, out int z)
         {
-            int x = (int)Math.Floor(position.x / CellSize);
-            int z = (int)Math.Floor(position.z / CellSize);
-            return Pack(x, z);
+            x = Sign((int)((cell >> (2 * Bits)) & Mask));
+            y = Sign((int)((cell >> Bits) & Mask));
+            z = Sign((int)(cell & Mask));
         }
 
-        private static long Pack(int x, int z) => ((long)x << 32) | (uint)z;
+        private const int Bits = 21;
+        private const int Mask = (1 << Bits) - 1;
 
-        private static void Unpack(long cell, out int x, out int z)
-        {
-            x = (int)(cell >> 32);
-            z = (int)(cell & 0xFFFFFFFF);
-        }
+        /// <summary>Sign-extends a 21-bit field back to an int, so cells below the origin stay below it.</summary>
+        private static int Sign(int packed) => (packed & (1 << (Bits - 1))) != 0 ? packed | ~Mask : packed;
 
         private void AddToCell(long cell, ulong id)
         {
