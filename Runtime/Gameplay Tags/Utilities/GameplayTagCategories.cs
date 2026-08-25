@@ -21,6 +21,7 @@ namespace Vapor.GameplayTags
         Loot,
         GameplayTagData,
         Item,
+        Xr,
         Vapor,
         WorldSettings,
         Subsystems,
@@ -45,6 +46,7 @@ namespace Vapor.GameplayTags
         public const string LOOT = "Loot";
         public const string GAMEPLAY_TAG_DATA = "GameplayTagData";
         public const string ITEM = "Item";
+        public const string XR = "Xr";
         public const string VAPOR = "Vapor";
         public const string WORLD_SETTINGS = "WorldSettings";
         public const string SUBSYSTEMS = "Subsystems";
@@ -70,6 +72,7 @@ namespace Vapor.GameplayTags
                 GameplayTagDefaultCategories.Loot => LOOT,
                 GameplayTagDefaultCategories.GameplayTagData => GAMEPLAY_TAG_DATA,
                 GameplayTagDefaultCategories.Item => ITEM,
+                GameplayTagDefaultCategories.Xr => XR,
                 GameplayTagDefaultCategories.Vapor => VAPOR,
                 GameplayTagDefaultCategories.WorldSettings => WORLD_SETTINGS,
                 GameplayTagDefaultCategories.Subsystems => SUBSYSTEMS,
