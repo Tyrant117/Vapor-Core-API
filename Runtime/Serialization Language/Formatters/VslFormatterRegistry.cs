@@ -142,6 +142,7 @@ namespace Vapor.Serialization
                 if (definition == typeof(ValueTuple<,>)) return Instantiate(typeof(ValueTupleFormatter<,>), arguments);
                 if (definition == typeof(ValueTuple<,,>)) return Instantiate(typeof(ValueTupleFormatter<,,>), arguments);
                 if (definition == typeof(AssetRef<>)) return Instantiate(typeof(AssetRefFormatter<>), arguments);
+                if (definition == typeof(VslRef<>)) return Instantiate(typeof(VslRefFormatter<>), arguments);
             }
 
             return FallbackFactory?.Invoke(type);

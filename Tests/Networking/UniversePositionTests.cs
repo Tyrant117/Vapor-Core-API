@@ -19,14 +19,19 @@ namespace Vapor.Tests.Networking
 
         #region - Normalization -
 
+        // Written against the sector size rather than against the number it happens to be. These are tests
+        // of normalization, and a test that has to be rewritten when a tuning constant moves was testing
+        // the constant.
+        private const float Sector = UniversePosition.SectorSize;
+
         [Test]
         public void AnOffsetIsAlwaysInsideItsSector()
         {
-            var position = UniversePosition.Create(Vector3Int.zero, new Vector3(2500f, -30f, 1024f));
+            var position = UniversePosition.Create(Vector3Int.zero, new Vector3(Sector * 2f + 452f, -30f, Sector));
 
             Assert.AreEqual(new Vector3Int(2, -1, 1), position.Sector);
             Assert.That(position.Local.x, Is.EqualTo(452f).Within(1e-3f));
-            Assert.That(position.Local.y, Is.EqualTo(994f).Within(1e-3f), "a metre below zero is the last metre of the sector below");
+            Assert.That(position.Local.y, Is.EqualTo(Sector - 30f).Within(1e-3f), "a metre below zero is the last metre of the sector below");
             Assert.That(position.Local.z, Is.EqualTo(0f).Within(1e-3f), "exactly a sector along is the start of the next one");
         }
 
@@ -35,18 +40,18 @@ namespace Vapor.Tests.Networking
         {
             // The one arithmetic mistake that would be invisible near the origin and wrong everywhere
             // else: truncation instead of floor puts the sector below zero one metre in the wrong place.
-            var position = UniversePosition.FromMetres(-1f, -1025f, -0.5);
+            var position = UniversePosition.FromMetres(-1f, -(Sector + 1f), -0.5);
 
             Assert.AreEqual(new Vector3Int(-1, -2, -1), position.Sector);
-            Assert.That(position.Local.x, Is.EqualTo(1023f).Within(1e-3f));
-            Assert.That(position.Local.y, Is.EqualTo(1023f).Within(1e-3f));
-            Assert.That(position.Local.z, Is.EqualTo(1023.5f).Within(1e-3f));
+            Assert.That(position.Local.x, Is.EqualTo(Sector - 1f).Within(1e-3f));
+            Assert.That(position.Local.y, Is.EqualTo(Sector - 1f).Within(1e-3f));
+            Assert.That(position.Local.z, Is.EqualTo(Sector - 0.5f).Within(1e-3f));
         }
 
         [Test]
         public void AddingAnOffsetCarriesAcrossSectors()
         {
-            var position = UniversePosition.FromMetres(1000f, 0f, 0f);
+            var position = UniversePosition.FromMetres(Sector - 24f, 0f, 0f);
             var moved = position + new Vector3(100f, 0f, 0f);
 
             Assert.AreEqual(new Vector3Int(1, 0, 0), moved.Sector);
@@ -57,8 +62,8 @@ namespace Vapor.Tests.Networking
         [Test]
         public void EqualityIsExactRatherThanApproximate()
         {
-            var a = UniversePosition.FromMetres(2048f, 0f, 0f);
-            var b = UniversePosition.Create(new Vector3Int(1, 0, 0), new Vector3(1024f, 0f, 0f));
+            var a = UniversePosition.FromMetres(Sector * 2f, 0f, 0f);
+            var b = UniversePosition.Create(new Vector3Int(1, 0, 0), new Vector3(Sector, 0f, 0f));
 
             Assert.AreEqual(a, b, "the same place, spelled two ways, normalizes to one");
             Assert.IsTrue(a == b);
@@ -73,11 +78,11 @@ namespace Vapor.Tests.Networking
         public void PrecisionDoesNotDegradeWithDistance()
         {
             // The reason the type exists, and the claim is specifically that the error is *flat*, not
-            // that it is zero. A float inside a 1024 m sector has a step of about 6 × 10⁻⁵ m, so a
+            // that it is zero. A float inside a sector has a step of a fraction of a millimetre, so a
             // millimetre of movement is recorded to within that — at the origin, at eighty kilometres,
             // and at eighty thousand. A plain float world's error grows with the range instead: 1.2 cm
             // at 80 km, and it never comes back.
-            const double sectorUlp = 1024.0 * 1.2e-7;   // a float's step at the top of a sector
+            const double sectorUlp = UniversePosition.SectorSize * 1.2e-7;   // a float's step at the top of a sector
 
             double worst = 0;
             foreach (double range in new[] { 0.0, 80_000.0, 8_000_000.0 })
@@ -215,19 +220,68 @@ namespace Vapor.Tests.Networking
         {
             // So origins come from a fixed lattice: two peers near each other usually share one exactly,
             // and a rebase is reproducible rather than depending on where a ship happened to be when it
-            // crossed the threshold.
-            var target = UniverseOrigin.RebaseTargetFor(new Vector3(1600f, 30f, -2500f));
+            // crossed the threshold. Nearest corner, not the containing one — see the test below for why.
+            const float sector = UniversePosition.SectorSize;
 
-            Assert.AreEqual(Vector3.zero, target.Local);
-            Assert.AreEqual(new Vector3Int(1, 0, -3), target.Sector);
+            // x is a fifth of the way into sector 0, so it rounds down to 0. z is 2.2 sectors below the
+            // origin — a fifth of the way *up* from the -3 corner, which makes the -2 corner the near one.
+            // Rounding is towards the nearest lattice point, not towards zero and not towards the corner
+            // the focus is standing on.
+            var near = UniverseOrigin.RebaseTargetFor(new Vector3(sector * 0.2f, 30f, -sector * 2.2f));
+            Assert.AreEqual(Vector3.zero, near.Local, "an origin is always a lattice point");
+            Assert.AreEqual(new Vector3Int(0, 0, -2), near.Sector, "and the nearest one");
+
+            // And both axes the other way: four fifths into sector 0 rounds up to 1, four fifths up from
+            // the -3 corner rounds back down to it.
+            var far = UniverseOrigin.RebaseTargetFor(new Vector3(sector * 0.8f, 30f, -sector * 2.8f));
+            Assert.AreEqual(new Vector3Int(1, 0, -3), far.Sector, "a focus past the half-way mark rounds away");
+        }
+
+        /// <summary>
+        /// One rebase is enough, from anywhere. A threshold below the bound rebases in bursts.
+        /// </summary>
+        /// <remarks>
+        /// The defect this pins: the target used to snap to the sector a focus was <i>in</i>, leaving it up
+        /// to a whole sector — √3 of one, on the diagonal — from its new origin. With a threshold under
+        /// that, a rebase landing in the outer corner of a sector immediately triggered another, and every
+        /// rebase is a moment when something holding a world-space value can be caught a sector out.
+        /// </remarks>
+        [Test]
+        public void OneRebaseSettlesItFromAnywhereInASector()
+        {
+            float threshold = UniverseOrigin.MinimumRebaseThreshold;
+
+            for (int i = 0; i < 400; i++)
+            {
+                UniverseOrigin.Reset();
+
+                // Every corner of the sector and the awkward places between them.
+                float t = i / 399f;
+                var focus = new Vector3(
+                    Mathf.Lerp(-UniversePosition.SectorSize, UniversePosition.SectorSize, t),
+                    Mathf.Lerp(UniversePosition.SectorSize, -UniversePosition.SectorSize, t * 0.77f),
+                    Mathf.Lerp(-UniversePosition.SectorSize, UniversePosition.SectorSize, t * 1.31f % 1f));
+
+                if (!UniverseOrigin.ShouldRebase(focus, threshold))
+                {
+                    continue;
+                }
+
+                focus += UniverseOrigin.ShiftTo(UniverseOrigin.RebaseTargetFor(focus));
+
+                Assert.IsFalse(UniverseOrigin.ShouldRebase(focus, threshold),
+                    $"a focus at {focus.magnitude:F0} m still wants rebasing after one, against a floor of {threshold:F0} m");
+            }
         }
 
         [Test]
         public void RebasingWaitsUntilTheFocusHasActuallyDriftedAway()
         {
-            Assert.IsFalse(UniverseOrigin.ShouldRebase(new Vector3(1000f, 0f, 0f), 1500f),
+            float threshold = UniverseOrigin.MinimumRebaseThreshold;
+
+            Assert.IsFalse(UniverseOrigin.ShouldRebase(new Vector3(threshold * 0.6f, 0f, 0f), threshold),
                 "hovering near a sector edge must not rebase every frame");
-            Assert.IsTrue(UniverseOrigin.ShouldRebase(new Vector3(1600f, 0f, 0f), 1500f));
+            Assert.IsTrue(UniverseOrigin.ShouldRebase(new Vector3(threshold * 1.1f, 0f, 0f), threshold));
         }
 
         [Test]
@@ -243,7 +297,7 @@ namespace Vapor.Tests.Networking
             {
                 focus += new Vector3(200f, 0f, 0f);
 
-                if (UniverseOrigin.ShouldRebase(focus, 1500f))
+                if (UniverseOrigin.ShouldRebase(focus, UniverseOrigin.MinimumRebaseThreshold))
                 {
                     var delta = UniverseOrigin.ShiftTo(UniverseOrigin.RebaseTargetFor(focus));
                     focus += delta;
@@ -255,8 +309,15 @@ namespace Vapor.Tests.Networking
 
             var travelled = UniverseOrigin.Current + focus;
 
-            Assert.That(rebases, Is.GreaterThan(50), $"eighty kilometres is a lot of rebases ({rebases})");
-            Assert.That(worst, Is.LessThan(2000f),
+            // Eighty kilometres over a lattice of five-kilometre sectors, rebasing at the floor: about
+            // sixteen. Stated as a floor rather than a count because the exact number is a function of the
+            // sector size and the step, and a test that has to be edited whenever a tuning constant moves
+            // is testing the constant.
+            Assert.That(rebases, Is.GreaterThan(12), $"eighty kilometres is a lot of rebases ({rebases})");
+
+            // The invariant, rather than a number: the focus is never further out than the threshold that
+            // triggers a rebase, plus the one step it takes to notice.
+            Assert.That(worst, Is.LessThan(UniverseOrigin.MinimumRebaseThreshold + 200f),
                 $"and the focus never got further than {worst:F0} m from the origin, so float precision never mattered");
             Assert.That(travelled.DistanceTo(UniversePosition.Zero), Is.EqualTo(80_000.0).Within(1.0),
                 "while actually having gone eighty kilometres");

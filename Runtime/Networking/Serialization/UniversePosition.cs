@@ -39,11 +39,25 @@ namespace Vapor.Networking
         /// Metres per sector.
         /// </summary>
         /// <remarks>
-        /// A kilometre, near enough. Large enough that rebasing is rare and sector arithmetic almost
-        /// never comes up; small enough that a float inside one is precise to a twentieth of a
-        /// millimetre, which is far below anything the game can express.
+        /// <para>
+        /// Five kilometres. Large enough that a ship at the three-hundred-metre ceiling crosses one every
+        /// seventeen seconds rather than every three, which matters because a rebase is the one moment
+        /// per sector when everything in the world moves at once and anything holding a stale world-space
+        /// value shows it.
+        /// </para>
+        /// <para>
+        /// Small enough that a float inside one is precise to <b>three tenths of a millimetre</b>, which
+        /// is far below anything the game can express. The wire cost of the change is nothing: the offset
+        /// is written as fixed point at the transform's own precision, so a larger sector spends a couple
+        /// of bits, not a couple of bytes.
+        /// </para>
+        /// <para>
+        /// It was a kilometre through M2. Raising it is safe in exactly one respect that has to be checked
+        /// when it changes again: <see cref="UniverseOrigin.MinimumRebaseThreshold"/> scales with it, and a
+        /// rebaser configured below that rebases in bursts.
+        /// </para>
         /// </remarks>
-        public const float SectorSize = 1024f;
+        public const float SectorSize = 5000f;
 
         public static readonly UniversePosition Zero = new(Vector3Int.zero, Vector3.zero);
 

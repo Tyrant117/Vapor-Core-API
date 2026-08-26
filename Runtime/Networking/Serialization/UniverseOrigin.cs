@@ -90,17 +90,45 @@ namespace Vapor.Networking
         public static bool ShouldRebase(Vector3 focusRender, float threshold) =>
             focusRender.sqrMagnitude > threshold * threshold;
 
-        /// <summary>The origin a focus should rebase to: the corner of the sector it is standing in.</summary>
+        /// <summary>
+        /// The smallest threshold that settles in one rebase, in metres.
+        /// </summary>
         /// <remarks>
+        /// <b>A threshold below this rebases twice, and sometimes forever.</b> A rebase leaves the focus
+        /// somewhere in the half-sector around its new origin, so the furthest it can land is the corner:
+        /// <c>√3 · SectorSize / 2</c>. Ask to rebase nearer than that and the very next frame is past the
+        /// threshold again — which is not a loop, because the second one lands closer, but it is a burst
+        /// of rebases where there should have been one, and every rebase is a moment where something can
+        /// be caught half-moved.
+        /// </remarks>
+        public static float MinimumRebaseThreshold => UniversePosition.SectorSize * 0.87f;
+
+        /// <summary>The origin a focus should rebase to: the nearest corner of the sector lattice.</summary>
+        /// <remarks>
+        /// <para>
         /// Snapped to a sector rather than set to the focus itself, so that origins are drawn from a
         /// fixed lattice. Two peers near each other then usually share an origin exactly, which makes
         /// their render spaces comparable when debugging — and makes a rebase reproducible rather than
         /// depending on where a ship happened to be at the moment it crossed the threshold.
+        /// </para>
+        /// <para>
+        /// <b>Nearest, not the containing one.</b> Snapping down to the sector a focus is standing in
+        /// leaves it up to a whole sector from its new origin; rounding halves that, which halves the
+        /// float error at the far edge and halves how large <see cref="MinimumRebaseThreshold"/> has to
+        /// be. Still a lattice point, so peers still agree.
+        /// </para>
         /// </remarks>
         public static UniversePosition RebaseTargetFor(Vector3 focusRender)
         {
             var focus = Current + focusRender;
-            return UniversePosition.Create(focus.Sector, Vector3.zero);
+            const float half = UniversePosition.SectorSize * 0.5f;
+
+            var sector = new Vector3Int(
+                focus.Sector.x + (focus.Local.x >= half ? 1 : 0),
+                focus.Sector.y + (focus.Local.y >= half ? 1 : 0),
+                focus.Sector.z + (focus.Local.z >= half ? 1 : 0));
+
+            return UniversePosition.Create(sector, Vector3.zero);
         }
     }
 }
