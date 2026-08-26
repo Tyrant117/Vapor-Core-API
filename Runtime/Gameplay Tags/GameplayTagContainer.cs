@@ -292,8 +292,12 @@ namespace Vapor.GameplayTags
             ListPool<GameplayTag>.Release(list);
         }
 
-        public bool IsEmpty() => _exactValidTags.Count == 0;
-        
+        public bool IsEmpty()
+        {
+            EnsureInitialized();
+            return _exactValidTags.Count == 0;
+        }
+
 
         public IList<GameplayTag> GetTags()
         {
