@@ -305,16 +305,20 @@ namespace Vapor.GameplayTags
             return _tags;
         }
 
+        // HasParentTag(tagId, searchId) walks UP from tagId looking for searchId — (child, parent).
+        // These held the arguments reversed, asking "is this container tag an ancestor of the
+        // parent", so GetFirstChild(Item.Slot) could never find Item.Slot.Chest and
+        // ItemData.GetEquipmentSlot always answered None.
         public IReadOnlyList<GameplayTag> GetAllChildren(uint parentTagId)
         {
             EnsureInitialized();
-            return _tags.Where(t => GameplayTagTree.HasParentTag(parentTagId, t.Key)).ToList();
+            return _tags.Where(t => GameplayTagTree.HasParentTag(t.Key, parentTagId)).ToList();
         }
 
         public GameplayTag GetFirstChild(uint parentTagId)
         {
             EnsureInitialized();
-            return _tags.FirstOrDefault(t => GameplayTagTree.HasParentTag(parentTagId, t.Key));
+            return _tags.FirstOrDefault(t => GameplayTagTree.HasParentTag(t.Key, parentTagId));
         }
 
         private void EnsureInitialized()
