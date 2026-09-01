@@ -6,6 +6,7 @@ namespace VaporEditor
     internal static class FolderSetupUtility
     {
         public const string TASK_RELATIVE_PATH = "Vapor/Editor/Tasks";
+        public const string SCRATCHPAD_RELATIVE_PATH = "Vapor/Editor/Scratchpad";
         public const string GAME_CONFIG_RELATIVE_PATH = "Vapor/Resources/Game Config";
         public const string FOLDER_KEYS_RELATIVE_PATH = "Vapor/Keys";
         public const string DEFINITIONS_RELATIVE_PATH = FOLDER_KEYS_RELATIVE_PATH + "/Definitions";
@@ -21,6 +22,7 @@ namespace VaporEditor
         private static void SetupFolders()
         {
             FolderUtility.CreateFolderFromPath($"Assets/{TASK_RELATIVE_PATH}");
+            FolderUtility.CreateFolderFromPath($"Assets/{SCRATCHPAD_RELATIVE_PATH}");
             FolderUtility.CreateFolderFromPath($"Assets/{GAME_CONFIG_RELATIVE_PATH}");
             FolderUtility.CreateFolderFromPath($"Assets/{FOLDER_KEYS_RELATIVE_PATH}");
             FolderUtility.CreateFolderFromPath($"Assets/{DEFINITIONS_RELATIVE_PATH}");

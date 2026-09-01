@@ -1,3 +1,4 @@
+using Unity.Scripting.LifecycleManagement;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
@@ -26,6 +27,12 @@ namespace Vapor.Tests.Inspector
             public Inner Next;
         }
 
+        /// <summary>
+        /// Exempt from statics cleanup: <see cref="Limit"/> is a fixed value the resolver tests bind
+        /// to as a static field, not state that accumulates. Resetting it between play-mode sessions
+        /// would restore the number it already has.
+        /// </summary>
+        [NoAutoStaticsCleanup]
         public class Sample
         {
             public bool IsLocked;

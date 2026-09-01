@@ -8,6 +8,7 @@
   - [Serialization Language (VSL)](#serialization-language-vsl)
   - [UI Components](#state-machine)
   - [Inspector](#inspector)
+  - [Scratchpad](#scratchpad)
 
 ## Introduction
 A collection of tools for developing applications in Unity.
@@ -185,3 +186,32 @@ An Odin-like custom inspector system fully running in the new Unity UI Toolkit. 
 - Decorate the MonoBehaviour you want to draw with custom attributes.
 - With the script selected in the project go to Tools -> Vapor -> Inspector -> Create Inspectors From Selection.
 - This will populate your local Vapor/Editor/Inspector folder with the custom drawer for the MonoBehaviour.
+
+### Scratchpad
+An editor-side review loop for work an AI assistant just delivered. Editor only.
+
+#### How To Use
+
+The assistant writes a **handoff** — a `.vsl` file describing what it changed and why — into
+`Assets/Vapor/Editor/Scratchpad/<Feature>/`. Open `Vapor → Scratchpad` and hit **Refresh** to read
+it: each change lists its summary, its reasoning and the risk the assistant flagged. Annotate a
+change with a **Comment**, an **Issue** or a piece of **Work**, mark how far you have reviewed it,
+and hit **Copy Prompt** — the clipboard gets your notes with the change they are about quoted in
+full, ready to paste into the next chat.
+
+The next handoff lists the note ids it addressed in its `resolved:` field, and the window closes
+them. That is the whole round trip; nothing else has to be kept in step by hand.
+
+**Copy Contract** puts the writing instructions on the clipboard, prefilled with the current feature,
+the exact path to write to, and everything still open on it — enough to start a fresh chat with.
+`Ctrl+Alt+S` opens a quick-capture popup for a note you want to write without leaving what you are
+doing, and it can attach a console entry or whatever is selected.
+
+The assistant owns the handoff file and the window never writes it; the window owns the sibling
+`.notes.vsl` and the assistant never reads it. Sessions that have been fully reviewed and fully
+closed archive themselves after twelve hours, lazily, when the window is opened.
+
+- [HANDOFF-SPEC.md](./Editor/Scratchpad/HANDOFF-SPEC.md): the format, and the document to hand an AI.
+- [ScratchpadWindow](./Editor/Scratchpad/Window/ScratchpadWindow.cs): the window itself.
+- [ScratchpadStore](./Editor/Scratchpad/Services/ScratchpadStore.cs): all of the disk access, including the archive rule.
+- [ScratchpadPromptBuilder](./Editor/Scratchpad/Services/ScratchpadPromptBuilder.cs): what `Copy Prompt` puts on the clipboard.
