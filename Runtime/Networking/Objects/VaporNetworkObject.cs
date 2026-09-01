@@ -84,8 +84,66 @@ namespace Vapor.Networking
         /// <summary>True when this peer may mutate replicated state: the server, or anyone offline.</summary>
         public bool IsAuthority => World is { IsAuthority: true };
 
-        public bool IsOwner => World != null && (World.IsOffline || OwnerClientId == World.LocalClientId);
+        /// <summary>
+        /// True when this peer owns this object — when the simulation of it happens here.
+        /// </summary>
+        /// <remarks>
+        /// <b>A host wears two hats and owns objects under both of them.</b> Its local player holds a real
+        /// client id (<see cref="NetworkSession.StartHost"/> hands out 1), and its server half holds
+        /// everything server-owned — every agent, monster and unpossessed body in the world. Testing only
+        /// <c>OwnerClientId == LocalClientId</c> answers the first and denies the second, so a host says it
+        /// does not own the actors it is the sole simulator of. Offline is unaffected (it short-circuits)
+        /// and so is a dedicated server (its <c>LocalClientId</c> <i>is</i> <see cref="NetworkSession.ServerClientId"/>),
+        /// which is what let this sit unnoticed: it is wrong on exactly the configuration single-player runs.
+        /// <para>
+        /// What it cost: <c>ActorView.ResolveSync</c> put every server-owned body in <c>FollowActor</c>, so
+        /// the view wrote the transform from a pose nothing was advancing while the character motor wrote
+        /// it too — two writers, and the actor visibly vibrated in place. Montages never played on agents
+        /// (<c>MontageState.OnEnter</c>), and <c>CharacterMovementAbility.CanBeActivated</c> fell to its
+        /// non-owner branch, which ignores grounding and re-armed locomotion mid-air every tick.
+        /// </para>
+        /// <para>
+        /// <b>Not the question input should ask.</b> "Does this peer own it" and "does the player at this
+        /// keyboard own it" are different on a host, and the second one is
+        /// <see cref="IsOwnedByLocalPlayer"/>.
+        /// </para>
+        /// </remarks>
+        public bool IsOwner => World != null &&
+                              (World.IsOffline || OwnerClientId == World.LocalClientId || (World.IsServer && IsOwnedByServer));
+
+        /// <summary>
+        /// True when the local player owns this object: the pawn at this keyboard, never an AI the server
+        /// happens to own in the same process.
+        /// </summary>
+        /// <remarks>
+        /// The narrow half of <see cref="IsOwner"/>, for the things that belong to a person rather than to
+        /// a simulation — input bindings above all. A dedicated server has no local player and answers
+        /// false for everything; offline, the one character is the local player's.
+        /// </remarks>
+        public bool IsOwnedByLocalPlayer => World != null && (World.IsOffline || OwnerClientId == World.LocalClientId);
+
         public bool IsOwnedByServer => OwnerClientId == NetworkSession.ServerClientId;
+
+        /// <summary>
+        /// True when this object's owner is a different process, and therefore the only case where an
+        /// authority has anything to tell the owner over the wire.
+        /// </summary>
+        /// <remarks>
+        /// <b>Not the same question as <see cref="IsOwnedByServer"/>, and mistaking the two is a host-only
+        /// bug that looks like anything but networking.</b> A host gives its local player a real client id
+        /// — <see cref="NetworkSession.StartHost"/> hands out 1, not <see cref="NetworkSession.ServerClientId"/>
+        /// — so its own player's objects are not server-owned, and a guard written as
+        /// <c>if (!IsOwnedByServer) SomethingRpc(...)</c> fires. The replicator then routes an
+        /// <see cref="RpcTarget.Owner"/> rpc for a local player straight back into this process
+        /// (<c>Replicator.RouteFromServer</c>), so the body runs inline on the sending stack and the
+        /// authority's own code path runs it a second time immediately afterwards. Everything doubles,
+        /// silently, on the host only.
+        /// <para>
+        /// This is the same rule the replicator applies, asked ahead of the send: server-owned or the
+        /// host's own player means local, anything else is a peer.
+        /// </para>
+        /// </remarks>
+        public bool HasRemoteOwner => World != null && !IsOwnedByServer && OwnerClientId != World.LocalClientId;
 
         /// <summary>Set when there is state the replicator has not sent yet.</summary>
         public bool IsDirty => _dirtyVariables.Count > 0 || _customStateDirty || _dirtyComponents.Count > 0 || _componentOps.Count > 0;

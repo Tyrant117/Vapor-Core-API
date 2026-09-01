@@ -51,6 +51,8 @@ namespace Vapor.Networking
         public bool IsServer => Owner is { IsServer: true };
         public bool IsClient => Owner is { IsClient: true };
         public bool IsOwner => Owner is { IsOwner: true };
+        /// <summary>The player at this keyboard owns the object this hangs on. Narrower than <see cref="IsOwner"/> on a host, which also owns everything server-owned.</summary>
+        public bool IsOwnedByLocalPlayer => Owner is { IsOwnedByLocalPlayer: true };
         public bool IsAuthority => Owner is { IsAuthority: true };
         public bool IsOffline => Owner == null || Owner.IsOffline;
         public ulong OwnerClientId => Owner?.OwnerClientId ?? NetworkSession.ServerClientId;

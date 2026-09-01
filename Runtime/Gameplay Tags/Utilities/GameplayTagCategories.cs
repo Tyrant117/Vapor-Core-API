@@ -5,84 +5,159 @@ namespace Vapor.GameplayTags
 {
     public enum GameplayTagDefaultCategories
     {
-        Socket,
-        AnimationLayer,
-        Movement,
-        Event,
-        Input,
-        Cue,
-        Addressable,
-        Montage,
-        Attribute,
-        Effect,
         Ability,
-        Items,
+        Actors,
+        Addressable,
+        Agent,
+        Ai,
+        AnimationLayer,
+        Attribute,
+        Biome,
+        Camp,
+        City,
+        Cue,
+        Damage,
+        Effect,
+        Enchant,
+        Enchantment,
         Entity,
-        Loot,
+        Event,
+        Faction,
+        Focus,
         GameplayTagData,
+        Guild,
+        Input,
         Item,
-        Species,
-        Part,
+        Items,
+        Loot,
+        Mine,
+        Monster,
+        Montage,
+        Movement,
+        Npc,
+        Progression,
+        Resist,
+        Rune,
+        Sim,
+        Skill,
+        Socket,
+        Spell,
+        Stance,
+        State,
+        Structure,
+        Subsystems,
+        Training,
+        Trait,
+        Ui,
         Vapor,
-        Skeleton,
-        Parts,
-        Seams,
-        Appearance,
+        Weather,
+        World,
+        WorldSettings,
     }
 
     public static class GameplayTagCategories
     {
-        public const string SOCKET = "Socket";
-        public const string ANIMATION_LAYER = "AnimationLayer";
-        public const string MOVEMENT = "Movement";
-        public const string EVENT = "Event";
-        public const string INPUT = "Input";
-        public const string CUE = "Cue";
-        public const string ADDRESSABLE = "Addressable";
-        public const string MONTAGE = "Montage";
-        public const string ATTRIBUTE = "Attribute";
-        public const string EFFECT = "Effect";
         public const string ABILITY = "Ability";
-        public const string ITEMS = "Items";
+        public const string ACTORS = "Actors";
+        public const string ADDRESSABLE = "Addressable";
+        public const string AGENT = "Agent";
+        public const string AI = "Ai";
+        public const string ANIMATION_LAYER = "AnimationLayer";
+        public const string ATTRIBUTE = "Attribute";
+        public const string BIOME = "Biome";
+        public const string CAMP = "Camp";
+        public const string CITY = "City";
+        public const string CUE = "Cue";
+        public const string DAMAGE = "Damage";
+        public const string EFFECT = "Effect";
+        public const string ENCHANT = "Enchant";
+        public const string ENCHANTMENT = "Enchantment";
         public const string ENTITY = "Entity";
-        public const string LOOT = "Loot";
+        public const string EVENT = "Event";
+        public const string FACTION = "Faction";
+        public const string FOCUS = "Focus";
         public const string GAMEPLAY_TAG_DATA = "GameplayTagData";
+        public const string GUILD = "Guild";
+        public const string INPUT = "Input";
         public const string ITEM = "Item";
-        public const string SPECIES = "Species";
-        public const string PART = "Part";
+        public const string ITEMS = "Items";
+        public const string LOOT = "Loot";
+        public const string MINE = "Mine";
+        public const string MONSTER = "Monster";
+        public const string MONTAGE = "Montage";
+        public const string MOVEMENT = "Movement";
+        public const string NPC = "Npc";
+        public const string PROGRESSION = "Progression";
+        public const string RESIST = "Resist";
+        public const string RUNE = "Rune";
+        public const string SIM = "Sim";
+        public const string SKILL = "Skill";
+        public const string SOCKET = "Socket";
+        public const string SPELL = "Spell";
+        public const string STANCE = "Stance";
+        public const string STATE = "State";
+        public const string STRUCTURE = "Structure";
+        public const string SUBSYSTEMS = "Subsystems";
+        public const string TRAINING = "Training";
+        public const string TRAIT = "Trait";
+        public const string UI = "Ui";
         public const string VAPOR = "Vapor";
-        public const string SKELETON = "Skeleton";
-        public const string PARTS = "Parts";
-        public const string SEAMS = "Seams";
-        public const string APPEARANCE = "Appearance";
+        public const string WEATHER = "Weather";
+        public const string WORLD = "World";
+        public const string WORLD_SETTINGS = "WorldSettings";
 
         public static string GetNameForCategory(GameplayTagDefaultCategories category)
         {
             return category switch
             {
-                GameplayTagDefaultCategories.Socket => SOCKET,
-                GameplayTagDefaultCategories.AnimationLayer => ANIMATION_LAYER,
-                GameplayTagDefaultCategories.Movement => MOVEMENT,
-                GameplayTagDefaultCategories.Event => EVENT,
-                GameplayTagDefaultCategories.Input => INPUT,
-                GameplayTagDefaultCategories.Cue => CUE,
-                GameplayTagDefaultCategories.Addressable => ADDRESSABLE,
-                GameplayTagDefaultCategories.Montage => MONTAGE,
-                GameplayTagDefaultCategories.Attribute => ATTRIBUTE,
-                GameplayTagDefaultCategories.Effect => EFFECT,
                 GameplayTagDefaultCategories.Ability => ABILITY,
-                GameplayTagDefaultCategories.Items => ITEMS,
+                GameplayTagDefaultCategories.Actors => ACTORS,
+                GameplayTagDefaultCategories.Addressable => ADDRESSABLE,
+                GameplayTagDefaultCategories.Agent => AGENT,
+                GameplayTagDefaultCategories.Ai => AI,
+                GameplayTagDefaultCategories.AnimationLayer => ANIMATION_LAYER,
+                GameplayTagDefaultCategories.Attribute => ATTRIBUTE,
+                GameplayTagDefaultCategories.Biome => BIOME,
+                GameplayTagDefaultCategories.Camp => CAMP,
+                GameplayTagDefaultCategories.City => CITY,
+                GameplayTagDefaultCategories.Cue => CUE,
+                GameplayTagDefaultCategories.Damage => DAMAGE,
+                GameplayTagDefaultCategories.Effect => EFFECT,
+                GameplayTagDefaultCategories.Enchant => ENCHANT,
+                GameplayTagDefaultCategories.Enchantment => ENCHANTMENT,
                 GameplayTagDefaultCategories.Entity => ENTITY,
-                GameplayTagDefaultCategories.Loot => LOOT,
+                GameplayTagDefaultCategories.Event => EVENT,
+                GameplayTagDefaultCategories.Faction => FACTION,
+                GameplayTagDefaultCategories.Focus => FOCUS,
                 GameplayTagDefaultCategories.GameplayTagData => GAMEPLAY_TAG_DATA,
+                GameplayTagDefaultCategories.Guild => GUILD,
+                GameplayTagDefaultCategories.Input => INPUT,
                 GameplayTagDefaultCategories.Item => ITEM,
-                GameplayTagDefaultCategories.Species => SPECIES,
-                GameplayTagDefaultCategories.Part => PART,
+                GameplayTagDefaultCategories.Items => ITEMS,
+                GameplayTagDefaultCategories.Loot => LOOT,
+                GameplayTagDefaultCategories.Mine => MINE,
+                GameplayTagDefaultCategories.Monster => MONSTER,
+                GameplayTagDefaultCategories.Montage => MONTAGE,
+                GameplayTagDefaultCategories.Movement => MOVEMENT,
+                GameplayTagDefaultCategories.Npc => NPC,
+                GameplayTagDefaultCategories.Progression => PROGRESSION,
+                GameplayTagDefaultCategories.Resist => RESIST,
+                GameplayTagDefaultCategories.Rune => RUNE,
+                GameplayTagDefaultCategories.Sim => SIM,
+                GameplayTagDefaultCategories.Skill => SKILL,
+                GameplayTagDefaultCategories.Socket => SOCKET,
+                GameplayTagDefaultCategories.Spell => SPELL,
+                GameplayTagDefaultCategories.Stance => STANCE,
+                GameplayTagDefaultCategories.State => STATE,
+                GameplayTagDefaultCategories.Structure => STRUCTURE,
+                GameplayTagDefaultCategories.Subsystems => SUBSYSTEMS,
+                GameplayTagDefaultCategories.Training => TRAINING,
+                GameplayTagDefaultCategories.Trait => TRAIT,
+                GameplayTagDefaultCategories.Ui => UI,
                 GameplayTagDefaultCategories.Vapor => VAPOR,
-                GameplayTagDefaultCategories.Skeleton => SKELETON,
-                GameplayTagDefaultCategories.Parts => PARTS,
-                GameplayTagDefaultCategories.Seams => SEAMS,
-                GameplayTagDefaultCategories.Appearance => APPEARANCE,
+                GameplayTagDefaultCategories.Weather => WEATHER,
+                GameplayTagDefaultCategories.World => WORLD,
+                GameplayTagDefaultCategories.WorldSettings => WORLD_SETTINGS,
                 _ => throw new ArgumentOutOfRangeException(nameof(category), category, null)
             };
         }
