@@ -1,7 +1,9 @@
 {
     "name": "vapor.core.networking",
     "rootNamespace": "Vapor.Networking",
-    "references": [],
+    "references": [
+        "vapor.vsl.runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

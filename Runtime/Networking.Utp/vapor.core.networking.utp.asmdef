@@ -2,6 +2,7 @@
     "name": "vapor.core.networking.utp",
     "rootNamespace": "Vapor.Networking.Utp",
     "references": [
+        "vapor.vsl.runtime",
         "vapor.core.networking",
         "Unity.Networking.Transport",
         "Unity.Collections"

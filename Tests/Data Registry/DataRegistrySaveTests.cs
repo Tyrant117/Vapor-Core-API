@@ -161,15 +161,12 @@ namespace Vapor.Tests.Registry
         }
 
         [Test]
-        public void TheShortNameIndexIsBuiltRatherThanRescanned()
+        public void ADataTypeWithNoTagAttributeEarnsItsOwnShortName()
         {
-            // The index is what stops both halves of tag resolution walking every type in every loaded
-            // assembly once per tag. If it is ever empty the code still gives right answers - it just
-            // gives them by scanning again, which cost about 70 ms per tag written.
-            Assert.Greater(VslTypeRegistry.IndexedNameCount, 0,
-                "the type index was not built, so tag resolution has fallen back to scanning");
-
-            // And it has to actually be consulted: a type with no [VslType] earns its own short name.
+            // Tag resolution is backed by a short-name index rather than a scan of every type in every
+            // loaded assembly; that the index gets built at all is asserted in the VSL package, whose
+            // tests can see the counter. What matters here is that a Core data type resolves through
+            // it - no [VslType] on GameplayTagData, so the short name has to be earned.
             Assert.AreEqual(nameof(GameplayTagData), VslTypeRegistry.GetTag(typeof(GameplayTagData), typeof(IData)));
         }
 

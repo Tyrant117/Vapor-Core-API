@@ -2,6 +2,8 @@
     "name": "vapor.core.editor",
     "rootNamespace": "VaporEditor",
     "references": [
+        "vapor.vsl.runtime",
+        "vapor.vsl.editor",
         "vapor.core.runtime",
         "vapor.core.networking",
         "Unity.Addressables.Editor",

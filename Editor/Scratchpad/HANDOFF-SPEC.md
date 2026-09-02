@@ -36,7 +36,7 @@ VSL — the serialization language in this package. Three things matter for writ
 - **`"""` opens a raw multi-line block.** No escaping inside it. Use it for anything longer than a
   phrase.
 
-Full language spec: [SPEC.md](../../Runtime/Serialization%20Language/SPEC.md).
+Full language spec: [SPEC.md](../../../Vapor%20Serialization%20Language/Runtime/SPEC.md).
 
 ---
 

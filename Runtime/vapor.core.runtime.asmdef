@@ -2,6 +2,7 @@
     "name": "vapor.core.runtime",
     "rootNamespace": "Vapor",
     "references": [
+        "vapor.vsl.runtime",
         "Unity.InputSystem",
         "Unity.Addressables",
         "Unity.ResourceManager",

@@ -87,94 +87,19 @@ public class ExampleHealth : MonoBehaviour
 ```
 
 ### Serialization Language (VSL)
-A text serialization format for Unity, designed so that its **primary author is an AI** and its
-secondary reader is a human. It covers every Unity value type, the standard .NET collections, and
-`UnityEngine.Object` references.
+Moved to its own package: **[Vapor Serialization Language](https://github.com/Tyrant117/vapor-serialization-language)**.
+Core depends on it, and every document the Data Registry reads or writes is a `.vsl` file.
 
-```
-@vsl 1
+Core adds two formatters of its own to it, because VSL depends on nothing in Vapor and so cannot ship
+them itself:
 
-!Player {
-  # display name shown in the HUD
-  name: "Aria"
-  level: 12
-  position: (0, 1.5, -3)
-  tint: 0xFF8800FF
-  owner: @9241421688590303745                       # scene object: session-scoped id
-  icon: @(1234, resource, "UI/Icons/Sword")         # asset: id + how to load it in a build
-  boss: @(addressable, "Boss_Fireking")
-  tags: [ Ability.Fire.Burn  Status.Stunned ]
-  inventory: [
-    { id: "sword"  count: 1 }
-    { id: "potion"  count: 3 }
-  ]
-  ability: !FireballAbility { damage: 25 }
-}
-```
+- `GameplayTagFormatter` / `GameplayTagContainerFormatter` — write a tag as its dotted name rather
+  than its hash, so `Ability.Fire.Burn` is what lands in the document.
+- `VslRefFormatter<T>` — writes a [`VslRef<T>`](./Runtime/Data%20Registry/VslRef.cs) as the target
+  entry's name, resolving lazily through `GlobalDataRegistry`.
 
-Every design choice is about being generated reliably: newlines separate members and **commas are
-whitespace**, so neither omitting nor sprinkling them can break a document; keys are unquoted;
-`(x, y, z)` makes a `Vector3` one line instead of five; `#` comments are legal anywhere; and
-`[VslComment]` writes the schema back into the file, so an exported document doubles as the prompt
-for generating more of them.
-
-#### How To Use
-
-Serialization is opt-in per member, or Unity's own rules per type:
-
-```csharp
-[VslSerializable]                  // public fields + [SerializeField] privates, like Unity
-public partial class Player
-{
-    public int Level;
-    [SerializeField] private float _health;   // written as 'health'
-    [VslIgnore] public int Scratch;
-
-    [VslComment("0-1, drives the HUD bar")]
-    public float HealthFraction;
-}
-
-public class Enemy                 // no type attribute: strictly opt-in
-{
-    [VslSerialize] public int Level;
-}
-```
-
-```csharp
-var text = Vsl.Serialize(player);
-var copy = Vsl.Deserialize<Player>(text);
-Vsl.Populate(existingPlayer, text);   // load into a live MonoBehaviour, leaving absent members alone
-```
-
-Reading is deliberately lenient — unknown members are skipped, absent members keep their value,
-names match case- and prefix-insensitively (`_hp` / `hp` / `m_Hp`), and a short `(1, 2)` fills a
-`Vector3`. `VslOptions.Validating` turns each of those into an error instead, for tests and tooling.
-
-#### Object references
-
-A `UnityEngine.Object` member is written as a reference, never by value. Two things are recorded,
-because they answer different questions:
-
-- **`EntityId`** — exact and instant, and the only option for scene objects and runtime instances,
-  but it does not survive a domain reload.
-- **An asset locator** — `resource` plus a `Resources.Load` path, or `addressable` plus an
-  Addressables key. Survives anything, but only exists for assets that actually ship.
-
-Reading tries the id first, then loads by locator. That is what makes a document written in the
-editor still load in a player. Finding the locator needs `AssetDatabase` and the Addressables
-settings, so `VslEditorAssetLocator` does it in the editor and installs itself into
-`VslAssetLocator.Provider`; a player just calls `Resources.Load` / `Addressables`.
-
-An asset that is neither under a `Resources` folder nor marked addressable gets an id only, and will
-not resolve in a build — put it in one of the two places if the reference has to survive. For keys of
-your own (network ids, save ids), supply a `VslReferenceTable` or your own `IVslReferenceResolver`.
-
-- [SPEC.md](./Runtime/Serialization%20Language/SPEC.md): the language reference, and the document to hand an AI.
-- [Vsl](./Runtime/Serialization%20Language/Vsl.cs): `Serialize` / `Deserialize` / `Populate` and the file overloads.
-- [VslOptions](./Runtime/Serialization%20Language/VslOptions.cs): layout and leniency settings.
-- [IVslReferenceResolver](./Runtime/Serialization%20Language/References/IVslReferenceResolver.cs): how a reference is chosen and resolved.
-- [VslAssetLocator](./Runtime/Serialization%20Language/References/VslAssetLocator.cs): the Resources / Addressables bridge, and its editor half [VslEditorAssetLocator](./Editor/Serialization%20Language/VslEditorAssetLocator.cs).
-- [VaporVslGenerator](./Tools~/VaporVslGenerator/README.md): the Roslyn generator that replaces reflection with generated formatters.
+Both are installed by [VaporVslFormatters](./Runtime/VaporVslFormatters.cs), which the registry calls
+through the `[assembly: VslFormatterProvider]` declared in `Runtime/AssemblyInfo.cs`.
 
 ### UI Components
 A simple Mantine-like component library for UI Toolkit.

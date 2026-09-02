@@ -24,7 +24,7 @@ namespace VaporEditor.DataRegistry
     /// </remarks>
     public static class DataPromptBuilder
     {
-        private const string SpecPath = "Assets/Vapor Core API/Runtime/Serialization Language/SPEC.md";
+        private const string SpecPath = "Assets/Vapor Serialization Language/Runtime/SPEC.md";
 
         public static string Build(DataDocument document, IReadOnlyList<IData> selection,
             IReadOnlyCollection<string> focusedFields = null)

@@ -2,6 +2,8 @@
     "name": "vapor.core.tests",
     "rootNamespace": "Vapor.Tests",
     "references": [
+        "vapor.vsl.runtime",
+        "vapor.vsl.editor",
         "vapor.core.runtime",
         "vapor.core.editor",
         "vapor.core.runtime.unsafe",
